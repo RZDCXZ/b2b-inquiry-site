@@ -109,4 +109,69 @@ describe("产品编号与参考号查找", () => {
 
     expect(result).toEqual({ kind: "not-found", number: "NFX-9082" });
   });
+
+  it("只从当前不可变发布快照查找参考号", async () => {
+    const publicationId = "publication-product-tq-fl-4827-v2-reference-test";
+    await prisma.productPublication.create({
+      data: {
+        id: publicationId,
+        nameEn: "Reference snapshot fixture",
+        nameZhCn: "参考号快照测试数据",
+        productId: "product-tq-fl-4827",
+        references: {
+          create: {
+            brand: "Novera",
+            id: "reference-product-tq-fl-4827-v2-test",
+            referenceNumber: "NFX-9200",
+          },
+        },
+        slugEn: "reference-snapshot-fixture",
+        slugZhCn: "参考号快照测试数据",
+        summaryEn: "Integration-only immutable publication fixture.",
+        summaryZhCn: "仅用于集成测试的不可变发布数据。",
+        version: 2,
+      },
+    });
+
+    try {
+      expect(
+        await lookupPublishedProductNumber({
+          locale: "en",
+          number: "NFX-9200",
+          prisma,
+        }),
+      ).toEqual({ kind: "not-found", number: "NFX-9200" });
+
+      await prisma.product.update({
+        data: { currentPublicationId: publicationId },
+        where: { id: "product-tq-fl-4827" },
+      });
+
+      expect(
+        await lookupPublishedProductNumber({
+          locale: "en",
+          number: "NFX-9200",
+          prisma,
+        }),
+      ).toMatchObject({
+        kind: "reference-number",
+        matches: [{ product: { partNumber: "TQ-FL-4827" } }],
+      });
+      expect(
+        await lookupPublishedProductNumber({
+          locale: "en",
+          number: "NFX-9081",
+          prisma,
+        }),
+      ).toEqual({ kind: "not-found", number: "NFX-9081" });
+    } finally {
+      await prisma.product.update({
+        data: {
+          currentPublicationId: "publication-product-tq-fl-4827-v1",
+        },
+        where: { id: "product-tq-fl-4827" },
+      });
+      await prisma.productPublication.delete({ where: { id: publicationId } });
+    }
+  });
 });

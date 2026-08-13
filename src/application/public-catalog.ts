@@ -1,7 +1,10 @@
-import type { PrismaClient } from "@/src/generated/prisma/client";
-import { getApplicationPrisma } from "@/src/infrastructure/database/prisma";
+import {
+  getApplicationPrisma,
+  type ApplicationDatabase,
+} from "@/src/infrastructure/database/prisma";
 import {
   productDetailPath,
+  resolveExactNumberCandidates,
   type ProductCategoryCode,
 } from "@/src/modules/catalog/public/product-identity";
 import {
@@ -55,7 +58,9 @@ export type ProductNumberLookupResult =
   | { kind: "not-found"; number: string };
 
 export type PublishedReferenceMatch = {
-  product: PublishedCatalogProduct;
+  product: PublishedCatalogProduct & {
+    keySpecifications: ProductSpecificationDisplay[];
+  };
   references: Array<{ brand: string; referenceNumber: string }>;
 };
 
@@ -79,6 +84,31 @@ function localizeProduct(
       };
 }
 
+function createPublishedCatalogProduct(
+  locale: PublicLocale,
+  identity: CatalogProductIdentity,
+  content: PublishedProductContent,
+): PublishedCatalogProduct {
+  const localized = localizeProduct(locale, identity, content);
+
+  return {
+    category: {
+      code: identity.category.code,
+      name: localized.categoryName,
+    },
+    href: productDetailPath(locale, {
+      partNumber: identity.partNumber,
+      slug: localized.slug,
+    }),
+    id: identity.id,
+    imagePath: identity.imagePath,
+    name: localized.name,
+    partNumber: identity.partNumber,
+    slug: localized.slug,
+    summary: localized.summary,
+  };
+}
+
 export async function listPublishedProducts({
   categoryCode,
   locale,
@@ -86,7 +116,7 @@ export async function listPublishedProducts({
 }: {
   categoryCode?: ProductCategoryCode;
   locale: PublicLocale;
-  prisma?: PrismaClient;
+  prisma?: ApplicationDatabase;
 }): Promise<PublishedCatalogProduct[]> {
   const identities = await listCatalogProductIdentities(prisma, categoryCode);
   const contents = await listPublishedProductContent(
@@ -106,26 +136,7 @@ export async function listPublishedProducts({
       return [];
     }
 
-    const localized = localizeProduct(locale, identity, content);
-
-    return [
-      {
-        category: {
-          code: identity.category.code,
-          name: localized.categoryName,
-        },
-        href: productDetailPath(locale, {
-          partNumber: identity.partNumber,
-          slug: localized.slug,
-        }),
-        id: identity.id,
-        imagePath: identity.imagePath,
-        name: localized.name,
-        partNumber: identity.partNumber,
-        slug: localized.slug,
-        summary: localized.summary,
-      },
-    ];
+    return [createPublishedCatalogProduct(locale, identity, content)];
   });
 }
 
@@ -134,7 +145,7 @@ export async function listProductCategories({
   prisma = getApplicationPrisma(),
 }: {
   locale: PublicLocale;
-  prisma?: PrismaClient;
+  prisma?: ApplicationDatabase;
 }): Promise<LocalizedProductCategory[]> {
   const categories = await listCatalogCategories(prisma);
 
@@ -152,7 +163,7 @@ export async function getPublishedProduct({
 }: {
   locale: PublicLocale;
   partNumber: string;
-  prisma?: PrismaClient;
+  prisma?: ApplicationDatabase;
   unitSystem?: UnitSystem;
 }): Promise<PublishedProductDetail | null> {
   const identity = await findCatalogProductIdentity(prisma, partNumber);
@@ -174,7 +185,11 @@ export async function getPublishedProduct({
     return null;
   }
 
-  const localized = localizeProduct(locale, identity, content);
+  const publishedProduct = createPublishedCatalogProduct(
+    locale,
+    identity,
+    content,
+  );
   const languageHrefs = {
     en:
       productDetailPath("en", {
@@ -188,27 +203,12 @@ export async function getPublishedProduct({
       }) + (unitSystem === "imperial" ? "?unit=imperial" : ""),
   };
 
-  const localizedHref = productDetailPath(locale, {
-    partNumber: identity.partNumber,
-    slug: localized.slug,
-  });
-
   return {
-    category: {
-      code: identity.category.code,
-      name: localized.categoryName,
-    },
-    href: localizedHref,
-    id: identity.id,
-    imagePath: identity.imagePath,
+    ...publishedProduct,
     languageHrefs,
-    name: localized.name,
-    partNumber: identity.partNumber,
-    slug: localized.slug,
     specifications: persistedSpecifications.map((specification) =>
       formatProductSpecification(specification, { locale, unitSystem }),
     ),
-    summary: localized.summary,
     unitSystem,
   };
 }
@@ -220,7 +220,7 @@ export async function lookupPublishedProductNumber({
 }: {
   locale: PublicLocale;
   number: string;
-  prisma?: PrismaClient;
+  prisma?: ApplicationDatabase;
 }): Promise<ProductNumberLookupResult> {
   const product = await getPublishedProduct({
     locale,
@@ -228,16 +228,19 @@ export async function lookupPublishedProductNumber({
     prisma,
   });
 
-  if (product) {
-    return { kind: "product-number", product };
+  const directResolution = resolveExactNumberCandidates({
+    product,
+    references: [],
+  });
+
+  if (directResolution.kind === "product-number") {
+    return directResolution;
   }
 
   const referenceRows = await findCatalogProductReferences(prisma, number);
   const contents = await listPublishedProductContent(
     prisma,
-    referenceRows.flatMap(({ product: match }) =>
-      match.currentPublicationId ? [match.currentPublicationId] : [],
-    ),
+    referenceRows.map(({ publicationId }) => publicationId),
   );
   const contentByProductId = new Map(
     contents.map((content) => [content.productId, content]),
@@ -261,32 +264,63 @@ export async function lookupPublishedProductNumber({
       continue;
     }
 
-    const localized = localizeProduct(locale, row.product, content);
     matchesByProductId.set(row.product.id, {
       product: {
-        category: {
-          code: row.product.category.code,
-          name: localized.categoryName,
-        },
-        href: productDetailPath(locale, {
-          partNumber: row.product.partNumber,
-          slug: localized.slug,
-        }),
-        id: row.product.id,
-        imagePath: row.product.imagePath,
-        name: localized.name,
-        partNumber: row.product.partNumber,
-        slug: localized.slug,
-        summary: localized.summary,
+        ...createPublishedCatalogProduct(locale, row.product, content),
+        keySpecifications: [],
       },
       references: [{ brand: row.brand, referenceNumber: row.referenceNumber }],
     });
   }
 
-  const matches = [...matchesByProductId.values()];
+  const publicationIdByProductId = new Map(
+    referenceRows.map(({ product, publicationId }) => [
+      product.id,
+      publicationId,
+    ]),
+  );
+  const matches = await Promise.all(
+    [...matchesByProductId.values()].map(async (match) => {
+      const publicationId = publicationIdByProductId.get(match.product.id);
+
+      if (!publicationId) {
+        return match;
+      }
+
+      const specifications = await listProductSpecifications(
+        prisma,
+        publicationId,
+      );
+
+      return {
+        ...match,
+        product: {
+          ...match.product,
+          keySpecifications: specifications
+            .map((specification) =>
+              formatProductSpecification(specification, {
+                locale,
+                unitSystem: "metric",
+              }),
+            )
+            .filter(({ unit }) => unit !== null)
+            .slice(0, 3),
+        },
+      };
+    }),
+  );
   const trimmedNumber = number.trim();
 
-  return matches.length > 0
-    ? { kind: "reference-number", matches, number: trimmedNumber }
+  const referenceResolution = resolveExactNumberCandidates({
+    product: null,
+    references: matches,
+  });
+
+  return referenceResolution.kind === "reference-number"
+    ? {
+        kind: "reference-number",
+        matches: [...referenceResolution.references],
+        number: trimmedNumber,
+      }
     : { kind: "not-found", number: trimmedNumber };
 }

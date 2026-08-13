@@ -25,6 +25,7 @@ export type CatalogProductIdentity = {
 export type CatalogProductReferenceMatch = {
   brand: string;
   product: CatalogProductIdentity;
+  publicationId: string;
   referenceNumber: string;
 };
 
@@ -86,30 +87,40 @@ export async function findCatalogProductReferences(
 ): Promise<CatalogProductReferenceMatch[]> {
   const references = await prisma.productReference.findMany({
     orderBy: [
-      { product: { partNumber: "asc" } },
+      { publication: { product: { partNumber: "asc" } } },
       { brand: "asc" },
       { referenceNumber: "asc" },
     ],
     select: {
       brand: true,
-      product: {
+      publication: {
         select: {
-          category: {
-            select: { code: true, nameEn: true, nameZhCn: true },
-          },
-          currentPublicationId: true,
           id: true,
-          imagePath: true,
-          partNumber: true,
+          product: {
+            select: {
+              category: {
+                select: { code: true, nameEn: true, nameZhCn: true },
+              },
+              currentPublicationId: true,
+              id: true,
+              imagePath: true,
+              partNumber: true,
+            },
+          },
         },
       },
       referenceNumber: true,
     },
     where: {
       normalizedReferenceNumber: normalizeProductNumber(number),
-      product: { currentPublicationId: { not: null } },
+      publication: { currentFor: { isNot: null } },
     },
   });
 
-  return references as CatalogProductReferenceMatch[];
+  return references.map((reference) => ({
+    brand: reference.brand,
+    product: reference.publication.product as CatalogProductIdentity,
+    publicationId: reference.publication.id,
+    referenceNumber: reference.referenceNumber,
+  }));
 }

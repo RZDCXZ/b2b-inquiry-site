@@ -68,55 +68,55 @@ const productReferences = [
   {
     brand: "Novera",
     id: "reference-product-tq-af-2106-novera",
-    productId: "product-tq-af-2106",
+    publicationId: "publication-product-tq-af-2106-v1",
     referenceNumber: "NAF-2106",
   },
   {
     brand: "Arvento",
     id: "reference-product-tq-af-2106-arvento",
-    productId: "product-tq-af-2106",
+    publicationId: "publication-product-tq-af-2106-v1",
     referenceNumber: "ARV-4400",
   },
   {
     brand: "Valecore",
     id: "reference-product-tq-cf-3021-valecore",
-    productId: "product-tq-cf-3021",
+    publicationId: "publication-product-tq-cf-3021-v1",
     referenceNumber: "VCF-3021",
   },
   {
     brand: "Arvento",
     id: "reference-product-tq-cf-3021-arvento",
-    productId: "product-tq-cf-3021",
+    publicationId: "publication-product-tq-cf-3021-v1",
     referenceNumber: "ARV-4400",
   },
   {
     brand: "Novera",
     id: "reference-product-tq-fl-4827-novera",
-    productId: "product-tq-fl-4827",
+    publicationId: "publication-product-tq-fl-4827-v1",
     referenceNumber: "NFX-9081",
   },
   {
     brand: "Arvento",
     id: "reference-product-tq-fl-4827-arvento",
-    productId: "product-tq-fl-4827",
+    publicationId: "publication-product-tq-fl-4827-v1",
     referenceNumber: "ARV-7710",
   },
   {
     brand: "Valecore",
     id: "reference-product-tq-fl-4827-product-number-collision",
-    productId: "product-tq-fl-4827",
+    publicationId: "publication-product-tq-fl-4827-v1",
     referenceNumber: "TQ-AF-2106",
   },
   {
     brand: "Novera",
     id: "reference-product-tq-of-1038-novera",
-    productId: "product-tq-of-1038",
+    publicationId: "publication-product-tq-of-1038-v1",
     referenceNumber: "NOF-1038",
   },
   {
     brand: "Branton",
     id: "reference-product-tq-of-1038-branton",
-    productId: "product-tq-of-1038",
+    publicationId: "publication-product-tq-of-1038-v1",
     referenceNumber: "BRN-1038",
   },
 ] as const;
@@ -139,11 +139,6 @@ async function writeCatalogIdentities(
       where: { id: product.id },
     });
   }
-
-  await transaction.productReference.createMany({
-    data: [...productReferences],
-    skipDuplicates: true,
-  });
 }
 
 export async function seedCatalogIdentities(
@@ -161,5 +156,14 @@ export async function replaceCatalogIdentities(
     await transaction.product.deleteMany();
     await transaction.productCategory.deleteMany();
     await writeCatalogIdentities(transaction);
+  });
+}
+
+export async function seedProductReferenceDemoData(
+  prisma: PrismaClient,
+): Promise<void> {
+  await prisma.productReference.createMany({
+    data: [...productReferences],
+    skipDuplicates: true,
   });
 }

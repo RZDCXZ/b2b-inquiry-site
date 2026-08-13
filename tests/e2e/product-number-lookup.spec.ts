@@ -29,6 +29,11 @@ test("海外采购者查看带虚构品牌标识的唯一参考号结果", async
   await expect(page.getByText("Novera", { exact: true })).toBeVisible();
   await expect(page.getByText("NFX-9081", { exact: true })).toBeVisible();
   await expect(page.getByText("TQ-FL-4827", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("Cross-reference result", { exact: true }).first(),
+  ).toBeVisible();
+  await expect(page.getByText("Current unit: Metric")).toBeVisible();
+  await expect(page.getByText("Outer diameter")).toBeVisible();
 });
 
 test("海外采购者看到歧义参考号的全部标准替换件", async ({ page }) => {
@@ -61,9 +66,15 @@ test("相似但不同的号码不匹配并提供继续查找路径", async ({ pa
   ).toHaveValue("NFX-9082");
   await expect(
     page.getByRole("link", { name: "Browse categories" }),
-  ).toHaveAttribute("href", "/en/products");
+  ).toHaveAttribute("href", "/en/products#categories");
+  await expect(
+    page.getByRole("link", { name: "Search by vehicle" }),
+  ).toHaveAttribute("href", "/en#products");
   await expect(
     page.getByRole("link", { name: "Send a general inquiry" }),
-  ).toHaveAttribute("href", "/en#contact");
+  ).toHaveAttribute(
+    "href",
+    "mailto:inquiries@torquelis.example?subject=General%20inquiry",
+  );
   await expect(page.getByText("TQ-FL-4827", { exact: true })).toHaveCount(0);
 });

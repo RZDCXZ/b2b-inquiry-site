@@ -44,6 +44,27 @@ export function normalizeProductNumber(value: string): string {
   return value.replace(/[\s-]/g, "").toUpperCase();
 }
 
+export type ExactNumberCandidateResolution<TProduct, TReference> =
+  | { kind: "product-number"; product: TProduct }
+  | { kind: "reference-number"; references: readonly TReference[] }
+  | { kind: "not-found" };
+
+export function resolveExactNumberCandidates<TProduct, TReference>({
+  product,
+  references,
+}: {
+  product: TProduct | null;
+  references: readonly TReference[];
+}): ExactNumberCandidateResolution<TProduct, TReference> {
+  if (product) {
+    return { kind: "product-number", product };
+  }
+
+  return references.length > 0
+    ? { kind: "reference-number", references }
+    : { kind: "not-found" };
+}
+
 export function productDetailPath(
   locale: PublicLocale,
   product: { partNumber: string; slug: string },

@@ -1,6 +1,9 @@
 import "dotenv/config";
 
-import { seedCatalogIdentities } from "@/src/modules/catalog/server/catalog-demo-data";
+import {
+  seedCatalogIdentities,
+  seedProductReferenceDemoData,
+} from "@/src/modules/catalog/server/catalog-demo-data";
 import { seedSpecificationDemoData } from "@/src/modules/catalog/server/specification-demo-data";
 import { seedPublishedProductContent } from "@/src/modules/content-publishing/server/product-demo-content";
 import { seedDemoData } from "@/src/modules/site-config/server/local-demo-data";
@@ -21,6 +24,7 @@ try {
   await seedDemoData(prisma);
   await seedCatalogIdentities(prisma);
   await seedPublishedProductContent(prisma);
+  await seedProductReferenceDemoData(prisma);
   await seedSpecificationDemoData(prisma);
   await seedPresetAccounts(prisma, credentials);
   console.log(

@@ -2,6 +2,8 @@ import { PrismaPg } from "@prisma/adapter-pg";
 
 import { PrismaClient } from "@/src/generated/prisma/client";
 
+export type ApplicationDatabase = PrismaClient;
+
 const globalPrisma = globalThis as typeof globalThis & {
   torquelisPrisma?: PrismaClient;
 };

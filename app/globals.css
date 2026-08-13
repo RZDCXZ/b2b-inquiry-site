@@ -1571,6 +1571,24 @@ select {
   gap: 24px;
 }
 
+.lookup-result-context {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 14px;
+  color: var(--graphite-600);
+  font-size: 11px;
+}
+
+.lookup-result-context strong {
+  color: var(--orange);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
 .reference-match-card {
   min-height: 440px;
   display: grid;
@@ -1619,16 +1637,42 @@ select {
   line-height: 1.7;
 }
 
-.reference-match-card dl {
+.reference-identity-list {
   margin: 0 0 18px;
 }
 
-.reference-match-card dl > div {
+.reference-identity-list > div {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px 24px;
   border-top: 1px solid var(--line);
   padding: 14px 0;
+}
+
+.reference-key-specifications {
+  margin: 0 0 18px;
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+}
+
+.reference-key-specifications h4 {
+  margin: 0 0 7px;
+  color: var(--navy-900);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.reference-key-specifications dl {
+  margin: 0;
+}
+
+.reference-key-specifications dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  border-bottom: 1px solid var(--line);
+  padding: 9px 0;
 }
 
 .reference-match-card dt {
@@ -1699,6 +1743,8 @@ select {
 
 .lookup-empty-state > div {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 12px;
   margin-top: 8px;
 }

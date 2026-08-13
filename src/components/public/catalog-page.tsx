@@ -63,7 +63,11 @@ export function CatalogPage({
           <p>{catalogCopy.catalogueLede}</p>
         </section>
 
-        <nav aria-label={catalogCopy.catalogueHeading} className="category-nav">
+        <nav
+          aria-label={catalogCopy.catalogueHeading}
+          className="category-nav"
+          id="categories"
+        >
           <Link
             aria-current={!selectedCategory ? "page" : undefined}
             href={`/${locale}/products`}
