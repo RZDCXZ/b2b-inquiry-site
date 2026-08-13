@@ -38,6 +38,11 @@ export type CatalogProductReferenceMatch = {
   referenceNumber: string;
 };
 
+export type CatalogProductReference = Omit<
+  CatalogProductReferenceMatch,
+  "publicationId"
+>;
+
 const catalogProductIdentitySelect = {
   category: {
     select: { code: true, nameEn: true, nameZhCn: true },
@@ -198,4 +203,15 @@ export async function findCatalogProductReferences(
   });
 
   return references;
+}
+
+export async function listCatalogProductReferences(
+  prisma: PrismaClient,
+  publicationId: string,
+): Promise<CatalogProductReference[]> {
+  return prisma.productReference.findMany({
+    orderBy: [{ brand: "asc" }, { referenceNumber: "asc" }],
+    select: { brand: true, referenceNumber: true },
+    where: { publicationId },
+  });
 }

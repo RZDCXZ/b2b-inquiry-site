@@ -2358,9 +2358,29 @@ select {
   margin-top: 18px;
 }
 
-.product-detail-summary .primary-button {
-  width: fit-content;
+.product-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
   margin-top: 22px;
+}
+
+.product-detail-actions .primary-button,
+.product-detail-actions .secondary-button {
+  width: fit-content;
+  margin-top: 0;
+}
+
+.product-detail-actions .secondary-button {
+  border-color: var(--navy-900);
+  background: transparent;
+  color: var(--navy-900);
+}
+
+.product-detail-actions .secondary-button:hover {
+  border-color: var(--navy-900);
+  background: var(--navy-900);
+  color: white;
 }
 
 .product-specifications {
@@ -2929,6 +2949,15 @@ select {
 
   .product-detail-hero > figure {
     min-height: 360px;
+  }
+
+  .product-detail-actions {
+    display: grid;
+  }
+
+  .product-detail-actions .primary-button,
+  .product-detail-actions .secondary-button {
+    width: 100%;
   }
 }
 

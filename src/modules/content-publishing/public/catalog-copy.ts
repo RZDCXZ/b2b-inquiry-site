@@ -15,6 +15,7 @@ type CatalogCopy = {
   detailDiscontinued: string;
   detailEyebrow: string;
   detailInquiry: string;
+  detailSpecificationDownload: string;
   detailPublished: string;
   keySpecificationsHeading: string;
   filterAny: string;
@@ -105,6 +106,7 @@ const copy: Record<PublicLocale, CatalogCopy> = {
     detailDiscontinued: "Discontinued",
     detailEyebrow: "TORQUELIS PART NUMBER",
     detailInquiry: "Inquire about this product",
+    detailSpecificationDownload: "Download specification PDF",
     detailPublished: "Published",
     keySpecificationsHeading: "Key specifications",
     filterAny: "Any",
@@ -221,6 +223,7 @@ const copy: Record<PublicLocale, CatalogCopy> = {
     detailDiscontinued: "已停产",
     detailEyebrow: "TORQUELIS 产品编号",
     detailInquiry: "咨询此产品",
+    detailSpecificationDownload: "下载规格 PDF",
     detailPublished: "已发布",
     keySpecificationsHeading: "关键规格",
     filterAny: "不限",

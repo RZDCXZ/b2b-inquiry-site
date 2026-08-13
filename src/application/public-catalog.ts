@@ -404,17 +404,20 @@ export async function searchPublishedProductsBySpecifications({
 }
 
 export async function getPublishedProduct({
+  knownIdentity,
   locale,
   partNumber,
   prisma = getApplicationPrisma(),
   unitSystem = "metric",
 }: {
+  knownIdentity?: CatalogProductIdentity;
   locale: PublicLocale;
   partNumber: string;
   prisma?: ApplicationDatabase;
   unitSystem?: UnitSystem;
 }): Promise<PublishedProductDetail | null> {
-  const identity = await findCatalogProductIdentity(prisma, partNumber);
+  const identity =
+    knownIdentity ?? (await findCatalogProductIdentity(prisma, partNumber));
 
   if (!identity) {
     return null;

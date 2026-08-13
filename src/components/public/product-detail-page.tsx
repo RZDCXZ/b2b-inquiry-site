@@ -1,6 +1,7 @@
 import {
   ArrowLeft,
   ArrowRight,
+  DownloadSimple,
   Info,
   Warning,
 } from "@phosphor-icons/react/dist/ssr";
@@ -15,6 +16,7 @@ import { PublicFooter } from "@/src/components/public/public-footer";
 import { PublicHeader } from "@/src/components/public/public-header";
 import { getCatalogCopy } from "@/src/modules/content-publishing/public/catalog-copy";
 import { getHomeCopy } from "@/src/modules/content-publishing/public/home-copy";
+import { productSpecificationPdfPath } from "@/src/modules/catalog/public/product-identity";
 import type { PublicLocale } from "@/src/modules/site-config/public/locales";
 
 const productImages: Record<string, StaticImageData> = {
@@ -148,10 +150,20 @@ export function ProductDetailPage({
               <Info aria-hidden="true" size={19} weight="fill" />
               {catalogCopy.demoDataNotice}
             </aside>
-            <Link className="primary-button" href={`/${locale}#contact`}>
-              {catalogCopy.detailInquiry}
-              <ArrowRight aria-hidden="true" size={18} />
-            </Link>
+            <div className="product-detail-actions">
+              <Link className="primary-button" href={`/${locale}#contact`}>
+                {catalogCopy.detailInquiry}
+                <ArrowRight aria-hidden="true" size={18} />
+              </Link>
+              <Link
+                className="secondary-button"
+                download
+                href={productSpecificationPdfPath(locale, product)}
+              >
+                <DownloadSimple aria-hidden="true" size={18} />
+                {catalogCopy.detailSpecificationDownload}
+              </Link>
+            </div>
           </div>
         </section>
         <section

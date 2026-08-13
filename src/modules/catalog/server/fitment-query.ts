@@ -12,6 +12,7 @@ export type CatalogVehicleFitment = {
 
 export async function listCatalogVehicleFitments(
   prisma: PrismaClient,
+  publicationId?: string,
 ): Promise<CatalogVehicleFitment[]> {
   const fitments = await prisma.productFitment.findMany({
     orderBy: [
@@ -39,6 +40,7 @@ export async function listCatalogVehicleFitments(
       yearFrom: true,
       yearTo: true,
     },
+    where: publicationId ? { publicationId } : undefined,
   });
 
   return fitments.map((fitment) => ({

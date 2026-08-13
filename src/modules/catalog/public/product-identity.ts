@@ -80,3 +80,10 @@ export function productDetailPath(
 ): string {
   return `/${locale}/products/${encodeURIComponent(product.partNumber)}/${encodeURIComponent(product.slug)}`;
 }
+
+export function productSpecificationPdfPath(
+  locale: PublicLocale,
+  product: { partNumber: string; slug: string },
+): string {
+  return `${productDetailPath(locale, product)}/specification.pdf`;
+}
