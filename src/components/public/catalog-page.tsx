@@ -6,7 +6,6 @@ import Link from "next/link";
 import filterFamily from "@/product-ui/public/assets/filter-family.png";
 import fuelFilter from "@/product-ui/public/assets/fuel-filter-product.png";
 import type {
-  LocalizedProductCategory,
   PublishedCatalogProduct,
   SpecificationSearchProduct,
 } from "@/src/application/public-catalog";
@@ -21,11 +20,15 @@ import {
 } from "@/src/modules/catalog/public/fitments";
 import { ProductFinder } from "@/src/components/public/product-finder";
 import type { VehicleFinderSelection } from "@/src/components/public/vehicle-finder";
-import type {
-  LocalizedSpecificationFilterDefinition,
-  SpecificationFilter,
-  SpecificationFilterIssue,
+import {
+  createEmptySpecificationFilterSearchParams,
+  type LocalizedSpecificationFilterDefinition,
+  type SpecificationFilter,
+  type SpecificationFilterIssue,
+  withoutSpecificationFilterAttribute,
+  withSpecificationFilterPage,
 } from "@/src/modules/catalog/public/specification-filters";
+import type { LocalizedProductCategory } from "@/src/modules/catalog/public/product-identity";
 import {
   convertSpecificationUnit,
   getSpecificationUnitForSystem,
@@ -140,25 +143,24 @@ export function CatalogPage({
       : [];
   });
   const queryForPage = (nextPage: number) => {
-    const params = new URLSearchParams(specificationQueryString);
-    params.set("page", String(nextPage));
+    const params = withSpecificationFilterPage(
+      specificationQueryString ?? "",
+      nextPage,
+    );
     return `/${locale}/products?${params.toString()}`;
   };
   const queryWithoutFilter = (attributeCode: string) => {
-    const params = new URLSearchParams(specificationQueryString);
-    params.delete(`spec.${attributeCode}`);
-    params.delete(`spec.${attributeCode}.min`);
-    params.delete(`spec.${attributeCode}.max`);
-    params.set("page", "1");
+    const params = withoutSpecificationFilterAttribute(
+      specificationQueryString ?? "",
+      attributeCode,
+    );
     return `/${locale}/products?${params.toString()}`;
   };
   const clearFiltersHref =
     initialFinderMode === "specifications" && selectedCategory
-      ? `/${locale}/products?${new URLSearchParams({
-          finder: "specifications",
+      ? `/${locale}/products?${createEmptySpecificationFilterSearchParams({
           category: selectedCategory.code,
-          unit: unitSystem,
-          page: "1",
+          unitSystem,
         }).toString()}`
       : `/${locale}/products`;
 
@@ -306,7 +308,6 @@ export function CatalogPage({
                           loading={index === 0 ? "eager" : "lazy"}
                           sizes="(max-width: 820px) 100vw, 30vw"
                           src={productImages[product.imagePath] ?? filterFamily}
-                          unoptimized
                         />
                       </figure>
                       <div>

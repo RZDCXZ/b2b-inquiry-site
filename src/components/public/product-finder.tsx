@@ -10,7 +10,7 @@ import {
 import type { LocalizedVehicleFitmentOption } from "@/src/modules/catalog/public/fitments";
 import type { PublicLocale } from "@/src/modules/site-config/public/locales";
 import { SpecificationFinder } from "@/src/components/public/specification-finder";
-import type { LocalizedProductCategory } from "@/src/application/public-catalog";
+import type { LocalizedProductCategory } from "@/src/modules/catalog/public/product-identity";
 import type {
   LocalizedSpecificationFilterDefinition,
   SpecificationFilter,

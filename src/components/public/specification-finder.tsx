@@ -4,9 +4,11 @@ import { CaretDown, SlidersHorizontal, X } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import { useId, useState } from "react";
 
-import type {
-  LocalizedSpecificationFilterDefinition,
-  SpecificationFilter,
+import {
+  createEmptySpecificationFilterSearchParams,
+  type LocalizedSpecificationFilterDefinition,
+  type SpecificationFilter,
+  withSpecificationFilterUnit,
 } from "@/src/modules/catalog/public/specification-filters";
 import {
   convertSpecificationUnit,
@@ -15,7 +17,10 @@ import {
   type MetricSpecificationUnit,
   type UnitSystem,
 } from "@/src/modules/catalog/public/specifications";
-import type { LocalizedProductCategory } from "@/src/application/public-catalog";
+import {
+  PRODUCT_CATEGORY_CODE_SCHEMA,
+  type LocalizedProductCategory,
+} from "@/src/modules/catalog/public/product-identity";
 import { getCatalogCopy } from "@/src/modules/content-publishing/public/catalog-copy";
 import type { PublicLocale } from "@/src/modules/site-config/public/locales";
 
@@ -288,24 +293,25 @@ export function SpecificationFinder({
   );
 
   function changeCategory(nextCategoryCode: string) {
-    if (!nextCategoryCode) {
+    const parsedCategory =
+      PRODUCT_CATEGORY_CODE_SCHEMA.safeParse(nextCategoryCode);
+
+    if (!parsedCategory.success) {
       return;
     }
 
-    const params = new URLSearchParams({
-      finder: "specifications",
-      category: nextCategoryCode,
-      unit: unitSystem,
-      page: "1",
+    const params = createEmptySpecificationFilterSearchParams({
+      category: parsedCategory.data,
+      unitSystem,
     });
     router.push(`${catalogPath}?${params.toString()}`);
   }
 
   function changeUnit(nextUnitSystem: UnitSystem) {
-    const params = new URLSearchParams(window.location.search);
-    params.set("finder", "specifications");
-    params.set("unit", nextUnitSystem);
-    params.set("page", params.get("page") ?? "1");
+    const params = withSpecificationFilterUnit(
+      window.location.search,
+      nextUnitSystem,
+    );
     router.push(`${catalogPath}?${params.toString()}`, { scroll: false });
   }
 

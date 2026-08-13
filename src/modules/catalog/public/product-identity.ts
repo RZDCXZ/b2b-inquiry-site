@@ -6,6 +6,11 @@ export const PRODUCT_CATEGORY_CODES = ["air", "oil", "fuel", "cabin"] as const;
 
 export type ProductCategoryCode = (typeof PRODUCT_CATEGORY_CODES)[number];
 
+export type LocalizedProductCategory = {
+  code: ProductCategoryCode;
+  name: string;
+};
+
 export const PRODUCT_CATEGORY_CODE_SCHEMA = z.enum(PRODUCT_CATEGORY_CODES);
 
 export const CATALOG_ROUTE_PARAMS_SCHEMA = z.object({

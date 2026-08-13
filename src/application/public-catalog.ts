@@ -5,6 +5,7 @@ import {
 import {
   productDetailPath,
   resolveExactNumberCandidates,
+  type LocalizedProductCategory,
   type ProductCategoryCode,
 } from "@/src/modules/catalog/public/product-identity";
 import {
@@ -32,6 +33,7 @@ import {
 import {
   listCatalogSpecificationAttributeDefinitions,
   listProductSpecifications,
+  type CatalogSpecificationFilterDefinition,
 } from "@/src/modules/catalog/server/product-specification-query";
 import {
   parseSpecificationFilterRequest,
@@ -57,11 +59,6 @@ export type PublishedCatalogProduct = {
   partNumber: string;
   slug: string;
   summary: string;
-};
-
-export type LocalizedProductCategory = {
-  code: ProductCategoryCode;
-  name: string;
 };
 
 export type PublishedProductDetail = PublishedCatalogProduct & {
@@ -188,6 +185,30 @@ export async function listProductCategories({
   }));
 }
 
+function localizeSpecificationFilterDefinitions(
+  definitions: CatalogSpecificationFilterDefinition[],
+  locale: PublicLocale,
+  categoryCode: ProductCategoryCode,
+): LocalizedSpecificationFilterDefinition[] {
+  return definitions
+    .filter(
+      (definition) =>
+        definition.categoryCode === categoryCode && definition.filterable,
+    )
+    .map((definition) => ({
+      baseUnit: definition.baseUnit,
+      code: definition.code,
+      dataType: definition.dataType,
+      label: locale === "en" ? definition.nameEn : definition.nameZhCn,
+      maximumDecimalValue: definition.maximumDecimalValue,
+      minimumDecimalValue: definition.minimumDecimalValue,
+      options: definition.options.map((option) => ({
+        label: locale === "en" ? option.labelEn : option.labelZhCn,
+        value: option.code,
+      })),
+    }));
+}
+
 export async function listSpecificationFilterDefinitions({
   categoryCode,
   locale,
@@ -197,25 +218,11 @@ export async function listSpecificationFilterDefinitions({
   locale: PublicLocale;
   prisma?: ApplicationDatabase;
 }): Promise<LocalizedSpecificationFilterDefinition[]> {
-  const definitions = (
-    await listCatalogSpecificationAttributeDefinitions(prisma)
-  ).filter(
-    (definition) =>
-      definition.categoryCode === categoryCode && definition.filterable,
+  return localizeSpecificationFilterDefinitions(
+    await listCatalogSpecificationAttributeDefinitions(prisma),
+    locale,
+    categoryCode,
   );
-
-  return definitions.map((definition) => ({
-    baseUnit: definition.baseUnit,
-    code: definition.code,
-    dataType: definition.dataType,
-    label: locale === "en" ? definition.nameEn : definition.nameZhCn,
-    maximumDecimalValue: definition.maximumDecimalValue,
-    minimumDecimalValue: definition.minimumDecimalValue,
-    options: definition.options.map((option) => ({
-      label: locale === "en" ? option.labelEn : option.labelZhCn,
-      value: option.code,
-    })),
-  }));
 }
 
 export async function prepareSpecificationFilterRequest({
@@ -248,24 +255,13 @@ export async function prepareSpecificationFilterRequest({
 
   return {
     ...parsed,
-    definitions: definitions
-      .filter(
-        (definition) =>
-          definition.categoryCode === parsed.categoryCode &&
-          definition.filterable,
-      )
-      .map((definition) => ({
-        baseUnit: definition.baseUnit,
-        code: definition.code,
-        dataType: definition.dataType,
-        label: locale === "en" ? definition.nameEn : definition.nameZhCn,
-        maximumDecimalValue: definition.maximumDecimalValue,
-        minimumDecimalValue: definition.minimumDecimalValue,
-        options: definition.options.map((option) => ({
-          label: locale === "en" ? option.labelEn : option.labelZhCn,
-          value: option.code,
-        })),
-      })),
+    definitions: parsed.categoryCode
+      ? localizeSpecificationFilterDefinitions(
+          definitions,
+          locale,
+          parsed.categoryCode,
+        )
+      : [],
   };
 }
 

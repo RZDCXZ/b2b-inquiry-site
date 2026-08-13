@@ -315,11 +315,10 @@ export function createSpecificationFilterSearchParams({
   page: number;
   unitSystem: UnitSystem;
 }): URLSearchParams {
-  const params = new URLSearchParams({
-    finder: "specifications",
+  const params = createEmptySpecificationFilterSearchParams({
     category: categoryCode,
-    unit: unitSystem,
-    page: String(page),
+    page,
+    unitSystem,
   });
 
   for (const filter of [...filters].sort((left, right) =>
@@ -347,5 +346,54 @@ export function createSpecificationFilterSearchParams({
     }
   }
 
+  return params;
+}
+
+export function createEmptySpecificationFilterSearchParams({
+  category,
+  page = 1,
+  unitSystem,
+}: {
+  category: ProductCategoryCode;
+  page?: number;
+  unitSystem: UnitSystem;
+}): URLSearchParams {
+  return new URLSearchParams({
+    finder: "specifications",
+    category,
+    unit: unitSystem,
+    page: String(page),
+  });
+}
+
+export function withSpecificationFilterPage(
+  searchParams: string | URLSearchParams,
+  page: number,
+): URLSearchParams {
+  const params = new URLSearchParams(searchParams);
+  params.set("page", String(page));
+  return params;
+}
+
+export function withSpecificationFilterUnit(
+  searchParams: string | URLSearchParams,
+  unitSystem: UnitSystem,
+): URLSearchParams {
+  const params = new URLSearchParams(searchParams);
+  params.set("finder", "specifications");
+  params.set("unit", unitSystem);
+  params.set("page", params.get("page") ?? "1");
+  return params;
+}
+
+export function withoutSpecificationFilterAttribute(
+  searchParams: string | URLSearchParams,
+  attributeCode: string,
+): URLSearchParams {
+  const params = new URLSearchParams(searchParams);
+  params.delete(`spec.${attributeCode}`);
+  params.delete(`spec.${attributeCode}.min`);
+  params.delete(`spec.${attributeCode}.max`);
+  params.set("page", "1");
   return params;
 }

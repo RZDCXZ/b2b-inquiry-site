@@ -101,7 +101,6 @@ export function ProductNumberLookupPage({
                       loading={index < 2 ? "eager" : "lazy"}
                       sizes="(max-width: 820px) 100vw, 36vw"
                       src={productImages[product.imagePath] ?? filterFamily}
-                      unoptimized
                     />
                   </figure>
                   <div>
