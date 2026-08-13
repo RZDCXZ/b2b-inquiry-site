@@ -1,4 +1,5 @@
 import type { PublicLocale } from "@/src/modules/site-config/public/locales";
+import type { SpecificationFilterIssueCode } from "@/src/modules/catalog/public/specification-filters";
 
 type CatalogCopy = {
   allCategories: string;
@@ -11,6 +12,19 @@ type CatalogCopy = {
   detailInquiry: string;
   detailPublished: string;
   keySpecificationsHeading: string;
+  filterAny: string;
+  filterApply: string;
+  filterCategoryLabel: string;
+  filterChooseCategory: string;
+  filterClose: string;
+  filterIssues: Record<SpecificationFilterIssueCode, string>;
+  filterIssuesHeading: string;
+  filterMaximumLabel: (attribute: string) => string;
+  filterMinimumLabel: (attribute: string) => string;
+  filterOpen: string;
+  filterUnitHelper: string;
+  filterYes: string;
+  filterNo: string;
   lookupAction: string;
   lookupBrowseCategories: string;
   lookupClearNumber: string;
@@ -37,12 +51,18 @@ type CatalogCopy = {
   resultCatalogueType: string;
   resultClearFilters: string;
   resultCurrentUnit: string;
+  resultCurrentUnitFor: (unit: string) => string;
   resultGeneralInquiry: string;
   resultNoMatchesHeading: string;
   resultNoMatchesLede: string;
   resultSearchByNumber: string;
   resultVehicleType: string;
+  resultSpecificationType: string;
   sortedLabel: string;
+  paginationLabel: string;
+  paginationNext: string;
+  paginationPrevious: string;
+  paginationStatus: (page: number, pageCount: number) => string;
   specificationColumn: string;
   specificationsHeading: string;
   unitSystemLabel: string;
@@ -76,6 +96,39 @@ const copy: Record<PublicLocale, CatalogCopy> = {
     detailInquiry: "Inquire about this product",
     detailPublished: "Published",
     keySpecificationsHeading: "Key specifications",
+    filterAny: "Any",
+    filterApply: "Apply specifications",
+    filterCategoryLabel: "Filter category",
+    filterChooseCategory: "Choose a filter category",
+    filterClose: "Close filters",
+    filterIssues: {
+      duplicate_parameter: "A filter parameter was repeated and was ignored.",
+      invalid_category: "The category in this URL is no longer available.",
+      invalid_filter_parameter:
+        "A specification parameter has an invalid format.",
+      invalid_filter_value: "A specification value is invalid or out of range.",
+      invalid_page: "The page number is invalid; page 1 is shown.",
+      invalid_range:
+        "A specification minimum cannot be greater than its maximum.",
+      invalid_unit: "The unit preference is invalid; Metric is shown.",
+      missing_category:
+        "Choose a category before applying specification filters.",
+      not_filterable:
+        "This specification is not available as a catalogue filter.",
+      page_out_of_range:
+        "That result page is no longer available; the last page is shown.",
+      unknown_attribute: "This specification filter is no longer available.",
+      wrong_category_attribute:
+        "A specification does not belong to the selected category.",
+    },
+    filterIssuesHeading: "Some shared filters need attention",
+    filterMaximumLabel: (attribute) => `${attribute} maximum`,
+    filterMinimumLabel: (attribute) => `${attribute} minimum`,
+    filterOpen: "Open specification filters",
+    filterUnitHelper:
+      "Numeric conditions are stored and compared against metric baseline values.",
+    filterYes: "Yes",
+    filterNo: "No",
     lookupAction: "Find a filter",
     lookupBrowseCategories: "Browse categories",
     lookupClearNumber: "Clear number",
@@ -109,13 +162,19 @@ const copy: Record<PublicLocale, CatalogCopy> = {
     resultCatalogueType: "Catalogue results",
     resultClearFilters: "Clear filters",
     resultCurrentUnit: "Current unit: Metric",
+    resultCurrentUnitFor: (unit) => `Current unit: ${unit}`,
     resultGeneralInquiry: "Send a general inquiry",
     resultNoMatchesHeading: "No matching filters",
     resultNoMatchesLede:
-      "No published standard replacement filter matches every selected vehicle condition.",
+      "No published standard replacement filter matches every selected vehicle or specification condition.",
     resultSearchByNumber: "Search by number",
     resultVehicleType: "Vehicle fitment results",
+    resultSpecificationType: "Category specification results",
     sortedLabel: "Sorted by Torquelis part number",
+    paginationLabel: "Catalogue result pages",
+    paginationNext: "Next page",
+    paginationPrevious: "Previous page",
+    paginationStatus: (page, pageCount) => `Page ${page} of ${pageCount}`,
     specificationColumn: "Specification",
     specificationsHeading: "Full specifications",
     unitSystemLabel: "Specification units",
@@ -148,6 +207,32 @@ const copy: Record<PublicLocale, CatalogCopy> = {
     detailInquiry: "咨询此产品",
     detailPublished: "已发布",
     keySpecificationsHeading: "关键规格",
+    filterAny: "不限",
+    filterApply: "应用规格条件",
+    filterCategoryLabel: "滤清器分类",
+    filterChooseCategory: "选择滤清器分类",
+    filterClose: "关闭筛选",
+    filterIssues: {
+      duplicate_parameter: "URL 中有重复筛选参数，系统已忽略该条件。",
+      invalid_category: "URL 中的分类已失效或不存在。",
+      invalid_filter_parameter: "某个规格参数格式不正确。",
+      invalid_filter_value: "某个规格值无效或超出允许范围。",
+      invalid_page: "页码无效，已显示第 1 页。",
+      invalid_range: "规格最小值不能大于最大值。",
+      invalid_unit: "单位偏好无效，已显示公制。",
+      missing_category: "请先选择分类，再应用规格筛选。",
+      not_filterable: "该规格不能用于目录筛选。",
+      page_out_of_range: "该结果页已不存在，已显示最后一页。",
+      unknown_attribute: "该规格筛选已失效或不存在。",
+      wrong_category_attribute: "某个规格不属于当前分类。",
+    },
+    filterIssuesHeading: "部分分享条件需要处理",
+    filterMaximumLabel: (attribute) => `${attribute}最大值`,
+    filterMinimumLabel: (attribute) => `${attribute}最小值`,
+    filterOpen: "打开规格筛选",
+    filterUnitHelper: "数值条件始终按公制基准值保存和比较。",
+    filterYes: "是",
+    filterNo: "否",
     lookupAction: "查找滤清器",
     lookupBrowseCategories: "浏览产品分类",
     lookupClearNumber: "清除号码",
@@ -176,12 +261,18 @@ const copy: Record<PublicLocale, CatalogCopy> = {
     resultCatalogueType: "目录结果",
     resultClearFilters: "清除筛选",
     resultCurrentUnit: "当前单位：公制",
+    resultCurrentUnitFor: (unit) => `当前单位：${unit}`,
     resultGeneralInquiry: "提交通用询盘",
     resultNoMatchesHeading: "没有匹配的滤清器",
-    resultNoMatchesLede: "没有已发布标准替换件同时符合全部已选车型条件。",
+    resultNoMatchesLede: "没有已发布标准替换件同时符合全部已选车型或规格条件。",
     resultSearchByNumber: "改用编号查找",
     resultVehicleType: "车型适配结果",
+    resultSpecificationType: "分类规格结果",
     sortedLabel: "按 Torquelis 产品编号排序",
+    paginationLabel: "产品结果分页",
+    paginationNext: "下一页",
+    paginationPrevious: "上一页",
+    paginationStatus: (page, pageCount) => `第 ${page} / ${pageCount} 页`,
     specificationColumn: "规格属性",
     specificationsHeading: "完整规格",
     unitSystemLabel: "规格单位",

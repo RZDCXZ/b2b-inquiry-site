@@ -7,6 +7,8 @@ import {
   listPublishedProducts,
   listPublishedVehicleFitmentOptions,
   lookupPublishedProductNumber,
+  prepareSpecificationFilterRequest,
+  searchPublishedProductsBySpecifications,
 } from "@/src/application/public-catalog";
 import { CatalogPage } from "@/src/components/public/catalog-page";
 import { ProductNumberLookupPage } from "@/src/components/public/product-number-lookup-page";
@@ -16,18 +18,14 @@ import {
 } from "@/src/modules/catalog/public/product-identity";
 import { getCatalogCopy } from "@/src/modules/content-publishing/public/catalog-copy";
 import { VEHICLE_FINDER_SEARCH_PARAMS_SCHEMA } from "@/src/modules/catalog/public/fitments";
+import {
+  createSpecificationFilterSearchParams,
+  type SpecificationFilterIssue,
+} from "@/src/modules/catalog/public/specification-filters";
 
 type CatalogRouteProps = {
   params: Promise<{ locale: string }>;
-  searchParams: Promise<{
-    category?: string | string[];
-    engine?: string | string[];
-    finder?: string | string[];
-    make?: string | string[];
-    model?: string | string[];
-    part?: string | string[];
-    year?: string | string[];
-  }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
 export async function generateMetadata({
@@ -77,9 +75,19 @@ export default async function ProductsPage({
     return <ProductNumberLookupPage locale={publicLocale} lookup={lookup} />;
   }
 
-  const categoryCode = parsedQuery.success
-    ? parsedQuery.data.category
-    : undefined;
+  const [initialSpecificationRequest, categories, vehicleFitments] =
+    await Promise.all([
+      prepareSpecificationFilterRequest({ locale: publicLocale, query }),
+      listProductCategories({ locale: publicLocale }),
+      listPublishedVehicleFitmentOptions({ locale: publicLocale }),
+    ]);
+  let specificationRequest = initialSpecificationRequest;
+
+  const categoryCode = specificationRequest.active
+    ? specificationRequest.categoryCode
+    : parsedQuery.success
+      ? parsedQuery.data.category
+      : undefined;
   const vehicleQuery = parsedVehicleQuery.success
     ? parsedVehicleQuery.data
     : undefined;
@@ -98,16 +106,54 @@ export default async function ProductsPage({
           year: vehicleQuery.year,
         }
       : undefined;
-  const [categories, products, vehicleFitments] = await Promise.all([
-    listProductCategories({ locale: publicLocale }),
-    vehicleSelection
-      ? findPublishedProductsByVehicle({
+  let page = 1;
+  let pageCount = 1;
+  let resultTotal: number | undefined;
+  let products;
+
+  if (specificationRequest.active && categoryCode) {
+    let result = await searchPublishedProductsBySpecifications({
+      categoryCode,
+      filters: specificationRequest.filters,
+      locale: publicLocale,
+      page: specificationRequest.page,
+      unitSystem: specificationRequest.unitSystem,
+    });
+
+    if (specificationRequest.page > result.pageCount) {
+      const issues: SpecificationFilterIssue[] = [
+        ...specificationRequest.issues,
+        {
+          code: "page_out_of_range",
+          parameter: String(specificationRequest.page),
+        },
+      ];
+      result = await searchPublishedProductsBySpecifications({
+        categoryCode,
+        filters: specificationRequest.filters,
+        locale: publicLocale,
+        page: result.pageCount,
+        unitSystem: specificationRequest.unitSystem,
+      });
+      specificationRequest = {
+        ...specificationRequest,
+        issues,
+        page: result.page,
+      };
+    }
+
+    products = result.products;
+    page = result.page;
+    pageCount = result.pageCount;
+    resultTotal = result.total;
+  } else {
+    products = vehicleSelection
+      ? await findPublishedProductsByVehicle({
           locale: publicLocale,
           selection: vehicleSelection,
         })
-      : listPublishedProducts({ categoryCode, locale: publicLocale }),
-    listPublishedVehicleFitmentOptions({ locale: publicLocale }),
-  ]);
+      : await listPublishedProducts({ categoryCode, locale: publicLocale });
+  }
   const vehicleQueryString = vehicleSelection
     ? new URLSearchParams({
         finder: "vehicle",
@@ -118,12 +164,27 @@ export default async function ProductsPage({
         category: vehicleSelection.categoryCode,
       }).toString()
     : undefined;
+  const specificationQueryString =
+    specificationRequest.active && categoryCode
+      ? createSpecificationFilterSearchParams({
+          categoryCode,
+          filters: specificationRequest.filters,
+          page,
+          unitSystem: specificationRequest.unitSystem,
+        }).toString()
+      : undefined;
 
   return (
     <CatalogPage
       categories={categories}
+      filterDefinitions={specificationRequest.definitions}
+      filters={specificationRequest.filters}
       initialFinderMode={
-        vehicleQuery?.finder === "vehicle" ? "vehicle" : undefined
+        specificationRequest.active
+          ? "specifications"
+          : vehicleQuery?.finder === "vehicle"
+            ? "vehicle"
+            : undefined
       }
       initialVehicleSelection={
         vehicleQuery?.finder === "vehicle"
@@ -137,8 +198,14 @@ export default async function ProductsPage({
           : undefined
       }
       locale={publicLocale}
+      page={page}
+      pageCount={pageCount}
       products={products}
+      resultTotal={resultTotal}
       selectedCategory={categories.find(({ code }) => code === categoryCode)}
+      specificationIssues={specificationRequest.issues}
+      specificationQueryString={specificationQueryString}
+      unitSystem={specificationRequest.unitSystem}
       vehicleFitments={vehicleFitments}
       vehicleQueryString={vehicleQueryString}
     />

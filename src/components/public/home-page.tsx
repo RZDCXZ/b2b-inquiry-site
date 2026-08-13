@@ -48,6 +48,10 @@ export function HomePage({
             <p className="lede">{copy.lede}</p>
             <ProductFinder
               action={copy.findAction}
+              categories={copy.categories.map(({ code, name }) => ({
+                code,
+                name,
+              }))}
               finderLabel={copy.finderLabel}
               helper={copy.helper}
               initialMode={initialFinderMode}

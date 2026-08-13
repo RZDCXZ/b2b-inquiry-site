@@ -633,6 +633,17 @@ const unitLabels: Record<SpecificationUnit, string> = {
   us_gallon_per_minute: "US gal/min",
 };
 
+export function getSpecificationUnitForSystem(
+  baseUnit: MetricSpecificationUnit,
+  unitSystem: UnitSystem,
+): SpecificationUnit {
+  return unitSystem === "imperial" ? imperialUnitByMetric[baseUnit] : baseUnit;
+}
+
+export function getSpecificationUnitLabel(unit: SpecificationUnit): string {
+  return unitLabels[unit];
+}
+
 export function convertSpecificationUnit({
   from,
   to,
@@ -686,8 +697,7 @@ export function formatProductSpecification(
   switch (specification.dataType) {
     case "decimal": {
       const baseUnit = specification.baseUnit!;
-      const displayUnit =
-        unitSystem === "imperial" ? imperialUnitByMetric[baseUnit] : baseUnit;
+      const displayUnit = getSpecificationUnitForSystem(baseUnit, unitSystem);
       const value = specification.decimalValue!;
 
       return {

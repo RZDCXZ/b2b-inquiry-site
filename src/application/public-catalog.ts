@@ -10,10 +10,15 @@ import {
 import {
   findCatalogProductIdentity,
   findCatalogProductReferences,
+  findCatalogProductIdentitiesBySpecifications,
   listCatalogCategories,
   listCatalogProductIdentities,
   type CatalogProductIdentity,
 } from "@/src/modules/catalog/server/catalog-query";
+import {
+  SPECIFICATION_FILTER_PAGE_SIZE,
+  type SpecificationFilter,
+} from "@/src/modules/catalog/public/specification-filters";
 import {
   listPublishedProductContent,
   type PublishedProductContent,
@@ -24,7 +29,16 @@ import {
   type ProductSpecificationDisplay,
   type UnitSystem,
 } from "@/src/modules/catalog/public/specifications";
-import { listProductSpecifications } from "@/src/modules/catalog/server/product-specification-query";
+import {
+  listCatalogSpecificationAttributeDefinitions,
+  listProductSpecifications,
+} from "@/src/modules/catalog/server/product-specification-query";
+import {
+  parseSpecificationFilterRequest,
+  type CatalogSearchParams,
+  type LocalizedSpecificationFilterDefinition,
+  type ParsedSpecificationFilterRequest,
+} from "@/src/modules/catalog/public/specification-filters";
 import {
   type LocalizedVehicleFitmentOption,
   type VehicleFitmentSelection,
@@ -54,6 +68,10 @@ export type PublishedProductDetail = PublishedCatalogProduct & {
   languageHrefs: Record<PublicLocale, string>;
   specifications: ProductSpecificationDisplay[];
   unitSystem: UnitSystem;
+};
+
+export type SpecificationSearchProduct = PublishedCatalogProduct & {
+  keySpecifications: ProductSpecificationDisplay[];
 };
 
 export type ProductNumberLookupResult =
@@ -170,6 +188,87 @@ export async function listProductCategories({
   }));
 }
 
+export async function listSpecificationFilterDefinitions({
+  categoryCode,
+  locale,
+  prisma = getApplicationPrisma(),
+}: {
+  categoryCode: ProductCategoryCode;
+  locale: PublicLocale;
+  prisma?: ApplicationDatabase;
+}): Promise<LocalizedSpecificationFilterDefinition[]> {
+  const definitions = (
+    await listCatalogSpecificationAttributeDefinitions(prisma)
+  ).filter(
+    (definition) =>
+      definition.categoryCode === categoryCode && definition.filterable,
+  );
+
+  return definitions.map((definition) => ({
+    baseUnit: definition.baseUnit,
+    code: definition.code,
+    dataType: definition.dataType,
+    label: locale === "en" ? definition.nameEn : definition.nameZhCn,
+    maximumDecimalValue: definition.maximumDecimalValue,
+    minimumDecimalValue: definition.minimumDecimalValue,
+    options: definition.options.map((option) => ({
+      label: locale === "en" ? option.labelEn : option.labelZhCn,
+      value: option.code,
+    })),
+  }));
+}
+
+export async function prepareSpecificationFilterRequest({
+  locale,
+  prisma = getApplicationPrisma(),
+  query,
+}: {
+  locale: PublicLocale;
+  prisma?: ApplicationDatabase;
+  query: CatalogSearchParams;
+}): Promise<
+  ParsedSpecificationFilterRequest & {
+    definitions: LocalizedSpecificationFilterDefinition[];
+  }
+> {
+  const definitions =
+    await listCatalogSpecificationAttributeDefinitions(prisma);
+  const parsed = parseSpecificationFilterRequest({
+    definitions: definitions.map((definition) => ({
+      categoryCode: definition.categoryCode,
+      code: definition.code,
+      dataType: definition.dataType,
+      filterable: definition.filterable,
+      maximumDecimalValue: definition.maximumDecimalValue,
+      minimumDecimalValue: definition.minimumDecimalValue,
+      options: definition.options.map((option) => ({ value: option.code })),
+    })),
+    query,
+  });
+
+  return {
+    ...parsed,
+    definitions: definitions
+      .filter(
+        (definition) =>
+          definition.categoryCode === parsed.categoryCode &&
+          definition.filterable,
+      )
+      .map((definition) => ({
+        baseUnit: definition.baseUnit,
+        code: definition.code,
+        dataType: definition.dataType,
+        label: locale === "en" ? definition.nameEn : definition.nameZhCn,
+        maximumDecimalValue: definition.maximumDecimalValue,
+        minimumDecimalValue: definition.minimumDecimalValue,
+        options: definition.options.map((option) => ({
+          label: locale === "en" ? option.labelEn : option.labelZhCn,
+          value: option.code,
+        })),
+      })),
+  };
+}
+
 export async function listPublishedVehicleFitmentOptions({
   locale,
   prisma = getApplicationPrisma(),
@@ -230,6 +329,75 @@ export async function findPublishedProductsByVehicle({
   );
 
   return assemblePublishedCatalogProducts(locale, prisma, matchingIdentities);
+}
+
+export async function searchPublishedProductsBySpecifications({
+  categoryCode,
+  filters,
+  locale,
+  page,
+  prisma = getApplicationPrisma(),
+  unitSystem,
+}: {
+  categoryCode: ProductCategoryCode;
+  filters: SpecificationFilter[];
+  locale: PublicLocale;
+  page: number;
+  prisma?: ApplicationDatabase;
+  unitSystem: UnitSystem;
+}): Promise<{
+  page: number;
+  pageCount: number;
+  pageSize: number;
+  products: SpecificationSearchProduct[];
+  total: number;
+}> {
+  const { identities, total } =
+    await findCatalogProductIdentitiesBySpecifications(prisma, {
+      categoryCode,
+      filters,
+      page,
+      pageSize: SPECIFICATION_FILTER_PAGE_SIZE,
+    });
+
+  const publishedProducts = await assemblePublishedCatalogProducts(
+    locale,
+    prisma,
+    identities,
+  );
+  const publicationIdByProductId = new Map(
+    identities.flatMap((identity) =>
+      identity.currentPublicationId
+        ? ([[identity.id, identity.currentPublicationId]] as const)
+        : [],
+    ),
+  );
+  const products = await Promise.all(
+    publishedProducts.map(async (product) => {
+      const publicationId = publicationIdByProductId.get(product.id);
+      const specifications = publicationId
+        ? await listProductSpecifications(prisma, publicationId)
+        : [];
+
+      return {
+        ...product,
+        keySpecifications: specifications
+          .map((specification) =>
+            formatProductSpecification(specification, { locale, unitSystem }),
+          )
+          .filter(({ unit }) => unit !== null)
+          .slice(0, 3),
+      };
+    }),
+  );
+
+  return {
+    page,
+    pageCount: Math.max(1, Math.ceil(total / SPECIFICATION_FILTER_PAGE_SIZE)),
+    pageSize: SPECIFICATION_FILTER_PAGE_SIZE,
+    products,
+    total,
+  };
 }
 
 export async function getPublishedProduct({

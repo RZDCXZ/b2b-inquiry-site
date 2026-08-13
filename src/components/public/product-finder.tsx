@@ -9,6 +9,13 @@ import {
 } from "@/src/components/public/vehicle-finder";
 import type { LocalizedVehicleFitmentOption } from "@/src/modules/catalog/public/fitments";
 import type { PublicLocale } from "@/src/modules/site-config/public/locales";
+import { SpecificationFinder } from "@/src/components/public/specification-finder";
+import type { LocalizedProductCategory } from "@/src/application/public-catalog";
+import type {
+  LocalizedSpecificationFilterDefinition,
+  SpecificationFilter,
+} from "@/src/modules/catalog/public/specification-filters";
+import type { UnitSystem } from "@/src/modules/catalog/public/specifications";
 
 type FinderMode = {
   inputLabel: string;
@@ -18,6 +25,10 @@ type FinderMode = {
 
 type ProductFinderProps = {
   action: string;
+  categories?: LocalizedProductCategory[];
+  categoryCode?: string;
+  filterDefinitions?: LocalizedSpecificationFilterDefinition[];
+  filters?: SpecificationFilter[];
   finderLabel: string;
   helper: string;
   locale: PublicLocale;
@@ -25,16 +36,22 @@ type ProductFinderProps = {
   initialMode?: "part" | "specifications" | "vehicle";
   initialVehicleSelection?: VehicleFinderSelection;
   vehicleFitments?: LocalizedVehicleFitmentOption[];
+  unitSystem?: UnitSystem;
 };
 
 export function ProductFinder({
   action,
+  categories = [],
+  categoryCode,
+  filterDefinitions = [],
+  filters = [],
   finderLabel,
   helper,
   initialMode = "part",
   initialVehicleSelection,
   locale,
   modes,
+  unitSystem = "metric",
   vehicleFitments = [],
 }: ProductFinderProps) {
   const initialModeIndexes = { part: 0, vehicle: 1, specifications: 2 };
@@ -42,6 +59,7 @@ export function ProductFinder({
     initialModeIndexes[initialMode],
   );
   const finderId = useId();
+  const specificationStateKey = `${categoryCode ?? "none"}:${unitSystem}:${JSON.stringify(filters)}`;
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
   function activateTab(index: number, moveFocus = false) {
@@ -116,6 +134,22 @@ export function ProductFinder({
                 fitments={vehicleFitments}
                 initialSelection={initialVehicleSelection}
                 locale={locale}
+              />
+            </div>
+          );
+        }
+
+        if (index === 2) {
+          return (
+            <div key={`${finderId}-panel-${index}`} {...panelProps}>
+              <SpecificationFinder
+                categories={categories}
+                categoryCode={categoryCode}
+                definitions={filterDefinitions}
+                filters={filters}
+                key={specificationStateKey}
+                locale={locale}
+                unitSystem={unitSystem}
               />
             </div>
           );
