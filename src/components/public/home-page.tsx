@@ -18,7 +18,13 @@ import type { PublicLocale } from "@/src/modules/site-config/public/locales";
 
 const categoryIcons = [Funnel, Engine, SlidersHorizontal, Rows] as const;
 
-export function HomePage({ locale }: { locale: PublicLocale }) {
+export function HomePage({
+  initialFinderMode,
+  locale,
+}: {
+  initialFinderMode?: "part" | "specifications" | "vehicle";
+  locale: PublicLocale;
+}) {
   const copy = getHomeCopy(locale);
 
   return (
@@ -41,6 +47,7 @@ export function HomePage({ locale }: { locale: PublicLocale }) {
               action={copy.findAction}
               finderLabel={copy.finderLabel}
               helper={copy.helper}
+              initialMode={initialFinderMode}
               locale={locale}
               modes={copy.finderModes}
             />

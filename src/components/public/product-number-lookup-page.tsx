@@ -164,7 +164,10 @@ export function ProductNumberLookupPage({
                 >
                   {catalogCopy.lookupBrowseCategories}
                 </Link>
-                <Link className="secondary-button" href={`/${locale}#products`}>
+                <Link
+                  className="secondary-button"
+                  href={`/${locale}?finder=vehicle#products`}
+                >
                   {catalogCopy.lookupSearchByVehicle}
                 </Link>
                 <a

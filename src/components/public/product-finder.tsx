@@ -17,16 +17,21 @@ type ProductFinderProps = {
   helper: string;
   locale: PublicLocale;
   modes: ReadonlyArray<FinderMode>;
+  initialMode?: "part" | "specifications" | "vehicle";
 };
 
 export function ProductFinder({
   action,
   finderLabel,
   helper,
+  initialMode = "part",
   locale,
   modes,
 }: ProductFinderProps) {
-  const [activeIndex, setActiveIndex] = useState(0);
+  const initialModeIndexes = { part: 0, vehicle: 1, specifications: 2 };
+  const [activeIndex, setActiveIndex] = useState(
+    initialModeIndexes[initialMode],
+  );
   const finderId = useId();
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
 

@@ -69,7 +69,7 @@ test("相似但不同的号码不匹配并提供继续查找路径", async ({ pa
   ).toHaveAttribute("href", "/en/products#categories");
   await expect(
     page.getByRole("link", { name: "Search by vehicle" }),
-  ).toHaveAttribute("href", "/en#products");
+  ).toHaveAttribute("href", "/en?finder=vehicle#products");
   await expect(
     page.getByRole("link", { name: "Send a general inquiry" }),
   ).toHaveAttribute(
@@ -77,4 +77,9 @@ test("相似但不同的号码不匹配并提供继续查找路径", async ({ pa
     "mailto:inquiries@torquelis.example?subject=General%20inquiry",
   );
   await expect(page.getByText("TQ-FL-4827", { exact: true })).toHaveCount(0);
+
+  await page.getByRole("link", { name: "Search by vehicle" }).click();
+  await expect(
+    page.getByRole("tab", { exact: true, name: "VEHICLE" }),
+  ).toHaveAttribute("aria-selected", "true");
 });

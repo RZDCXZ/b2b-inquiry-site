@@ -17,6 +17,10 @@ export const CATALOG_SEARCH_PARAMS_SCHEMA = z.object({
   part: z.string().trim().min(1).max(64).optional(),
 });
 
+export const HOME_SEARCH_PARAMS_SCHEMA = z.object({
+  finder: z.enum(["part", "vehicle", "specifications"]).optional(),
+});
+
 const LOCALIZED_PRODUCT_SLUG_SCHEMA = z
   .string()
   .min(1)

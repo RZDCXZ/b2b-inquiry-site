@@ -237,7 +237,17 @@ export async function lookupPublishedProductNumber({
     return directResolution;
   }
 
-  const referenceRows = await findCatalogProductReferences(prisma, number);
+  const publishedIdentities = await listCatalogProductIdentities(prisma);
+  const identityByPublicationId = new Map(
+    publishedIdentities.flatMap((identity) =>
+      identity.currentPublicationId
+        ? ([[identity.currentPublicationId, identity]] as const)
+        : [],
+    ),
+  );
+  const referenceRows = await findCatalogProductReferences(prisma, number, [
+    ...identityByPublicationId.keys(),
+  ]);
   const contents = await listPublishedProductContent(
     prisma,
     referenceRows.map(({ publicationId }) => publicationId),
@@ -248,13 +258,19 @@ export async function lookupPublishedProductNumber({
   const matchesByProductId = new Map<string, PublishedReferenceMatch>();
 
   for (const row of referenceRows) {
-    const content = contentByProductId.get(row.product.id);
+    const identity = identityByPublicationId.get(row.publicationId);
+
+    if (!identity) {
+      continue;
+    }
+
+    const content = contentByProductId.get(identity.id);
 
     if (!content) {
       continue;
     }
 
-    const existing = matchesByProductId.get(row.product.id);
+    const existing = matchesByProductId.get(identity.id);
 
     if (existing) {
       existing.references.push({
@@ -264,9 +280,9 @@ export async function lookupPublishedProductNumber({
       continue;
     }
 
-    matchesByProductId.set(row.product.id, {
+    matchesByProductId.set(identity.id, {
       product: {
-        ...createPublishedCatalogProduct(locale, row.product, content),
+        ...createPublishedCatalogProduct(locale, identity, content),
         keySpecifications: [],
       },
       references: [{ brand: row.brand, referenceNumber: row.referenceNumber }],
@@ -274,40 +290,44 @@ export async function lookupPublishedProductNumber({
   }
 
   const publicationIdByProductId = new Map(
-    referenceRows.map(({ product, publicationId }) => [
+    [...identityByPublicationId].map(([publicationId, product]) => [
       product.id,
       publicationId,
     ]),
   );
   const matches = await Promise.all(
-    [...matchesByProductId.values()].map(async (match) => {
-      const publicationId = publicationIdByProductId.get(match.product.id);
+    [...matchesByProductId.values()]
+      .sort((left, right) =>
+        left.product.partNumber.localeCompare(right.product.partNumber),
+      )
+      .map(async (match) => {
+        const publicationId = publicationIdByProductId.get(match.product.id);
 
-      if (!publicationId) {
-        return match;
-      }
+        if (!publicationId) {
+          return match;
+        }
 
-      const specifications = await listProductSpecifications(
-        prisma,
-        publicationId,
-      );
+        const specifications = await listProductSpecifications(
+          prisma,
+          publicationId,
+        );
 
-      return {
-        ...match,
-        product: {
-          ...match.product,
-          keySpecifications: specifications
-            .map((specification) =>
-              formatProductSpecification(specification, {
-                locale,
-                unitSystem: "metric",
-              }),
-            )
-            .filter(({ unit }) => unit !== null)
-            .slice(0, 3),
-        },
-      };
-    }),
+        return {
+          ...match,
+          product: {
+            ...match.product,
+            keySpecifications: specifications
+              .map((specification) =>
+                formatProductSpecification(specification, {
+                  locale,
+                  unitSystem: "metric",
+                }),
+              )
+              .filter(({ unit }) => unit !== null)
+              .slice(0, 3),
+          },
+        };
+      }),
   );
   const trimmedNumber = number.trim();
 
