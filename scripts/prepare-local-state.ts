@@ -9,7 +9,7 @@ import {
 } from "node:fs/promises";
 import path from "node:path";
 
-import { regenerateDemoAssets } from "@/src/modules/site-config/server/generated-assets";
+import { regenerateDemoAssets } from "@/src/infrastructure/local-demo/generated-assets";
 
 const environmentFile = path.join(process.cwd(), ".env");
 

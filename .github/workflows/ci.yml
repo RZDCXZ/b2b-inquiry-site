@@ -11,12 +11,11 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
     env:
       BETTER_AUTH_SECRET: ci-only-not-used-outside-this-job
       DATABASE_URL: postgresql://torquelis:torquelis_local_only@127.0.0.1:55432/torquelis_demo?schema=public
       DEMO_ENVIRONMENT_ID: torquelis-local-demo
-      PUBLIC_INDEXING: "false"
     services:
       postgres:
         image: postgres:18-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15
@@ -58,10 +57,10 @@ jobs:
       - name: PostgreSQL integration tests
         run: pnpm test:integration
 
-      - name: Install Chromium
-        run: pnpm exec playwright install --with-deps chromium
+      - name: Install browser matrix
+        run: pnpm exec playwright install --with-deps chromium firefox webkit
 
-      - name: Browser smoke path
+      - name: Three-browser smoke path
         run: pnpm test:e2e
 
       - name: Production build

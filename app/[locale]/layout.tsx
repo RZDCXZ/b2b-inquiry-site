@@ -11,11 +11,6 @@ import {
 } from "@/src/modules/site-config/public/locales";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://torquelis.example"),
-  robots: {
-    follow: false,
-    index: false,
-  },
   title: {
     default: "Torquelis Filters",
     template: "%s | Torquelis Filters",

@@ -1,12 +1,24 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  assertDatabaseIdentity,
-  assertLocalDemoTarget,
-} from "@/src/modules/site-config/public/local-demo-target";
+import { assertLocalDemoTarget } from "@/src/infrastructure/local-demo/local-demo-target";
+import { assertLocalDatabaseIdentity } from "@/src/modules/site-config/server/verify-local-database";
 
 describe("local demo target safety", () => {
   it("accepts only the known local database and verifies its stored identity", () => {
+    expect(() =>
+      assertLocalDemoTarget({
+        databaseUrl: "not-a-database-url",
+        environmentMarker: "torquelis-local-demo",
+      }),
+    ).toThrow("DATABASE_URL is invalid");
+
+    expect(() =>
+      assertLocalDemoTarget({
+        databaseUrl: "mysql://torquelis:secret@localhost:55432/torquelis_demo",
+        environmentMarker: "torquelis-local-demo",
+      }),
+    ).toThrow("database protocol must be PostgreSQL");
+
     expect(() =>
       assertLocalDemoTarget({
         databaseUrl:
@@ -57,14 +69,24 @@ describe("local demo target safety", () => {
       databaseName: "torquelis_demo",
       host: "127.0.0.1",
     });
+
+    expect(
+      assertLocalDemoTarget({
+        databaseUrl: "postgresql://torquelis:secret@[::1]:55432/torquelis_demo",
+        environmentMarker: "torquelis-local-demo",
+      }),
+    ).toEqual({
+      databaseName: "torquelis_demo",
+      host: "[::1]",
+    });
     expect(() =>
-      assertDatabaseIdentity({
+      assertLocalDatabaseIdentity({
         databaseId: "different-database",
         environmentMarker: "torquelis-local-demo",
       }),
     ).toThrow("database identity is unknown");
     expect(
-      assertDatabaseIdentity({
+      assertLocalDatabaseIdentity({
         databaseId: "torquelis-demo-v1",
         environmentMarker: "torquelis-local-demo",
       }),

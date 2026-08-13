@@ -2,13 +2,13 @@ import "dotenv/config";
 
 import path from "node:path";
 
-import { replaceDemoData } from "@/src/application/local-demo-data";
 import { createPrismaClient } from "@/src/infrastructure/database/prisma";
-import { assertLocalDemoTarget } from "@/src/modules/site-config/public/local-demo-target";
 import {
   clearTemporaryUploads,
   regenerateDemoAssets,
-} from "@/src/modules/site-config/server/generated-assets";
+} from "@/src/infrastructure/local-demo/generated-assets";
+import { assertLocalDemoTarget } from "@/src/infrastructure/local-demo/local-demo-target";
+import { replaceDemoData } from "@/src/modules/site-config/server/local-demo-data";
 import { verifyLocalDatabaseIdentity } from "@/src/modules/site-config/server/verify-local-database";
 
 const databaseUrl = process.env.DATABASE_URL ?? "";

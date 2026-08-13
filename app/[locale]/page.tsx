@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { HomePage } from "@/src/components/public/home-page";
+import { getHomeMetadataCopy } from "@/src/modules/content-publishing/public/home-copy";
 import { isPublicLocale } from "@/src/modules/site-config/public/locales";
 
 type LocalePageProps = {
@@ -17,16 +18,7 @@ export async function generateMetadata({
     return {};
   }
 
-  return {
-    description:
-      locale === "en"
-        ? "Find commercial vehicle filtration products and send a structured inquiry."
-        : "查找商用车滤清产品并提交结构化询盘。",
-    title:
-      locale === "en"
-        ? "Commercial vehicle filter finder"
-        : "商用车滤清产品查找",
-  };
+  return getHomeMetadataCopy(locale);
 }
 
 export default async function LocaleHomePage({ params }: LocalePageProps) {

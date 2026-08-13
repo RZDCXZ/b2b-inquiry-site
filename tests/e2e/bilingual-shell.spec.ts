@@ -14,6 +14,15 @@ test("the public shell is bilingual and the root always redirects to English", a
     }),
   ).toBeVisible();
 
+  const partTab = page.getByRole("tab", { name: "PART / REFERENCE" });
+  await partTab.focus();
+  await partTab.press("ArrowRight");
+  await expect(page.getByRole("tab", { name: "VEHICLE" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  await expect(page.getByLabel("Vehicle make, model or engine")).toBeVisible();
+
   await page.getByRole("link", { name: "简中" }).click();
   await expect(page).toHaveURL(/\/zh-cn$/);
   await expect(

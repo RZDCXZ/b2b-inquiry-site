@@ -17,3 +17,4 @@
 ## Comments
 
 - 2026-08-13：完成实现。已从空 `.env`、空 `.local/` 和全新 Docker 数据卷在 macOS 运行 `pnpm setup`；格式、Lint、类型检查、Vitest、真实 PostgreSQL 集成测试、Playwright 双语路径、演示重置与生产构建均通过。Linux 全新数据库验证写入 `.github/workflows/ci.yml`。
+- 2026-08-13：代码审查后收紧模块所有权和 Zod 配置边界，补齐键盘 Tab 交互及 Chromium／Firefox／WebKit 桌面与移动矩阵；移除应由 ticket 20 实现的 SEO 模式。复核验证全部通过。

@@ -1,6 +1,6 @@
 import "dotenv/config";
 
-import { assertLocalDemoTarget } from "@/src/modules/site-config/public/local-demo-target";
+import { assertLocalDemoTarget } from "@/src/infrastructure/local-demo/local-demo-target";
 
 assertLocalDemoTarget({
   databaseUrl: process.env.DATABASE_URL ?? "",

@@ -1,6 +1,6 @@
 import "dotenv/config";
 
-import { seedDemoData } from "@/src/application/local-demo-data";
+import { seedDemoData } from "@/src/modules/site-config/server/local-demo-data";
 import { createPrismaClient } from "@/src/infrastructure/database/prisma";
 
 const databaseUrl = process.env.DATABASE_URL;

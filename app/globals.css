@@ -229,6 +229,10 @@ input {
   padding: 18px;
 }
 
+.search-panel[hidden] {
+  display: none;
+}
+
 .search-panel label {
   display: grid;
   gap: 7px;

@@ -7,14 +7,23 @@ type PublicHeaderProps = {
   descriptor: string;
   languageLabel: string;
   locale: PublicLocale;
+  mobileNavigationLabel: string;
   navigation: ReadonlyArray<{ label: string; anchor: string }>;
+  primaryNavigationLabel: string;
 };
+
+const localeOptions = [
+  { href: "/en", label: "EN", locale: "en" },
+  { href: "/zh-cn", label: "简中", locale: "zh-cn" },
+] as const;
 
 export function PublicHeader({
   descriptor,
   languageLabel,
   locale,
+  mobileNavigationLabel,
   navigation,
+  primaryNavigationLabel,
 }: PublicHeaderProps) {
   const items = navigation.map((item) => ({
     label: item.label,
@@ -27,10 +36,7 @@ export function PublicHeader({
         <span>TORQUELIS</span>
         <small>{descriptor}</small>
       </Link>
-      <nav
-        aria-label={locale === "en" ? "Primary navigation" : "主要导航"}
-        className="desktop-navigation"
-      >
+      <nav aria-label={primaryNavigationLabel} className="desktop-navigation">
         {items.map((item) => (
           <Link href={item.href} key={item.href}>
             {item.label}
@@ -38,20 +44,17 @@ export function PublicHeader({
         ))}
       </nav>
       <div aria-label={languageLabel} className="locale-switcher" role="group">
-        <Link aria-current={locale === "en" ? "page" : undefined} href="/en">
-          EN
-        </Link>
-        <Link
-          aria-current={locale === "zh-cn" ? "page" : undefined}
-          href="/zh-cn"
-        >
-          简中
-        </Link>
+        {localeOptions.map((option) => (
+          <Link
+            aria-current={option.locale === locale ? "page" : undefined}
+            href={option.href}
+            key={option.locale}
+          >
+            {option.label}
+          </Link>
+        ))}
       </div>
-      <MobileNavigation
-        items={items}
-        label={locale === "en" ? "Toggle navigation" : "打开或关闭导航"}
-      />
+      <MobileNavigation items={items} label={mobileNavigationLabel} />
     </header>
   );
 }

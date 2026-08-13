@@ -1,6 +1,6 @@
 # Torquelis 询盘运营演示系统
 
-Torquelis Filters／拓擎利滤清是一个完全虚构、仅在本地运行的商用车滤清器询盘运营演示系统。当前切片提供可复现的 Next.js 双语公共外壳、本地 PostgreSQL、版本化迁移、最小演示账号和安全重置骨架。
+Torquelis Filters／拓擎利滤清是一个完全虚构、仅在本地运行的商用车滤清器询盘运营演示系统。当前切片提供可复现的 Next.js 双语公共外壳、本地 PostgreSQL、版本化迁移、最小站点数据和安全重置骨架。
 
 完整仓库公开供审阅，但未授予开源许可证。除法律默认允许的范围外，不应假定代码可以复制、修改或再分发。
 
@@ -56,11 +56,12 @@ corepack pnpm lint
 corepack pnpm typecheck
 corepack pnpm test
 corepack pnpm test:integration
+corepack pnpm exec playwright install chromium firefox webkit
 corepack pnpm test:e2e
 corepack pnpm build
 ```
 
-Linux CI 使用全新 PostgreSQL 执行迁移、种子、格式、Lint、类型检查、单元测试、数据库集成测试、浏览器路径和生产构建。
+Linux CI 使用全新 PostgreSQL 执行迁移、种子、格式、Lint、类型检查、单元测试、数据库集成测试、Chromium／Firefox／WebKit 桌面与移动浏览器路径和生产构建。
 
 ## 架构入口
 

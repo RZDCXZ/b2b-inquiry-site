@@ -12,6 +12,7 @@ import filterFamily from "@/product-ui/public/assets/filter-family.png";
 import heroCutaway from "@/product-ui/public/assets/hero-filter-cutaway.png";
 import { PublicFooter } from "@/src/components/public/public-footer";
 import { PublicHeader } from "@/src/components/public/public-header";
+import { ProductFinder } from "@/src/components/public/product-finder";
 import { getHomeCopy } from "@/src/modules/content-publishing/public/home-copy";
 import type { PublicLocale } from "@/src/modules/site-config/public/locales";
 
@@ -26,7 +27,9 @@ export function HomePage({ locale }: { locale: PublicLocale }) {
         descriptor={copy.brandDescriptor}
         languageLabel={copy.languageLabel}
         locale={locale}
+        mobileNavigationLabel={copy.mobileNavigationLabel}
         navigation={copy.nav}
+        primaryNavigationLabel={copy.primaryNavigationLabel}
       />
       <main>
         <section className="home-hero">
@@ -34,47 +37,17 @@ export function HomePage({ locale }: { locale: PublicLocale }) {
             <p className="eyebrow">{copy.eyebrow}</p>
             <h1>{copy.heading}</h1>
             <p className="lede">{copy.lede}</p>
-            <div className="search-workbench" id="products">
-              <div
-                aria-label="Product finder modes"
-                className="search-tabs"
-                role="tablist"
-              >
-                {copy.tabs.map((tab, index) => (
-                  <button
-                    aria-selected={index === 0}
-                    key={tab}
-                    role="tab"
-                    type="button"
-                  >
-                    {tab}
-                  </button>
-                ))}
-              </div>
-              <form action={`/${locale}#products`} className="search-panel">
-                <label>
-                  <span>{copy.searchLabel}</span>
-                  <input
-                    name="part"
-                    placeholder={copy.searchPlaceholder}
-                    type="search"
-                  />
-                </label>
-                <button className="primary-button" type="submit">
-                  {copy.findAction}
-                  <ArrowRight aria-hidden="true" size={18} weight="bold" />
-                </button>
-                <p>{copy.helper}</p>
-              </form>
-            </div>
+            <ProductFinder
+              action={copy.findAction}
+              finderLabel={copy.finderLabel}
+              helper={copy.helper}
+              locale={locale}
+              modes={copy.finderModes}
+            />
           </div>
           <figure className="hero-visual">
             <Image
-              alt={
-                locale === "en"
-                  ? "Fuel filter cutaway with dimensional and fluid path annotations"
-                  : "带尺寸与流体路径标注的燃油滤清器剖面"
-              }
+              alt={copy.heroImageAlt}
               fill
               priority
               sizes="(max-width: 820px) 100vw, 43vw"
@@ -125,11 +98,7 @@ export function HomePage({ locale }: { locale: PublicLocale }) {
         <section className="family-band" id="private-label">
           <div className="family-visual">
             <Image
-              alt={
-                locale === "en"
-                  ? "Four commercial vehicle filter categories"
-                  : "四类商用车滤清产品"
-              }
+              alt={copy.familyImageAlt}
               fill
               sizes="(max-width: 820px) 100vw, 50vw"
               src={filterFamily}

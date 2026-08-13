@@ -26,5 +26,28 @@ export default defineConfig({
       name: "chromium",
       use: { ...devices["Desktop Chrome"] },
     },
+    {
+      name: "firefox",
+      use: { ...devices["Desktop Firefox"] },
+    },
+    {
+      name: "webkit",
+      use: { ...devices["Desktop Safari"] },
+    },
+    {
+      name: "chromium-mobile",
+      use: { ...devices["Pixel 7"] },
+    },
+    {
+      name: "firefox-mobile",
+      use: {
+        ...devices["Desktop Firefox"],
+        viewport: { height: 844, width: 390 },
+      },
+    },
+    {
+      name: "webkit-mobile",
+      use: { ...devices["iPhone 15"] },
+    },
   ],
 });
