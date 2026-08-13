@@ -1,4 +1,9 @@
-import { ArrowLeft, ArrowRight, Info } from "@phosphor-icons/react/dist/ssr";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Info,
+  Warning,
+} from "@phosphor-icons/react/dist/ssr";
 import type { StaticImageData } from "next/image";
 import Image from "next/image";
 import Link from "next/link";
@@ -51,6 +56,29 @@ export function ProductDetailPage({
           </Link>
         </nav>
 
+        {product.status === "discontinued" ? (
+          <aside className="product-discontinued-banner">
+            <Warning aria-hidden="true" size={22} weight="fill" />
+            <div>
+              <strong>{catalogCopy.discontinuedHeading}</strong>
+              <p>{catalogCopy.discontinuedHistory}</p>
+              <p>
+                {product.replacement ? (
+                  <>
+                    {catalogCopy.discontinuedReplacementLabel}{" "}
+                    <Link href={product.replacement.href}>
+                      {product.replacement.partNumber} —{" "}
+                      {product.replacement.name}
+                    </Link>
+                  </>
+                ) : (
+                  catalogCopy.discontinuedNoReplacement
+                )}
+              </p>
+            </div>
+          </aside>
+        ) : null}
+
         <section className="product-detail-hero">
           <figure>
             <Image
@@ -65,7 +93,11 @@ export function ProductDetailPage({
           <div className="product-detail-summary">
             <div className="product-detail-status">
               <p className="eyebrow">{catalogCopy.detailEyebrow}</p>
-              <span>{catalogCopy.detailPublished}</span>
+              <span data-status={product.status}>
+                {product.status === "discontinued"
+                  ? catalogCopy.detailDiscontinued
+                  : catalogCopy.detailPublished}
+              </span>
             </div>
             <h1>{product.partNumber}</h1>
             <h2>{product.name}</h2>

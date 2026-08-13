@@ -235,7 +235,10 @@ test("规格结果固定每页十二项并通过 URL 进入下一页", async ({
         },
       });
       await transaction.product.update({
-        data: { currentPublicationId: fixture.publicationId },
+        data: {
+          currentPublicationId: fixture.publicationId,
+          status: "published",
+        },
         where: { id: fixture.productId },
       });
       await transaction.productSpecificationValue.create({

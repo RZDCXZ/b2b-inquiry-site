@@ -85,7 +85,7 @@ describe("商用车型适配查找", () => {
       },
     });
     await prisma.product.update({
-      data: { currentPublicationId: publicationId },
+      data: { currentPublicationId: publicationId, status: "published" },
       where: { id: productId },
     });
     await prisma.productFitment.create({

@@ -34,6 +34,12 @@ const categories = [
 const products = [
   {
     categoryId: "category-air",
+    id: "product-tq-af-2000",
+    imagePath: "/assets/filter-family.png",
+    partNumber: "TQ-AF-2000",
+  },
+  {
+    categoryId: "category-air",
     id: "product-tq-af-2106",
     imagePath: "/assets/filter-family.png",
     partNumber: "TQ-AF-2106",
@@ -43,6 +49,12 @@ const products = [
     id: "product-tq-cf-3021",
     imagePath: "/assets/filter-family.png",
     partNumber: "TQ-CF-3021",
+  },
+  {
+    categoryId: "category-fuel",
+    id: "product-tq-fl-4720",
+    imagePath: "/assets/fuel-filter-product.png",
+    partNumber: "TQ-FL-4720",
   },
   {
     categoryId: "category-fuel",
@@ -61,6 +73,39 @@ const products = [
     id: "product-tq-df-9000",
     imagePath: "/assets/fuel-filter-product.png",
     partNumber: "TQ-DF-9000",
+  },
+] as const;
+
+const publicProductLifecycles = [
+  {
+    currentPublicationId: "publication-product-tq-af-2000-v1",
+    id: "product-tq-af-2000",
+    status: "discontinued",
+  },
+  {
+    currentPublicationId: "publication-product-tq-af-2106-v1",
+    id: "product-tq-af-2106",
+    status: "published",
+  },
+  {
+    currentPublicationId: "publication-product-tq-cf-3021-v1",
+    id: "product-tq-cf-3021",
+    status: "published",
+  },
+  {
+    currentPublicationId: "publication-product-tq-fl-4720-v1",
+    id: "product-tq-fl-4720",
+    status: "discontinued",
+  },
+  {
+    currentPublicationId: "publication-product-tq-fl-4827-v1",
+    id: "product-tq-fl-4827",
+    status: "published",
+  },
+  {
+    currentPublicationId: "publication-product-tq-of-1038-v1",
+    id: "product-tq-of-1038",
+    status: "published",
   },
 ] as const;
 
@@ -156,6 +201,28 @@ export async function replaceCatalogIdentities(
     await transaction.product.deleteMany();
     await transaction.productCategory.deleteMany();
     await writeCatalogIdentities(transaction);
+  });
+}
+
+export async function seedCatalogProductLifecycleDemoData(
+  prisma: PrismaClient,
+): Promise<void> {
+  await prisma.$transaction(async (transaction) => {
+    for (const lifecycle of publicProductLifecycles) {
+      await transaction.product.update({
+        data: {
+          currentPublicationId: lifecycle.currentPublicationId,
+          replacementProductId: null,
+          status: lifecycle.status,
+        },
+        where: { id: lifecycle.id },
+      });
+    }
+
+    await transaction.product.update({
+      data: { replacementProductId: "product-tq-fl-4827" },
+      where: { id: "product-tq-fl-4720" },
+    });
   });
 }
 

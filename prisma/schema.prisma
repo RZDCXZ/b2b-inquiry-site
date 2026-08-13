@@ -29,6 +29,12 @@ enum SpecificationUnit {
   millimetre
 }
 
+enum ProductStatus {
+  draft
+  published
+  discontinued
+}
+
 model User {
   id            String     @id
   name          String
@@ -149,11 +155,11 @@ model VehicleMake {
 }
 
 model VehicleModel {
-  id       String      @id
-  makeId   String      @map("make_id")
-  name     String
-  make     VehicleMake @relation(fields: [makeId], references: [id], onDelete: Cascade)
-  engines  Engine[]
+  id      String      @id
+  makeId  String      @map("make_id")
+  name    String
+  make    VehicleMake @relation(fields: [makeId], references: [id], onDelete: Cascade)
+  engines Engine[]
 
   @@unique([makeId, name])
   @@index([makeId])
@@ -179,15 +185,21 @@ model Product {
   normalizedPartNumber String               @unique @default(dbgenerated()) @map("normalized_part_number")
   categoryId           String               @map("category_id")
   imagePath            String               @map("image_path")
+  status               ProductStatus        @default(draft)
   currentPublicationId String?              @unique @map("current_publication_id")
+  replacementProductId String?              @map("replacement_product_id")
   createdAt            DateTime             @default(now()) @map("created_at")
   updatedAt            DateTime             @updatedAt @map("updated_at")
   category             ProductCategory      @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   currentPublication   ProductPublication?  @relation("CurrentProductPublication", fields: [id, currentPublicationId], references: [productId, id], onDelete: NoAction)
+  replacementProduct   Product?             @relation("ProductReplacement", fields: [replacementProductId], references: [id], onDelete: Restrict)
+  replacedProducts     Product[]            @relation("ProductReplacement")
   publications         ProductPublication[] @relation("ProductPublicationVersions")
 
   @@unique([id, currentPublicationId])
   @@index([categoryId])
+  @@index([replacementProductId])
+  @@index([status, categoryId])
   @@map("product")
 }
 

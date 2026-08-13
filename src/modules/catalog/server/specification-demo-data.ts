@@ -14,6 +14,21 @@ const categoryIds = {
 const productSpecificationInputs = [
   {
     category: "air",
+    publicationId: "publication-product-tq-af-2000-v1",
+    values: [
+      { attributeCode: "outer_diameter", unit: "millimetre", value: 280 },
+      { attributeCode: "inner_diameter", unit: "millimetre", value: 160 },
+      { attributeCode: "height", unit: "millimetre", value: 460 },
+      { attributeCode: "media_type", value: "cellulose" },
+      {
+        attributeCode: "rated_air_flow",
+        unit: "cubic_metre_per_minute",
+        value: 21,
+      },
+    ],
+  },
+  {
+    category: "air",
     publicationId: "publication-product-tq-af-2106-v1",
     values: [
       { attributeCode: "outer_diameter", unit: "millimetre", value: 285 },
@@ -40,6 +55,27 @@ const productSpecificationInputs = [
         unit: "cubic_metre_per_minute",
         value: 7.5,
       },
+    ],
+  },
+  {
+    category: "fuel",
+    publicationId: "publication-product-tq-fl-4720-v1",
+    values: [
+      { attributeCode: "construction_type", value: "spin_on" },
+      { attributeCode: "outer_diameter", unit: "millimetre", value: 94 },
+      { attributeCode: "height", unit: "millimetre", value: 172 },
+      { attributeCode: "connection_specification", value: "M16 × 1.5" },
+      {
+        attributeCode: "filtration_rating",
+        unit: "micrometre",
+        value: 12,
+      },
+      {
+        attributeCode: "rated_flow",
+        unit: "litre_per_minute",
+        value: 4.8,
+      },
+      { attributeCode: "water_separation", value: true },
     ],
   },
   {

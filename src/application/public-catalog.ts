@@ -13,8 +13,9 @@ import {
   findCatalogProductReferences,
   findCatalogProductIdentitiesBySpecifications,
   listCatalogCategories,
-  listCatalogProductIdentities,
+  listPublishedCatalogProductIdentities,
   type CatalogProductIdentity,
+  type CatalogReplacementProductIdentity,
 } from "@/src/modules/catalog/server/catalog-query";
 import {
   SPECIFICATION_FILTER_PAGE_SIZE,
@@ -49,6 +50,7 @@ import {
   findCatalogFitmentPublicationIdsByVehicle,
   listCatalogVehicleFitments,
 } from "@/src/modules/catalog/server/fitment-query";
+import type { PublicProductStatus } from "@/src/modules/catalog/public/product-lifecycle";
 
 export type PublishedCatalogProduct = {
   category: { code: ProductCategoryCode; name: string };
@@ -63,7 +65,9 @@ export type PublishedCatalogProduct = {
 
 export type PublishedProductDetail = PublishedCatalogProduct & {
   languageHrefs: Record<PublicLocale, string>;
+  replacement: PublishedCatalogProduct | null;
   specifications: ProductSpecificationDisplay[];
+  status: PublicProductStatus;
   unitSystem: UnitSystem;
 };
 
@@ -89,7 +93,7 @@ export type PublishedReferenceMatch = {
 
 function localizeProduct(
   locale: PublicLocale,
-  identity: CatalogProductIdentity,
+  identity: CatalogProductIdentity | CatalogReplacementProductIdentity,
   content: PublishedProductContent,
 ) {
   return locale === "en"
@@ -109,7 +113,7 @@ function localizeProduct(
 
 function createPublishedCatalogProduct(
   locale: PublicLocale,
-  identity: CatalogProductIdentity,
+  identity: CatalogProductIdentity | CatalogReplacementProductIdentity,
   content: PublishedProductContent,
 ): PublishedCatalogProduct {
   const localized = localizeProduct(locale, identity, content);
@@ -165,7 +169,10 @@ export async function listPublishedProducts({
   locale: PublicLocale;
   prisma?: ApplicationDatabase;
 }): Promise<PublishedCatalogProduct[]> {
-  const identities = await listCatalogProductIdentities(prisma, categoryCode);
+  const identities = await listPublishedCatalogProductIdentities(
+    prisma,
+    categoryCode,
+  );
 
   return assemblePublishedCatalogProducts(locale, prisma, identities);
 }
@@ -274,7 +281,7 @@ export async function listPublishedVehicleFitmentOptions({
 }): Promise<LocalizedVehicleFitmentOption[]> {
   const [fitments, identities] = await Promise.all([
     listCatalogVehicleFitments(prisma),
-    listCatalogProductIdentities(prisma),
+    listPublishedCatalogProductIdentities(prisma),
   ]);
   const identityByPublicationId = new Map(
     identities.flatMap((identity) =>
@@ -315,7 +322,7 @@ export async function findPublishedProductsByVehicle({
 }): Promise<PublishedCatalogProduct[]> {
   const [publicationIds, identities] = await Promise.all([
     findCatalogFitmentPublicationIdsByVehicle(prisma, selection),
-    listCatalogProductIdentities(prisma, selection.categoryCode),
+    listPublishedCatalogProductIdentities(prisma, selection.categoryCode),
   ]);
   const publicationIdSet = new Set(publicationIds);
   const matchingIdentities = identities.filter(
@@ -413,14 +420,23 @@ export async function getPublishedProduct({
     return null;
   }
 
-  if (!identity.currentPublicationId) {
+  if (!identity.currentPublicationId || identity.status === "draft") {
     return null;
   }
 
-  const [[content], persistedSpecifications] = await Promise.all([
-    listPublishedProductContent(prisma, [identity.currentPublicationId]),
-    listProductSpecifications(prisma, identity.currentPublicationId),
-  ]);
+  const replacementPublicationId =
+    identity.replacementProduct?.status !== "draft"
+      ? identity.replacementProduct?.currentPublicationId
+      : null;
+  const [[content], persistedSpecifications, replacementContents] =
+    await Promise.all([
+      listPublishedProductContent(prisma, [identity.currentPublicationId]),
+      listProductSpecifications(prisma, identity.currentPublicationId),
+      listPublishedProductContent(
+        prisma,
+        replacementPublicationId ? [replacementPublicationId] : [],
+      ),
+    ]);
 
   if (!content) {
     return null;
@@ -431,6 +447,15 @@ export async function getPublishedProduct({
     identity,
     content,
   );
+  const replacementContent = replacementContents[0];
+  const replacement =
+    identity.replacementProduct && replacementContent
+      ? createPublishedCatalogProduct(
+          locale,
+          identity.replacementProduct,
+          replacementContent,
+        )
+      : null;
   const languageHrefs = {
     en:
       productDetailPath("en", {
@@ -447,9 +472,14 @@ export async function getPublishedProduct({
   return {
     ...publishedProduct,
     languageHrefs,
+    replacement:
+      replacement && unitSystem === "imperial"
+        ? { ...replacement, href: `${replacement.href}?unit=imperial` }
+        : replacement,
     specifications: persistedSpecifications.map((specification) =>
       formatProductSpecification(specification, { locale, unitSystem }),
     ),
+    status: identity.status,
     unitSystem,
   };
 }
@@ -478,7 +508,8 @@ export async function lookupPublishedProductNumber({
     return directResolution;
   }
 
-  const publishedIdentities = await listCatalogProductIdentities(prisma);
+  const publishedIdentities =
+    await listPublishedCatalogProductIdentities(prisma);
   const identityByPublicationId = new Map(
     publishedIdentities.flatMap((identity) =>
       identity.currentPublicationId

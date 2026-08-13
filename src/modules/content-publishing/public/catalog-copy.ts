@@ -7,7 +7,12 @@ type CatalogCopy = {
   catalogueHeading: string;
   catalogueLede: string;
   demoDataNotice: string;
+  discontinuedHeading: string;
+  discontinuedHistory: string;
+  discontinuedNoReplacement: string;
+  discontinuedReplacementLabel: string;
   detailBack: string;
+  detailDiscontinued: string;
   detailEyebrow: string;
   detailInquiry: string;
   detailPublished: string;
@@ -91,7 +96,13 @@ const copy: Record<PublicLocale, CatalogCopy> = {
     catalogueLede:
       "Browse published Torquelis products across four single-level filtration categories. Every product is identified by a stable part number.",
     demoDataNotice: "Demo data — not for selection or purchasing.",
+    discontinuedHeading: "This product is discontinued.",
+    discontinuedHistory:
+      "Its stable URL and historical specifications remain available.",
+    discontinuedNoReplacement: "No replacement product is currently specified.",
+    discontinuedReplacementLabel: "Replacement product:",
     detailBack: "Back to products",
+    detailDiscontinued: "Discontinued",
     detailEyebrow: "TORQUELIS PART NUMBER",
     detailInquiry: "Inquire about this product",
     detailPublished: "Published",
@@ -202,7 +213,12 @@ const copy: Record<PublicLocale, CatalogCopy> = {
     catalogueLede:
       "浏览四个单层滤清分类中的已发布 Torquelis 产品；每项产品都由稳定的产品编号识别。",
     demoDataNotice: "演示数据——不可用于真实选型或采购。",
+    discontinuedHeading: "此产品已停产。",
+    discontinuedHistory: "其稳定地址与历史规格继续保留。",
+    discontinuedNoReplacement: "当前没有指定替代产品。",
+    discontinuedReplacementLabel: "替代产品：",
     detailBack: "返回产品中心",
+    detailDiscontinued: "已停产",
     detailEyebrow: "TORQUELIS 产品编号",
     detailInquiry: "咨询此产品",
     detailPublished: "已发布",

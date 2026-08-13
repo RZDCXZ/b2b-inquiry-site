@@ -4,6 +4,7 @@ import {
   type ProductCategoryCode,
 } from "@/src/modules/catalog/public/product-identity";
 import type { SpecificationFilter } from "@/src/modules/catalog/public/specification-filters";
+import type { ProductStatus } from "@/src/modules/catalog/public/product-lifecycle";
 
 export type CatalogCategory = {
   code: ProductCategoryCode;
@@ -21,7 +22,15 @@ export type CatalogProductIdentity = {
   imagePath: string;
   partNumber: string;
   currentPublicationId: string | null;
+  replacementProduct: CatalogReplacementProductIdentity | null;
+  replacementProductId: string | null;
+  status: ProductStatus;
 };
+
+export type CatalogReplacementProductIdentity = Omit<
+  CatalogProductIdentity,
+  "replacementProduct" | "replacementProductId"
+>;
 
 export type CatalogProductReferenceMatch = {
   brand: string;
@@ -37,16 +46,38 @@ const catalogProductIdentitySelect = {
   imagePath: true,
   partNumber: true,
   currentPublicationId: true,
+  replacementProduct: {
+    select: {
+      category: {
+        select: { code: true, nameEn: true, nameZhCn: true },
+      },
+      currentPublicationId: true,
+      id: true,
+      imagePath: true,
+      partNumber: true,
+      status: true,
+    },
+  },
+  replacementProductId: true,
+  status: true,
 } as const;
 
-export async function listCatalogProductIdentities(
+const publishedCatalogProductWhere = {
+  currentPublicationId: { not: null },
+  status: "published",
+} satisfies Prisma.ProductWhereInput;
+
+export async function listPublishedCatalogProductIdentities(
   prisma: PrismaClient,
   categoryCode?: ProductCategoryCode,
 ): Promise<CatalogProductIdentity[]> {
   const products = await prisma.product.findMany({
     orderBy: { partNumber: "asc" },
     select: catalogProductIdentitySelect,
-    where: categoryCode ? { category: { code: categoryCode } } : undefined,
+    where: {
+      ...publishedCatalogProductWhere,
+      category: categoryCode ? { code: categoryCode } : undefined,
+    },
   });
 
   return products as CatalogProductIdentity[];
@@ -101,7 +132,7 @@ export async function findCatalogProductIdentitiesBySpecifications(
       };
     }),
     category: { code: categoryCode },
-    currentPublicationId: { not: null },
+    ...publishedCatalogProductWhere,
   } satisfies Prisma.ProductWhereInput;
   const [identities, total] = await prisma.$transaction([
     prisma.product.findMany({

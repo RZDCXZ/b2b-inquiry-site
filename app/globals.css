@@ -2179,6 +2179,45 @@ select {
   color: var(--orange);
 }
 
+.product-discontinued-banner {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 13px;
+  margin-top: 24px;
+  border-left: 4px solid var(--warning);
+  padding: 16px 18px;
+  background: #f6eadb;
+  color: #6e3f16;
+}
+
+.product-discontinued-banner svg {
+  margin-top: 1px;
+}
+
+.product-discontinued-banner strong {
+  color: #6e3f16;
+  font-size: 13px;
+}
+
+.product-discontinued-banner p {
+  margin: 4px 0 0;
+  color: var(--graphite-600);
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+.product-discontinued-banner a {
+  color: #6e3f16;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.product-discontinued-banner + .product-detail-hero {
+  margin-top: 24px;
+  border-top: 1px solid var(--line);
+}
+
 .product-detail-hero {
   min-height: 670px;
   display: grid;
@@ -2233,6 +2272,12 @@ select {
   color: var(--success);
   font-size: 10px;
   font-weight: 700;
+}
+
+.product-detail-status > span[data-status="discontinued"] {
+  border-color: #d9b98f;
+  background: #f6eadb;
+  color: var(--warning);
 }
 
 .product-detail-summary h1 {
@@ -2749,6 +2794,10 @@ select {
 
   .product-breadcrumbs {
     padding: 0 20px;
+  }
+
+  .product-discontinued-banner {
+    margin: 20px 20px 0;
   }
 
   .product-detail-hero {

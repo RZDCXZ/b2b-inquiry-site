@@ -2,6 +2,7 @@ import "dotenv/config";
 
 import {
   seedCatalogIdentities,
+  seedCatalogProductLifecycleDemoData,
   seedProductReferenceDemoData,
 } from "@/src/modules/catalog/server/catalog-demo-data";
 import { seedSpecificationDemoData } from "@/src/modules/catalog/server/specification-demo-data";
@@ -25,6 +26,7 @@ try {
   await seedDemoData(prisma);
   await seedCatalogIdentities(prisma);
   await seedPublishedProductContent(prisma);
+  await seedCatalogProductLifecycleDemoData(prisma);
   await seedProductReferenceDemoData(prisma);
   await seedSpecificationDemoData(prisma);
   await seedVehicleFitmentDemoData(prisma);

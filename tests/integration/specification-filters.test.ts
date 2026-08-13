@@ -64,7 +64,7 @@ describe("可分享的分类规格筛选", () => {
       },
     });
     await prisma.product.update({
-      data: { currentPublicationId: publicationId },
+      data: { currentPublicationId: publicationId, status: "published" },
       where: { id: productId },
     });
     await prisma.productSpecificationValue.create({
@@ -165,7 +165,7 @@ describe("可分享的分类规格筛选", () => {
       },
     });
     await prisma.product.update({
-      data: { currentPublicationId: publicationId },
+      data: { currentPublicationId: publicationId, status: "published" },
       where: { id: productId },
     });
     await prisma.productSpecificationValue.create({
@@ -259,7 +259,10 @@ describe("可分享的分类规格筛选", () => {
           },
         });
         await transaction.product.update({
-          data: { currentPublicationId: fixture.publicationId },
+          data: {
+            currentPublicationId: fixture.publicationId,
+            status: "published",
+          },
           where: { id: fixture.productId },
         });
       }

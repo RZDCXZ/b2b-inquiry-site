@@ -66,6 +66,45 @@ describe("双语标准替换件目录", () => {
     expect(chinese?.languageHrefs.en).toBe(english?.href);
   });
 
+  it("已停产产品保留双语历史详情但不进入默认目录，并按当前语言提供可选替代产品", async () => {
+    const [catalogue, englishWithReplacement, chineseWithoutReplacement] =
+      await Promise.all([
+        listPublishedProducts({ locale: "en", prisma }),
+        getPublishedProduct({
+          locale: "en",
+          partNumber: "TQ-FL-4720",
+          prisma,
+        }),
+        getPublishedProduct({
+          locale: "zh-cn",
+          partNumber: "TQ-AF-2000",
+          prisma,
+        }),
+      ]);
+
+    expect(catalogue.map(({ partNumber }) => partNumber)).not.toContain(
+      "TQ-FL-4720",
+    );
+    expect(catalogue.map(({ partNumber }) => partNumber)).not.toContain(
+      "TQ-AF-2000",
+    );
+    expect(englishWithReplacement).toMatchObject({
+      href: "/en/products/TQ-FL-4720/legacy-fuel-filter",
+      replacement: {
+        href: "/en/products/TQ-FL-4827/high-efficiency-fuel-filter",
+        partNumber: "TQ-FL-4827",
+      },
+      status: "discontinued",
+    });
+    expect(englishWithReplacement?.specifications.length).toBeGreaterThan(0);
+    expect(chineseWithoutReplacement).toMatchObject({
+      href: "/zh-cn/products/TQ-AF-2000/%E5%8E%86%E5%8F%B2%E7%A9%BA%E6%B0%94%E6%BB%A4%E6%B8%85%E5%99%A8",
+      replacement: null,
+      status: "discontinued",
+    });
+    expect(chineseWithoutReplacement?.specifications.length).toBeGreaterThan(0);
+  });
+
   it("数据库拒绝标准化后重复的产品编号", async () => {
     await expect(
       prisma.product.create({
@@ -88,7 +127,7 @@ describe("双语标准替换件目录", () => {
       select: { productId: true, version: true },
     });
 
-    expect(publications).toHaveLength(4);
+    expect(publications).toHaveLength(6);
     expect(publications.every(({ version }) => version === 1)).toBe(true);
   });
 

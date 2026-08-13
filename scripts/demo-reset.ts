@@ -10,6 +10,7 @@ import {
 import { assertLocalDemoTarget } from "@/src/infrastructure/local-demo/local-demo-target";
 import {
   replaceCatalogIdentities,
+  seedCatalogProductLifecycleDemoData,
   seedProductReferenceDemoData,
 } from "@/src/modules/catalog/server/catalog-demo-data";
 import { seedSpecificationDemoData } from "@/src/modules/catalog/server/specification-demo-data";
@@ -34,6 +35,7 @@ try {
   await replaceDemoData(prisma);
   await replaceCatalogIdentities(prisma);
   await seedPublishedProductContent(prisma);
+  await seedCatalogProductLifecycleDemoData(prisma);
   await seedProductReferenceDemoData(prisma);
   await seedSpecificationDemoData(prisma);
   await replaceVehicleFitmentDemoData(prisma);
