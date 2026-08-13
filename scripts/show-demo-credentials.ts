@@ -1,16 +1,8 @@
 import "dotenv/config";
 
-import path from "node:path";
-
 import { createPrismaClient } from "@/src/infrastructure/database/prisma";
-import {
-  clearTemporaryUploads,
-  regenerateDemoAssets,
-} from "@/src/infrastructure/local-demo/generated-assets";
 import { assertLocalDemoTarget } from "@/src/infrastructure/local-demo/local-demo-target";
-import { replacePresetAccounts } from "@/src/modules/identity-access/server/preset-accounts";
 import { readPresetCredentials } from "@/src/modules/identity-access/server/preset-credentials";
-import { replaceDemoData } from "@/src/modules/site-config/server/local-demo-data";
 import { verifyLocalDatabaseIdentity } from "@/src/modules/site-config/server/verify-local-database";
 
 const databaseUrl = process.env.DATABASE_URL ?? "";
@@ -22,15 +14,16 @@ assertLocalDemoTarget({
 const prisma = createPrismaClient(databaseUrl);
 
 try {
-  const credentials = await readPresetCredentials();
   await verifyLocalDatabaseIdentity(prisma);
-  await replaceDemoData(prisma);
-  await replacePresetAccounts(prisma, credentials);
-  await clearTemporaryUploads();
-  await regenerateDemoAssets();
-  console.log(
-    `Reset complete for the verified local demo. Temporary uploads cleared from ${path.join(process.cwd(), ".local", "uploads")}.`,
-  );
+  const credentials = await readPresetCredentials();
+
+  console.log("Torquelis 本地演示后台凭据");
+  for (const account of credentials.accounts) {
+    console.log(`\n${account.roleLabel}`);
+    console.log(`  邮箱：${account.email}`);
+    console.log(`  密码：${account.password}`);
+  }
+  console.log("\n登录地址：http://127.0.0.1:3000/admin/login");
 } finally {
   await prisma.$disconnect();
 }

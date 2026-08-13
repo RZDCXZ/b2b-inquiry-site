@@ -1,6 +1,6 @@
 # Torquelis 询盘运营演示系统
 
-Torquelis Filters／拓擎利滤清是一个完全虚构、仅在本地运行的商用车滤清器询盘运营演示系统。当前切片提供可复现的 Next.js 双语公共外壳、本地 PostgreSQL、版本化迁移、最小站点数据和安全重置骨架。
+Torquelis Filters／拓擎利滤清是一个完全虚构、仅在本地运行的商用车滤清器询盘运营演示系统。当前切片提供可复现的 Next.js 双语公共外壳、三种预置角色登录、数据库会话、服务端权限壳层、本地 PostgreSQL、版本化迁移和安全重置骨架。
 
 完整仓库公开供审阅，但未授予开源许可证。除法律默认允许的范围外，不应假定代码可以复制、修改或再分发。
 
@@ -18,7 +18,7 @@ Node.js 自带的 Corepack 会读取仓库锁定的 pnpm 版本。从干净克�
 corepack pnpm setup
 ```
 
-`setup` 会安装锁定依赖、创建未跟踪的 `.env`、生成随机会话密钥、启动 Docker PostgreSQL、执行版本化迁移、生成演示素材并载入最小站点数据。重复运行不会覆盖已有的本地密钥。
+`setup` 会安装锁定依赖、创建未跟踪的 `.env`、生成随机会话密钥与三个预置角色的随机密码、启动 Docker PostgreSQL、执行版本化迁移、生成演示素材并载入演示数据。重复运行不会覆盖已有的本地密钥或凭据。
 
 随后启动应用：
 
@@ -31,16 +31,20 @@ corepack pnpm dev
 - `http://localhost:3000/`：固定重定向到英文，不读取浏览器语言
 - `http://localhost:3000/en`：英文公共页面
 - `http://localhost:3000/zh-cn`：简体中文公共页面
+- `http://localhost:3000/admin/login`：简体中文运营后台登录
 
 ## 本地演示命令
 
 ```bash
+corepack pnpm demo:credentials
 corepack pnpm demo:reset
 ```
 
+`demo:credentials` 会在验证环境变量与数据库内身份记录后，显示管理员、内容编辑和业务人员的本地凭据。凭据保存在被 Git 忽略且权限为 `0600` 的 `.local/demo-credentials.json`；仓库不包含固定明文密码。
+
 数据重置会先验证数据库 URL 为回环地址、数据库名为 `torquelis_demo`、环境标记匹配，再查询数据库内的身份记录；任一条件未知都会拒绝执行。
 
-`demo:reset` 恢复当前切片的站点配置，重新生成演示素材，并清空 `.local/uploads`。后续业务切片会把固定账号、产品、询盘、发布版本、通知与审计记录接入同一重置事务。
+`demo:reset` 恢复站点配置和三个预置账号、撤销全部数据库会话、清理登录审计、重新生成演示素材，并清空 `.local/uploads`。后续业务切片会把产品、询盘、发布版本和通知接入同一重置流程。
 
 停止数据库时不删除数据卷：
 

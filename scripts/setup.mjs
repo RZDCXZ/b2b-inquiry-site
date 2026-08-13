@@ -42,4 +42,5 @@ run("corepack", ["pnpm", "exec", "tsx", "scripts/verify-local-target.ts"]);
 run("docker", ["compose", "up", "-d", "--wait"]);
 run("corepack", ["pnpm", "db:migrate"]);
 run("corepack", ["pnpm", "db:seed"]);
+run("corepack", ["pnpm", "demo:credentials"]);
 console.log("Setup complete. Start the application with: corepack pnpm dev");

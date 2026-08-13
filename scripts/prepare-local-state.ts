@@ -10,6 +10,7 @@ import {
 import path from "node:path";
 
 import { regenerateDemoAssets } from "@/src/infrastructure/local-demo/generated-assets";
+import { ensurePresetCredentials } from "@/src/modules/identity-access/server/preset-credentials";
 
 const environmentFile = path.join(process.cwd(), ".env");
 
@@ -35,4 +36,5 @@ async function ensureEnvironmentFile(): Promise<void> {
 
 await mkdir(path.join(process.cwd(), ".local"), { recursive: true });
 await ensureEnvironmentFile();
+await ensurePresetCredentials();
 await regenerateDemoAssets();

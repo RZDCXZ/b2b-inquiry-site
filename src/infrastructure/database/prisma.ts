@@ -2,7 +2,22 @@ import { PrismaPg } from "@prisma/adapter-pg";
 
 import { PrismaClient } from "@/src/generated/prisma/client";
 
+const globalPrisma = globalThis as typeof globalThis & {
+  torquelisPrisma?: PrismaClient;
+};
+
 export function createPrismaClient(databaseUrl: string): PrismaClient {
   const adapter = new PrismaPg({ connectionString: databaseUrl });
   return new PrismaClient({ adapter });
+}
+
+export function getApplicationPrisma(): PrismaClient {
+  const databaseUrl = process.env.DATABASE_URL;
+
+  if (!databaseUrl) {
+    throw new Error("DATABASE_URL is required to access application data.");
+  }
+
+  globalPrisma.torquelisPrisma ??= createPrismaClient(databaseUrl);
+  return globalPrisma.torquelisPrisma;
 }
