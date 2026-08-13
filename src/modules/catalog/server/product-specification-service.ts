@@ -1,9 +1,9 @@
 import type { PrismaClient } from "@/src/generated/prisma/client";
 import {
-  parseSpecificationValues,
+  createSpecificationSnapshotValues,
   SpecificationValidationError,
-  type ParsedSpecificationValue,
   type SpecificationAttributeDefinition,
+  type SpecificationSnapshotValue,
 } from "@/src/modules/catalog/public/specifications";
 
 export async function validateProductSpecificationsForCategory(
@@ -15,7 +15,7 @@ export async function validateProductSpecificationsForCategory(
     categoryId: string;
     values: unknown;
   },
-): Promise<ParsedSpecificationValue[]> {
+): Promise<SpecificationSnapshotValue[]> {
   const category = await prisma.productCategory.findUnique({
     select: {
       specificationAttributes: {
@@ -34,8 +34,10 @@ export async function validateProductSpecificationsForCategory(
     category.specificationAttributes.map((definition) => ({
       ...definition,
       baseUnit: definition.baseUnit,
+      maximumDecimalValue: definition.maximumDecimalValue?.toNumber() ?? null,
+      minimumDecimalValue: definition.minimumDecimalValue?.toNumber() ?? null,
       options: definition.options,
     }));
 
-  return parseSpecificationValues(definitions, values);
+  return createSpecificationSnapshotValues(definitions, values);
 }

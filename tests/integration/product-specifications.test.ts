@@ -192,6 +192,49 @@ describe("强类型产品规格持久化", () => {
     }
   });
 
+  it("修改属性定义不会追溯改变已发布规格快照", async () => {
+    await prisma.specificationAttributeDefinition.update({
+      data: { baseUnit: "micrometre", nameEn: "Changed live definition" },
+      where: { id: "specification-fuel-outer_diameter" },
+    });
+    await prisma.specificationAttributeOption.update({
+      data: { labelEn: "Changed live option" },
+      where: {
+        attributeId_code: {
+          attributeId: "specification-fuel-construction_type",
+          code: "spin_on",
+        },
+      },
+    });
+
+    try {
+      const product = await getPublishedProduct({
+        locale: "en",
+        partNumber: "TQ-FL-4827",
+        prisma,
+      });
+
+      expect(product?.specifications.slice(0, 2)).toMatchObject([
+        { label: "Construction type", value: "Spin-on" },
+        { label: "Outer diameter", unit: "mm", value: "96" },
+      ]);
+    } finally {
+      await prisma.specificationAttributeDefinition.update({
+        data: { baseUnit: "millimetre", nameEn: "Outer diameter" },
+        where: { id: "specification-fuel-outer_diameter" },
+      });
+      await prisma.specificationAttributeOption.update({
+        data: { labelEn: "Spin-on" },
+        where: {
+          attributeId_code: {
+            attributeId: "specification-fuel-construction_type",
+            code: "spin_on",
+          },
+        },
+      });
+    }
+  });
+
   it("服务端拒绝错误单位并保留已持久化的公制基准值", async () => {
     await expect(
       validateProductSpecificationsForCategory(prisma, {

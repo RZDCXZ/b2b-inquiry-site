@@ -159,19 +159,21 @@ model Product {
 }
 
 model SpecificationAttributeDefinition {
-  id         String                         @id
-  categoryId String                         @map("category_id")
-  code       String
-  position   Int
-  nameEn     String                         @map("name_en")
-  nameZhCn   String                         @map("name_zh_cn")
-  dataType   SpecificationDataType          @map("data_type")
-  baseUnit   SpecificationUnit?             @map("base_unit")
-  required   Boolean
-  filterable Boolean
-  category   ProductCategory                @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  options    SpecificationAttributeOption[]
-  values     ProductSpecificationValue[]
+  id                  String                         @id
+  categoryId          String                         @map("category_id")
+  code                String
+  position            Int
+  nameEn              String                         @map("name_en")
+  nameZhCn            String                         @map("name_zh_cn")
+  dataType            SpecificationDataType          @map("data_type")
+  baseUnit            SpecificationUnit?             @map("base_unit")
+  minimumDecimalValue Decimal?                       @map("minimum_decimal_value") @db.Decimal(18, 6)
+  maximumDecimalValue Decimal?                       @map("maximum_decimal_value") @db.Decimal(18, 6)
+  required            Boolean
+  filterable          Boolean
+  category            ProductCategory                @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  options             SpecificationAttributeOption[]
+  values              ProductSpecificationValue[]
 
   @@unique([categoryId, code])
   @@unique([id, dataType])
@@ -194,16 +196,25 @@ model SpecificationAttributeOption {
 }
 
 model ProductSpecificationValue {
-  publicationId    String                           @map("publication_id")
-  attributeId      String                           @map("attribute_id")
-  decimalValue     Decimal?                         @map("decimal_value") @db.Decimal(18, 6)
-  booleanValue     Boolean?                         @map("boolean_value")
-  enumerationValue String?                          @map("enumeration_value")
-  textValue        String?                          @map("text_value")
-  publication      ProductPublication               @relation(fields: [publicationId], references: [id], onDelete: Cascade)
-  attribute        SpecificationAttributeDefinition @relation(fields: [attributeId], references: [id], onDelete: Restrict)
+  publicationId        String                           @map("publication_id")
+  attributeId          String                           @map("attribute_id")
+  attributeCode        String                           @map("attribute_code")
+  position             Int
+  nameEn               String                           @map("name_en")
+  nameZhCn             String                           @map("name_zh_cn")
+  dataType             SpecificationDataType            @map("data_type")
+  baseUnit             SpecificationUnit?               @map("base_unit")
+  decimalValue         Decimal?                         @map("decimal_value") @db.Decimal(18, 6)
+  booleanValue         Boolean?                         @map("boolean_value")
+  enumerationValue     String?                          @map("enumeration_value")
+  enumerationLabelEn   String?                          @map("enumeration_label_en")
+  enumerationLabelZhCn String?                          @map("enumeration_label_zh_cn")
+  textValue            String?                          @map("text_value")
+  publication          ProductPublication               @relation(fields: [publicationId], references: [id], onDelete: Cascade)
+  attribute            SpecificationAttributeDefinition @relation(fields: [attributeId], references: [id], onDelete: Restrict)
 
   @@id([publicationId, attributeId])
+  @@unique([publicationId, position])
   @@index([attributeId])
   @@map("product_specification_value")
 }

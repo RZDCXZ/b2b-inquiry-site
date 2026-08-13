@@ -6,25 +6,21 @@ export async function listProductSpecifications(
   publicationId: string,
 ): Promise<PersistedSpecificationForDisplay[]> {
   const values = await prisma.productSpecificationValue.findMany({
-    include: {
-      attribute: {
-        include: { options: { orderBy: { position: "asc" } } },
-      },
-    },
-    orderBy: { attribute: { position: "asc" } },
+    orderBy: { position: "asc" },
     where: { publicationId },
   });
 
-  return values.map(({ attribute, ...value }) => ({
-    baseUnit: attribute.baseUnit,
+  return values.map((value) => ({
+    baseUnit: value.baseUnit,
     booleanValue: value.booleanValue,
-    code: attribute.code,
-    dataType: attribute.dataType,
+    code: value.attributeCode,
+    dataType: value.dataType,
     decimalValue: value.decimalValue?.toNumber() ?? null,
+    enumerationLabelEn: value.enumerationLabelEn,
+    enumerationLabelZhCn: value.enumerationLabelZhCn,
     enumerationValue: value.enumerationValue,
-    nameEn: attribute.nameEn,
-    nameZhCn: attribute.nameZhCn,
-    options: attribute.options,
+    nameEn: value.nameEn,
+    nameZhCn: value.nameZhCn,
     textValue: value.textValue,
   }));
 }

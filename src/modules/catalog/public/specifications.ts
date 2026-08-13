@@ -35,6 +35,8 @@ export type SpecificationAttributeDefinition = {
   dataType: SpecificationDataType;
   filterable: boolean;
   id: string;
+  maximumDecimalValue: number | null;
+  minimumDecimalValue: number | null;
   nameEn: string;
   nameZhCn: string;
   options: readonly SpecificationAttributeOption[];
@@ -73,8 +75,20 @@ export type PersistedSpecificationForDisplay = {
   enumerationValue: string | null;
   nameEn: string;
   nameZhCn: string;
-  options: Array<{ code: string; labelEn: string; labelZhCn: string }>;
+  enumerationLabelEn: string | null;
+  enumerationLabelZhCn: string | null;
   textValue: string | null;
+};
+
+export type SpecificationSnapshotValue = ParsedSpecificationValue & {
+  attributeId: string;
+  baseUnit: MetricSpecificationUnit | null;
+  dataType: SpecificationDataType;
+  enumerationLabelEn: string | null;
+  enumerationLabelZhCn: string | null;
+  nameEn: string;
+  nameZhCn: string;
+  position: number;
 };
 
 export type SpecificationValidationCode =
@@ -133,6 +147,8 @@ const decimalDefinition = ({
   nameZhCn,
   position,
   unit,
+  maximumDecimalValue = 5000,
+  minimumDecimalValue = 0.01,
 }: {
   category: ProductCategoryCode;
   code: string;
@@ -140,12 +156,16 @@ const decimalDefinition = ({
   nameZhCn: string;
   position: number;
   unit: MetricSpecificationUnit;
+  maximumDecimalValue?: number;
+  minimumDecimalValue?: number;
 }): SpecificationAttributeDefinition => ({
   baseUnit: unit,
   code,
   dataType: "decimal",
   filterable: true,
   id: `specification-${category}-${code}`,
+  maximumDecimalValue,
+  minimumDecimalValue,
   nameEn,
   nameZhCn,
   options: [],
@@ -185,6 +205,8 @@ export const INITIAL_SPECIFICATION_DEFINITIONS = {
       dataType: "enumeration",
       filterable: true,
       id: "specification-air-media_type",
+      maximumDecimalValue: null,
+      minimumDecimalValue: null,
       nameEn: "Media type",
       nameZhCn: "滤材类型",
       options: mediaTypeOptions,
@@ -198,6 +220,7 @@ export const INITIAL_SPECIFICATION_DEFINITIONS = {
       nameZhCn: "额定空气流量",
       position: 5,
       unit: "cubic_metre_per_minute",
+      maximumDecimalValue: 100,
     }),
   ],
   cabin: [
@@ -231,6 +254,8 @@ export const INITIAL_SPECIFICATION_DEFINITIONS = {
       dataType: "enumeration",
       filterable: true,
       id: "specification-cabin-media_type",
+      maximumDecimalValue: null,
+      minimumDecimalValue: null,
       nameEn: "Media type",
       nameZhCn: "滤材类型",
       options: mediaTypeOptions,
@@ -244,6 +269,7 @@ export const INITIAL_SPECIFICATION_DEFINITIONS = {
       nameZhCn: "额定空气流量",
       position: 5,
       unit: "cubic_metre_per_minute",
+      maximumDecimalValue: 100,
     }),
   ],
   fuel: [
@@ -253,6 +279,8 @@ export const INITIAL_SPECIFICATION_DEFINITIONS = {
       dataType: "enumeration",
       filterable: true,
       id: "specification-fuel-construction_type",
+      maximumDecimalValue: null,
+      minimumDecimalValue: null,
       nameEn: "Construction type",
       nameZhCn: "结构形式",
       options: constructionTypeOptions,
@@ -281,6 +309,8 @@ export const INITIAL_SPECIFICATION_DEFINITIONS = {
       dataType: "text",
       filterable: false,
       id: "specification-fuel-connection_specification",
+      maximumDecimalValue: null,
+      minimumDecimalValue: null,
       nameEn: "Connection specification",
       nameZhCn: "接口规格",
       options: [],
@@ -294,6 +324,7 @@ export const INITIAL_SPECIFICATION_DEFINITIONS = {
       nameZhCn: "过滤精度",
       position: 5,
       unit: "micrometre",
+      maximumDecimalValue: 100,
     }),
     decimalDefinition({
       category: "fuel",
@@ -302,6 +333,7 @@ export const INITIAL_SPECIFICATION_DEFINITIONS = {
       nameZhCn: "额定流量",
       position: 6,
       unit: "litre_per_minute",
+      maximumDecimalValue: 100,
     }),
     {
       baseUnit: null,
@@ -309,6 +341,8 @@ export const INITIAL_SPECIFICATION_DEFINITIONS = {
       dataType: "boolean",
       filterable: true,
       id: "specification-fuel-water_separation",
+      maximumDecimalValue: null,
+      minimumDecimalValue: null,
       nameEn: "Water separation",
       nameZhCn: "油水分离",
       options: [],
@@ -323,6 +357,8 @@ export const INITIAL_SPECIFICATION_DEFINITIONS = {
       dataType: "enumeration",
       filterable: true,
       id: "specification-oil-construction_type",
+      maximumDecimalValue: null,
+      minimumDecimalValue: null,
       nameEn: "Construction type",
       nameZhCn: "结构形式",
       options: constructionTypeOptions,
@@ -359,6 +395,8 @@ export const INITIAL_SPECIFICATION_DEFINITIONS = {
       dataType: "text",
       filterable: false,
       id: "specification-oil-thread_specification",
+      maximumDecimalValue: null,
+      minimumDecimalValue: null,
       nameEn: "Thread specification",
       nameZhCn: "螺纹规格",
       options: [],
@@ -372,6 +410,7 @@ export const INITIAL_SPECIFICATION_DEFINITIONS = {
       nameZhCn: "旁通阀开启压力",
       position: 6,
       unit: "kilopascal",
+      maximumDecimalValue: 1000,
     }),
     {
       baseUnit: null,
@@ -379,6 +418,8 @@ export const INITIAL_SPECIFICATION_DEFINITIONS = {
       dataType: "boolean",
       filterable: true,
       id: "specification-oil-anti_drainback_valve",
+      maximumDecimalValue: null,
+      minimumDecimalValue: null,
       nameEn: "Anti-drainback valve",
       nameZhCn: "止回阀",
       options: [],
@@ -453,7 +494,10 @@ export function parseSpecificationValues(
             attributeCode,
           );
         }
-        if (value <= 0) {
+        if (
+          value < definition.minimumDecimalValue! ||
+          value > definition.maximumDecimalValue!
+        ) {
           throw new SpecificationValidationError(
             "invalid_number_range",
             attributeCode,
@@ -515,6 +559,34 @@ export function parseSpecificationValues(
         }
         return { ...emptyValue, booleanValue: value };
     }
+  });
+}
+
+export function createSpecificationSnapshotValues(
+  definitions: readonly SpecificationAttributeDefinition[],
+  input: unknown,
+): SpecificationSnapshotValue[] {
+  const definitionByCode = new Map(
+    definitions.map((definition) => [definition.code, definition]),
+  );
+
+  return parseSpecificationValues(definitions, input).map((value) => {
+    const definition = definitionByCode.get(value.attributeCode)!;
+    const enumerationOption = definition.options.find(
+      ({ code }) => code === value.enumerationValue,
+    );
+
+    return {
+      ...value,
+      attributeId: definition.id,
+      baseUnit: definition.baseUnit,
+      dataType: definition.dataType,
+      enumerationLabelEn: enumerationOption?.labelEn ?? null,
+      enumerationLabelZhCn: enumerationOption?.labelZhCn ?? null,
+      nameEn: definition.nameEn,
+      nameZhCn: definition.nameZhCn,
+      position: definition.position,
+    };
   });
 }
 
@@ -634,15 +706,12 @@ export function formatProductSpecification(
       };
     }
     case "enumeration": {
-      const option = specification.options.find(
-        ({ code }) => code === specification.enumerationValue,
-      );
       return {
         ...display,
         value:
-          (locale === "en" ? option?.labelEn : option?.labelZhCn) ??
-          specification.enumerationValue ??
-          "",
+          (locale === "en"
+            ? specification.enumerationLabelEn
+            : specification.enumerationLabelZhCn) ?? "",
       };
     }
     case "text":

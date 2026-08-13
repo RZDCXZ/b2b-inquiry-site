@@ -1,7 +1,7 @@
 import type { Prisma, PrismaClient } from "@/src/generated/prisma/client";
 import {
+  createSpecificationSnapshotValues,
   INITIAL_SPECIFICATION_DEFINITIONS,
-  parseSpecificationValues,
 } from "@/src/modules/catalog/public/specifications";
 
 const categoryIds = {
@@ -99,6 +99,8 @@ async function writeSpecificationDemoData(
           dataType: definition.dataType,
           filterable: definition.filterable,
           id: definition.id,
+          maximumDecimalValue: definition.maximumDecimalValue,
+          minimumDecimalValue: definition.minimumDecimalValue,
           nameEn: definition.nameEn,
           nameZhCn: definition.nameZhCn,
           position: definition.position,
@@ -110,6 +112,8 @@ async function writeSpecificationDemoData(
           code: definition.code,
           dataType: definition.dataType,
           filterable: definition.filterable,
+          maximumDecimalValue: definition.maximumDecimalValue,
+          minimumDecimalValue: definition.minimumDecimalValue,
           nameEn: definition.nameEn,
           nameZhCn: definition.nameZhCn,
           position: definition.position,
@@ -136,17 +140,22 @@ async function writeSpecificationDemoData(
   await transaction.productSpecificationValue.deleteMany();
   for (const input of productSpecificationInputs) {
     const definitions = INITIAL_SPECIFICATION_DEFINITIONS[input.category];
-    const definitionByCode = new Map(
-      definitions.map((definition) => [definition.code, definition]),
-    );
-    const values = parseSpecificationValues(definitions, input.values);
+    const values = createSpecificationSnapshotValues(definitions, input.values);
 
     await transaction.productSpecificationValue.createMany({
       data: values.map((value) => ({
-        attributeId: definitionByCode.get(value.attributeCode)!.id,
+        attributeCode: value.attributeCode,
+        attributeId: value.attributeId,
+        baseUnit: value.baseUnit,
         booleanValue: value.booleanValue,
+        dataType: value.dataType,
         decimalValue: value.decimalValue,
+        enumerationLabelEn: value.enumerationLabelEn,
+        enumerationLabelZhCn: value.enumerationLabelZhCn,
         enumerationValue: value.enumerationValue,
+        nameEn: value.nameEn,
+        nameZhCn: value.nameZhCn,
+        position: value.position,
         publicationId: input.publicationId,
         textValue: value.textValue,
       })),
