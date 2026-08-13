@@ -4,7 +4,9 @@ import { MobileNavigation } from "@/src/components/public/mobile-navigation";
 import type { PublicLocale } from "@/src/modules/site-config/public/locales";
 
 type PublicHeaderProps = {
+  activeNavigationAnchor?: string;
   descriptor: string;
+  languageHrefs?: Partial<Record<PublicLocale, string>>;
   languageLabel: string;
   locale: PublicLocale;
   mobileNavigationLabel: string;
@@ -13,21 +15,27 @@ type PublicHeaderProps = {
 };
 
 const localeOptions = [
-  { href: "/en", label: "EN", locale: "en" },
-  { href: "/zh-cn", label: "简中", locale: "zh-cn" },
+  { label: "EN", locale: "en" },
+  { label: "简中", locale: "zh-cn" },
 ] as const;
 
 export function PublicHeader({
+  activeNavigationAnchor,
   descriptor,
   languageLabel,
+  languageHrefs,
   locale,
   mobileNavigationLabel,
   navigation,
   primaryNavigationLabel,
 }: PublicHeaderProps) {
   const items = navigation.map((item) => ({
+    active: item.anchor === activeNavigationAnchor,
     label: item.label,
-    href: `/${locale}#${item.anchor}`,
+    href:
+      item.anchor === "products"
+        ? `/${locale}/products`
+        : `/${locale}#${item.anchor}`,
   }));
 
   return (
@@ -38,7 +46,11 @@ export function PublicHeader({
       </Link>
       <nav aria-label={primaryNavigationLabel} className="desktop-navigation">
         {items.map((item) => (
-          <Link href={item.href} key={item.href}>
+          <Link
+            aria-current={item.active ? "page" : undefined}
+            href={item.href}
+            key={item.href}
+          >
             {item.label}
           </Link>
         ))}
@@ -47,7 +59,7 @@ export function PublicHeader({
         {localeOptions.map((option) => (
           <Link
             aria-current={option.locale === locale ? "page" : undefined}
-            href={option.href}
+            href={languageHrefs?.[option.locale] ?? `/${option.locale}`}
             key={option.locale}
           >
             {option.label}

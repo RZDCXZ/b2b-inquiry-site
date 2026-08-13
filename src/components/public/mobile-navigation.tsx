@@ -5,7 +5,7 @@ import { List, X } from "@phosphor-icons/react";
 import { useEffect, useId, useState } from "react";
 
 type MobileNavigationProps = {
-  items: ReadonlyArray<{ label: string; href: string }>;
+  items: ReadonlyArray<{ active?: boolean; label: string; href: string }>;
   label: string;
 };
 
@@ -45,7 +45,12 @@ export function MobileNavigation({ items, label }: MobileNavigationProps) {
         id={menuId}
       >
         {items.map((item) => (
-          <Link href={item.href} key={item.href} onClick={() => setOpen(false)}>
+          <Link
+            aria-current={item.active ? "page" : undefined}
+            href={item.href}
+            key={item.href}
+            onClick={() => setOpen(false)}
+          >
             {item.label}
           </Link>
         ))}

@@ -68,7 +68,10 @@ export function HomePage({ locale }: { locale: PublicLocale }) {
             {copy.categories.map((category, index) => {
               const Icon = categoryIcons[index];
               return (
-                <Link href={`/${locale}#products`} key={category.name}>
+                <Link
+                  href={`/${locale}/products?category=${category.code}`}
+                  key={category.name}
+                >
                   <Icon aria-hidden="true" size={44} weight="thin" />
                   <span>
                     <strong>{category.name}</strong>
@@ -108,7 +111,7 @@ export function HomePage({ locale }: { locale: PublicLocale }) {
             <p className="eyebrow">{copy.categoryEyebrow}</p>
             <h2>{copy.categoryHeading}</h2>
             <p>{copy.footerDescription}</p>
-            <Link className="secondary-button" href={`/${locale}#products`}>
+            <Link className="secondary-button" href={`/${locale}/products`}>
               {copy.findAction}
               <ArrowRight aria-hidden="true" size={18} />
             </Link>

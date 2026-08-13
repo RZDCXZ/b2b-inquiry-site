@@ -35,7 +35,14 @@ export function PublicFooter({
       <section>
         <h2>{exploreHeading}</h2>
         {navigation.slice(0, 4).map((item) => (
-          <Link href={`/${locale}#${item.anchor}`} key={item.anchor}>
+          <Link
+            href={
+              item.anchor === "products"
+                ? `/${locale}/products`
+                : `/${locale}#${item.anchor}`
+            }
+            key={item.anchor}
+          >
             {item.label}
           </Link>
         ))}

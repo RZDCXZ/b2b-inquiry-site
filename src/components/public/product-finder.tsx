@@ -89,7 +89,7 @@ export function ProductFinder({
       </div>
       {modes.map((mode, index) => (
         <form
-          action={`/${locale}#products`}
+          action={`/${locale}/products`}
           aria-labelledby={`${finderId}-tab-${index}`}
           className="search-panel"
           hidden={activeIndex !== index}

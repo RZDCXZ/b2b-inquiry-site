@@ -112,3 +112,51 @@ model SiteConfiguration {
 
   @@map("site_configuration")
 }
+
+model ProductCategory {
+  id       String    @id
+  code     String    @unique
+  position Int       @unique
+  nameEn   String    @map("name_en")
+  nameZhCn String    @map("name_zh_cn")
+  products Product[]
+
+  @@map("product_category")
+}
+
+model Product {
+  id                   String               @id
+  partNumber           String               @map("part_number")
+  normalizedPartNumber String               @unique @default(dbgenerated()) @map("normalized_part_number")
+  categoryId           String               @map("category_id")
+  imagePath            String               @map("image_path")
+  currentPublicationId String?              @unique @map("current_publication_id")
+  createdAt            DateTime             @default(now()) @map("created_at")
+  updatedAt            DateTime             @updatedAt @map("updated_at")
+  category             ProductCategory      @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  currentPublication   ProductPublication?  @relation("CurrentProductPublication", fields: [id, currentPublicationId], references: [productId, id], onDelete: NoAction)
+  publications         ProductPublication[] @relation("ProductPublicationVersions")
+
+  @@unique([id, currentPublicationId])
+  @@index([categoryId])
+  @@map("product")
+}
+
+model ProductPublication {
+  id          String   @id
+  productId   String   @map("product_id")
+  version     Int
+  nameEn      String   @map("name_en")
+  slugEn      String   @map("slug_en")
+  summaryEn   String   @map("summary_en")
+  nameZhCn    String   @map("name_zh_cn")
+  slugZhCn    String   @map("slug_zh_cn")
+  summaryZhCn String   @map("summary_zh_cn")
+  publishedAt DateTime @default(now()) @map("published_at")
+  product     Product  @relation("ProductPublicationVersions", fields: [productId], references: [id], onDelete: Cascade)
+  currentFor  Product? @relation("CurrentProductPublication")
+
+  @@unique([productId, version])
+  @@unique([productId, id])
+  @@map("product_publication")
+}

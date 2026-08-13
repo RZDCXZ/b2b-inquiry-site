@@ -1,8 +1,13 @@
+import type { ProductCategoryCode } from "@/src/modules/catalog/public/product-identity";
 import type { PublicLocale } from "@/src/modules/site-config/public/locales";
 
 type HomeCopy = {
   brandDescriptor: string;
-  categories: ReadonlyArray<{ name: string; detail: string }>;
+  categories: ReadonlyArray<{
+    code: ProductCategoryCode;
+    name: string;
+    detail: string;
+  }>;
   categoryEyebrow: string;
   categoryHeading: string;
   companyName: string;
@@ -40,10 +45,10 @@ const copy: Record<PublicLocale, HomeCopy> = {
   en: {
     brandDescriptor: "Commercial vehicle filtration",
     categories: [
-      { name: "Fuel filters", detail: "Protect fuel systems" },
-      { name: "Oil filters", detail: "Keep engines clean" },
-      { name: "Air filters", detail: "Optimise airflow" },
-      { name: "Cabin filters", detail: "Improve cabin air" },
+      { code: "fuel", name: "Fuel filters", detail: "Protect fuel systems" },
+      { code: "oil", name: "Oil filters", detail: "Keep engines clean" },
+      { code: "air", name: "Air filters", detail: "Optimise airflow" },
+      { code: "cabin", name: "Cabin filters", detail: "Improve cabin air" },
     ],
     categoryEyebrow: "STRUCTURED PRODUCT CATALOGUE",
     categoryHeading: "Four categories. One reliable information model.",
@@ -119,10 +124,10 @@ const copy: Record<PublicLocale, HomeCopy> = {
   "zh-cn": {
     brandDescriptor: "商用车滤清产品",
     categories: [
-      { name: "燃油滤清器", detail: "保护燃油系统" },
-      { name: "机油滤清器", detail: "保持发动机清洁" },
-      { name: "空气滤清器", detail: "优化进气效率" },
-      { name: "空调滤清器", detail: "改善驾驶室空气" },
+      { code: "fuel", name: "燃油滤清器", detail: "保护燃油系统" },
+      { code: "oil", name: "机油滤清器", detail: "保持发动机清洁" },
+      { code: "air", name: "空气滤清器", detail: "优化进气效率" },
+      { code: "cabin", name: "空调滤清器", detail: "改善驾驶室空气" },
     ],
     categoryEyebrow: "结构化产品目录",
     categoryHeading: "四类滤清产品，共用一套可靠信息模型。",
