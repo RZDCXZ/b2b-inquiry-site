@@ -9,6 +9,7 @@ import {
 } from "@/src/infrastructure/local-demo/generated-assets";
 import { assertLocalDemoTarget } from "@/src/infrastructure/local-demo/local-demo-target";
 import { replaceCatalogIdentities } from "@/src/modules/catalog/server/catalog-demo-data";
+import { seedSpecificationDemoData } from "@/src/modules/catalog/server/specification-demo-data";
 import { seedPublishedProductContent } from "@/src/modules/content-publishing/server/product-demo-content";
 import { replacePresetAccounts } from "@/src/modules/identity-access/server/preset-accounts";
 import { readPresetCredentials } from "@/src/modules/identity-access/server/preset-credentials";
@@ -28,6 +29,7 @@ try {
   await verifyLocalDatabaseIdentity(prisma);
   await replaceDemoData(prisma);
   await replaceCatalogIdentities(prisma);
+  await seedSpecificationDemoData(prisma);
   await seedPublishedProductContent(prisma);
   await replacePresetAccounts(prisma, credentials);
   await clearTemporaryUploads();

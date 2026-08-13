@@ -15,6 +15,12 @@ import {
   type PublishedProductContent,
 } from "@/src/modules/content-publishing/server/product-public-content-query";
 import type { PublicLocale } from "@/src/modules/site-config/public/locales";
+import {
+  formatProductSpecification,
+  type ProductSpecificationDisplay,
+  type UnitSystem,
+} from "@/src/modules/catalog/public/specifications";
+import { listProductSpecifications } from "@/src/modules/catalog/server/product-specification-query";
 
 export type PublishedCatalogProduct = {
   category: { code: ProductCategoryCode; name: string };
@@ -34,6 +40,8 @@ export type LocalizedProductCategory = {
 
 export type PublishedProductDetail = PublishedCatalogProduct & {
   languageHrefs: Record<PublicLocale, string>;
+  specifications: ProductSpecificationDisplay[];
+  unitSystem: UnitSystem;
 };
 
 function localizeProduct(
@@ -125,10 +133,12 @@ export async function getPublishedProduct({
   locale,
   partNumber,
   prisma = getApplicationPrisma(),
+  unitSystem = "metric",
 }: {
   locale: PublicLocale;
   partNumber: string;
   prisma?: PrismaClient;
+  unitSystem?: UnitSystem;
 }): Promise<PublishedProductDetail | null> {
   const identity = await findCatalogProductIdentity(prisma, partNumber);
 
@@ -140,8 +150,9 @@ export async function getPublishedProduct({
     return null;
   }
 
-  const [content] = await listPublishedProductContent(prisma, [
-    identity.currentPublicationId,
+  const [[content], persistedSpecifications] = await Promise.all([
+    listPublishedProductContent(prisma, [identity.currentPublicationId]),
+    listProductSpecifications(prisma, identity.id),
   ]);
 
   if (!content) {
@@ -150,28 +161,39 @@ export async function getPublishedProduct({
 
   const localized = localizeProduct(locale, identity, content);
   const languageHrefs = {
-    en: productDetailPath("en", {
-      partNumber: identity.partNumber,
-      slug: content.slugEn,
-    }),
-    "zh-cn": productDetailPath("zh-cn", {
-      partNumber: identity.partNumber,
-      slug: content.slugZhCn,
-    }),
+    en:
+      productDetailPath("en", {
+        partNumber: identity.partNumber,
+        slug: content.slugEn,
+      }) + (unitSystem === "imperial" ? "?unit=imperial" : ""),
+    "zh-cn":
+      productDetailPath("zh-cn", {
+        partNumber: identity.partNumber,
+        slug: content.slugZhCn,
+      }) + (unitSystem === "imperial" ? "?unit=imperial" : ""),
   };
+
+  const localizedHref = productDetailPath(locale, {
+    partNumber: identity.partNumber,
+    slug: localized.slug,
+  });
 
   return {
     category: {
       code: identity.category.code,
       name: localized.categoryName,
     },
-    href: languageHrefs[locale],
+    href: localizedHref,
     id: identity.id,
     imagePath: identity.imagePath,
     languageHrefs,
     name: localized.name,
     partNumber: identity.partNumber,
     slug: localized.slug,
+    specifications: persistedSpecifications.map((specification) =>
+      formatProductSpecification(specification, { locale, unitSystem }),
+    ),
     summary: localized.summary,
+    unitSystem,
   };
 }

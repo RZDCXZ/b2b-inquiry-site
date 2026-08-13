@@ -14,6 +14,21 @@ enum AppRole {
   sales
 }
 
+enum SpecificationDataType {
+  boolean
+  decimal
+  enumeration
+  text
+}
+
+enum SpecificationUnit {
+  cubic_metre_per_minute
+  kilopascal
+  litre_per_minute
+  micrometre
+  millimetre
+}
+
 model User {
   id            String     @id
   name          String
@@ -114,32 +129,84 @@ model SiteConfiguration {
 }
 
 model ProductCategory {
-  id       String    @id
-  code     String    @unique
-  position Int       @unique
-  nameEn   String    @map("name_en")
-  nameZhCn String    @map("name_zh_cn")
-  products Product[]
+  id                      String                             @id
+  code                    String                             @unique
+  position                Int                                @unique
+  nameEn                  String                             @map("name_en")
+  nameZhCn                String                             @map("name_zh_cn")
+  products                Product[]
+  specificationAttributes SpecificationAttributeDefinition[]
 
   @@map("product_category")
 }
 
 model Product {
-  id                   String               @id
-  partNumber           String               @map("part_number")
-  normalizedPartNumber String               @unique @default(dbgenerated()) @map("normalized_part_number")
-  categoryId           String               @map("category_id")
-  imagePath            String               @map("image_path")
-  currentPublicationId String?              @unique @map("current_publication_id")
-  createdAt            DateTime             @default(now()) @map("created_at")
-  updatedAt            DateTime             @updatedAt @map("updated_at")
-  category             ProductCategory      @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  currentPublication   ProductPublication?  @relation("CurrentProductPublication", fields: [id, currentPublicationId], references: [productId, id], onDelete: NoAction)
-  publications         ProductPublication[] @relation("ProductPublicationVersions")
+  id                   String                      @id
+  partNumber           String                      @map("part_number")
+  normalizedPartNumber String                      @unique @default(dbgenerated()) @map("normalized_part_number")
+  categoryId           String                      @map("category_id")
+  imagePath            String                      @map("image_path")
+  currentPublicationId String?                     @unique @map("current_publication_id")
+  createdAt            DateTime                    @default(now()) @map("created_at")
+  updatedAt            DateTime                    @updatedAt @map("updated_at")
+  category             ProductCategory             @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  currentPublication   ProductPublication?         @relation("CurrentProductPublication", fields: [id, currentPublicationId], references: [productId, id], onDelete: NoAction)
+  publications         ProductPublication[]        @relation("ProductPublicationVersions")
+  specificationValues  ProductSpecificationValue[]
 
   @@unique([id, currentPublicationId])
   @@index([categoryId])
   @@map("product")
+}
+
+model SpecificationAttributeDefinition {
+  id         String                         @id
+  categoryId String                         @map("category_id")
+  code       String
+  position   Int
+  nameEn     String                         @map("name_en")
+  nameZhCn   String                         @map("name_zh_cn")
+  dataType   SpecificationDataType          @map("data_type")
+  baseUnit   SpecificationUnit?             @map("base_unit")
+  required   Boolean
+  filterable Boolean
+  category   ProductCategory                @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  options    SpecificationAttributeOption[]
+  values     ProductSpecificationValue[]
+
+  @@unique([categoryId, code])
+  @@unique([id, dataType])
+  @@unique([id, baseUnit])
+  @@unique([categoryId, position])
+  @@map("specification_attribute_definition")
+}
+
+model SpecificationAttributeOption {
+  attributeId String                           @map("attribute_id")
+  code        String
+  position    Int
+  labelEn     String                           @map("label_en")
+  labelZhCn   String                           @map("label_zh_cn")
+  attribute   SpecificationAttributeDefinition @relation(fields: [attributeId], references: [id], onDelete: Cascade)
+
+  @@id([attributeId, code])
+  @@unique([attributeId, position])
+  @@map("specification_attribute_option")
+}
+
+model ProductSpecificationValue {
+  productId        String                           @map("product_id")
+  attributeId      String                           @map("attribute_id")
+  decimalValue     Decimal?                         @map("decimal_value") @db.Decimal(18, 6)
+  booleanValue     Boolean?                         @map("boolean_value")
+  enumerationValue String?                          @map("enumeration_value")
+  textValue        String?                          @map("text_value")
+  product          Product                          @relation(fields: [productId], references: [id], onDelete: Cascade)
+  attribute        SpecificationAttributeDefinition @relation(fields: [attributeId], references: [id], onDelete: Restrict)
+
+  @@id([productId, attributeId])
+  @@index([attributeId])
+  @@map("product_specification_value")
 }
 
 model ProductPublication {

@@ -81,15 +81,74 @@ export function ProductDetailPage({
                 </div>
               </dl>
             </section>
-            <aside className="catalog-demo-note">
-              <Info aria-hidden="true" size={19} weight="fill" />
-              {catalogCopy.demoDataNotice}
-            </aside>
             <Link className="primary-button" href={`/${locale}#contact`}>
               {catalogCopy.detailInquiry}
               <ArrowRight aria-hidden="true" size={18} />
             </Link>
           </div>
+        </section>
+        <section
+          aria-labelledby="product-specifications-heading"
+          className="product-specifications"
+        >
+          <header>
+            <div>
+              <p className="eyebrow">{product.category.name}</p>
+              <h2 id="product-specifications-heading">
+                {catalogCopy.specificationsHeading}
+              </h2>
+              <p>{catalogCopy.metricBaseline}</p>
+            </div>
+            <nav
+              aria-label={catalogCopy.unitSystemLabel}
+              className="specification-unit-toggle"
+            >
+              <Link
+                aria-current={
+                  product.unitSystem === "metric" ? "page" : undefined
+                }
+                href={product.href}
+              >
+                {catalogCopy.unitSystems.metric}
+              </Link>
+              <Link
+                aria-current={
+                  product.unitSystem === "imperial" ? "page" : undefined
+                }
+                href={`${product.href}?unit=imperial`}
+              >
+                {catalogCopy.unitSystems.imperial}
+              </Link>
+            </nav>
+          </header>
+          <div className="specification-table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">{catalogCopy.specificationColumn}</th>
+                  <th scope="col">{catalogCopy.valueColumn}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {product.specifications.map((specification) => (
+                  <tr key={specification.code}>
+                    <th scope="row">{specification.label}</th>
+                    <td>
+                      <span>{specification.value}</span>
+                      {specification.unit ? ` ${specification.unit}` : ""}
+                      {specification.converted ? (
+                        <small>{catalogCopy.convertedLabel}</small>
+                      ) : null}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <aside className="catalog-demo-note">
+            <Info aria-hidden="true" size={19} weight="fill" />
+            {catalogCopy.demoDataNotice}
+          </aside>
         </section>
       </main>
       <PublicFooter
