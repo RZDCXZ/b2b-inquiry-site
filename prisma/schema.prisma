@@ -1,0 +1,30 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "esm"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model EnvironmentIdentity {
+  key               String   @id @default("primary")
+  databaseId        String   @unique @map("database_id")
+  environmentMarker String   @map("environment_marker")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@map("environment_identity")
+}
+
+model SiteConfiguration {
+  key             String   @id @default("primary")
+  companyNameEn   String   @map("company_name_en")
+  companyNameZhCn String   @map("company_name_zh_cn")
+  contactEmail    String   @map("contact_email")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@map("site_configuration")
+}

@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      BETTER_AUTH_SECRET: ci-only-not-used-outside-this-job
+      DATABASE_URL: postgresql://torquelis:torquelis_local_only@127.0.0.1:55432/torquelis_demo?schema=public
+      DEMO_ENVIRONMENT_ID: torquelis-local-demo
+      PUBLIC_INDEXING: "false"
+    services:
+      postgres:
+        image: postgres:18-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15
+        env:
+          POSTGRES_DB: torquelis_demo
+          POSTGRES_PASSWORD: torquelis_local_only
+          POSTGRES_USER: torquelis
+        ports:
+          - 55432:5432
+        options: >-
+          --health-cmd "pg_isready -U torquelis -d torquelis_demo"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 20
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.18.0
+
+      - name: Enable locked pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@11.21.0 --activate
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Apply fresh migrations and seed
+        run: |
+          pnpm db:migrate
+          pnpm db:seed
+
+      - name: Static checks and unit tests
+        run: pnpm check
+
+      - name: PostgreSQL integration tests
+        run: pnpm test:integration
+
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Browser smoke path
+        run: pnpm test:e2e
+
+      - name: Production build
+        run: pnpm build

@@ -7,9 +7,15 @@
 
 # JavaScript dependencies and generated output
 node_modules/
+.next/
 dist/
 coverage/
 *.log
+*.tsbuildinfo
+src/generated/prisma/
+
+# Local demo state, generated assets, credentials, and uploads
+.local/
 
 # Test and browser artifacts
 playwright-report/

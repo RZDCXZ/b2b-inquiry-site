@@ -1,0 +1,9 @@
+.git/
+.local/
+.next/
+.scratch/
+coverage/
+node_modules/
+product-ui/
+src/generated/
+*.md
