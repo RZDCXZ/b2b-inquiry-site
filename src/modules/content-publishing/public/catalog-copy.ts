@@ -10,7 +10,7 @@ type CatalogCopy = {
   detailEyebrow: string;
   detailInquiry: string;
   detailPublished: string;
-  detailSummaryHeading: string;
+  keySpecificationsHeading: string;
   convertedLabel: string;
   metricBaseline: string;
   metadataDescription: string;
@@ -38,7 +38,7 @@ const copy: Record<PublicLocale, CatalogCopy> = {
     detailEyebrow: "TORQUELIS PART NUMBER",
     detailInquiry: "Inquire about this product",
     detailPublished: "Published",
-    detailSummaryHeading: "Product summary",
+    keySpecificationsHeading: "Key specifications",
     convertedLabel: "Converted",
     metricBaseline:
       "Metric values are the persisted baseline. Imperial values are derived for display.",
@@ -67,7 +67,7 @@ const copy: Record<PublicLocale, CatalogCopy> = {
     detailEyebrow: "TORQUELIS 产品编号",
     detailInquiry: "咨询此产品",
     detailPublished: "已发布",
-    detailSummaryHeading: "产品摘要",
+    keySpecificationsHeading: "关键规格",
     convertedLabel: "换算值",
     metricBaseline: "公制值是持久化基准；英制值仅由系统换算用于显示。",
     metadataDescription: "按分类浏览已发布的 Torquelis 标准替换滤清产品。",

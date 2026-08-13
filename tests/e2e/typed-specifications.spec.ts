@@ -40,8 +40,10 @@ test("海外采购者切换产品规格单位后刷新仍保留明确标识的�
     page.getByRole("row", { name: /Outer diameter 3.78 in Converted/ }),
   ).toBeVisible();
   await expect(
-    page.getByText("Demo data — not for selection or purchasing.", {
-      exact: true,
-    }),
+    page
+      .getByText("Demo data — not for selection or purchasing.", {
+        exact: true,
+      })
+      .first(),
   ).toBeVisible();
 });

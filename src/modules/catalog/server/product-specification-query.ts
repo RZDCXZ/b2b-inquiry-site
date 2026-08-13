@@ -1,26 +1,10 @@
 import type { PrismaClient } from "@/src/generated/prisma/client";
-import type {
-  MetricSpecificationUnit,
-  SpecificationDataType,
-} from "@/src/modules/catalog/public/specifications";
-
-export type PersistedProductSpecification = {
-  baseUnit: MetricSpecificationUnit | null;
-  booleanValue: boolean | null;
-  code: string;
-  dataType: SpecificationDataType;
-  decimalValue: number | null;
-  enumerationValue: string | null;
-  nameEn: string;
-  nameZhCn: string;
-  options: Array<{ code: string; labelEn: string; labelZhCn: string }>;
-  textValue: string | null;
-};
+import type { PersistedSpecificationForDisplay } from "@/src/modules/catalog/public/specifications";
 
 export async function listProductSpecifications(
   prisma: PrismaClient,
-  productId: string,
-): Promise<PersistedProductSpecification[]> {
+  publicationId: string,
+): Promise<PersistedSpecificationForDisplay[]> {
   const values = await prisma.productSpecificationValue.findMany({
     include: {
       attribute: {
@@ -28,7 +12,7 @@ export async function listProductSpecifications(
       },
     },
     orderBy: { attribute: { position: "asc" } },
-    where: { productId },
+    where: { publicationId },
   });
 
   return values.map(({ attribute, ...value }) => ({

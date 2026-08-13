@@ -1648,14 +1648,38 @@ select {
   display: flex;
   justify-content: space-between;
   gap: 20px;
+  border-bottom: 1px solid var(--line);
+  padding: 10px 0;
   color: var(--graphite-600);
   font-size: 12px;
+}
+
+.product-detail-summary dl div:last-child {
+  border-bottom: 0;
 }
 
 .product-detail-summary dd {
   margin: 0;
   color: var(--navy-900);
   font-weight: 700;
+}
+
+.product-detail-summary dd small {
+  display: block;
+  margin-top: 3px;
+  color: var(--warning);
+  font-size: 8px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.product-detail-summary .specification-unit-toggle {
+  width: 220px;
+  margin-top: 24px;
+}
+
+.product-detail-summary .catalog-demo-note {
+  margin-top: 18px;
 }
 
 .product-detail-summary .primary-button {

@@ -2,7 +2,7 @@ import { afterAll, describe, expect, it } from "vitest";
 
 import { getPublishedProduct } from "@/src/application/public-catalog";
 import { createPrismaClient } from "@/src/infrastructure/database/prisma";
-import { replaceProductSpecifications } from "@/src/modules/catalog/server/product-specification-service";
+import { validateProductSpecificationsForCategory } from "@/src/modules/catalog/server/product-specification-service";
 
 const databaseUrl =
   process.env.DATABASE_URL ??
@@ -146,10 +146,56 @@ describe("强类型产品规格持久化", () => {
     ]);
   });
 
+  it("未设为当前版本的规格快照不会绕过发布改变公开详情", async () => {
+    const publicationId = "publication-product-tq-fl-4827-v99-spec-test";
+    const currentValues = await prisma.productSpecificationValue.findMany({
+      where: { publicationId: "publication-product-tq-fl-4827-v1" },
+    });
+
+    await prisma.productPublication.create({
+      data: {
+        id: publicationId,
+        nameEn: "Specification snapshot test",
+        nameZhCn: "规格快照测试",
+        productId: "product-tq-fl-4827",
+        slugEn: "specification-snapshot-test",
+        slugZhCn: "规格快照测试",
+        summaryEn: "Integration-only specification snapshot.",
+        summaryZhCn: "仅用于集成测试的规格快照。",
+        version: 99,
+      },
+    });
+    await prisma.productSpecificationValue.createMany({
+      data: currentValues.map(({ attributeId, ...value }) => ({
+        ...value,
+        attributeId,
+        decimalValue:
+          attributeId === "specification-fuel-outer_diameter"
+            ? 100
+            : value.decimalValue,
+        publicationId,
+      })),
+    });
+
+    try {
+      const product = await getPublishedProduct({
+        locale: "en",
+        partNumber: "TQ-FL-4827",
+        prisma,
+      });
+
+      expect(
+        product?.specifications.find(({ code }) => code === "outer_diameter"),
+      ).toMatchObject({ unit: "mm", value: "96" });
+    } finally {
+      await prisma.productPublication.delete({ where: { id: publicationId } });
+    }
+  });
+
   it("服务端拒绝错误单位并保留已持久化的公制基准值", async () => {
     await expect(
-      replaceProductSpecifications(prisma, {
-        productId: "product-tq-fl-4827",
+      validateProductSpecificationsForCategory(prisma, {
+        categoryId: "category-fuel",
         values: [
           { attributeCode: "construction_type", value: "spin_on" },
           { attributeCode: "outer_diameter", unit: "inch", value: 3.78 },

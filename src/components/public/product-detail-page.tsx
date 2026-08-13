@@ -70,35 +70,6 @@ export function ProductDetailPage({
             <h1>{product.partNumber}</h1>
             <h2>{product.name}</h2>
             <p>{product.summary}</p>
-            <section aria-labelledby="product-summary-heading">
-              <h3 id="product-summary-heading">
-                {catalogCopy.detailSummaryHeading}
-              </h3>
-              <dl>
-                <div>
-                  <dt>{product.category.name}</dt>
-                  <dd>{catalogCopy.detailPublished}</dd>
-                </div>
-              </dl>
-            </section>
-            <Link className="primary-button" href={`/${locale}#contact`}>
-              {catalogCopy.detailInquiry}
-              <ArrowRight aria-hidden="true" size={18} />
-            </Link>
-          </div>
-        </section>
-        <section
-          aria-labelledby="product-specifications-heading"
-          className="product-specifications"
-        >
-          <header>
-            <div>
-              <p className="eyebrow">{product.category.name}</p>
-              <h2 id="product-specifications-heading">
-                {catalogCopy.specificationsHeading}
-              </h2>
-              <p>{catalogCopy.metricBaseline}</p>
-            </div>
             <nav
               aria-label={catalogCopy.unitSystemLabel}
               className="specification-unit-toggle"
@@ -120,6 +91,49 @@ export function ProductDetailPage({
                 {catalogCopy.unitSystems.imperial}
               </Link>
             </nav>
+            <section aria-labelledby="key-specifications-heading">
+              <h3 id="key-specifications-heading">
+                {catalogCopy.keySpecificationsHeading}
+              </h3>
+              <dl>
+                {product.specifications
+                  .filter(({ unit }) => unit !== null)
+                  .slice(0, 4)
+                  .map((specification) => (
+                    <div key={specification.code}>
+                      <dt>{specification.label}</dt>
+                      <dd>
+                        {specification.value} {specification.unit}
+                        {specification.converted ? (
+                          <small>{catalogCopy.convertedLabel}</small>
+                        ) : null}
+                      </dd>
+                    </div>
+                  ))}
+              </dl>
+            </section>
+            <aside className="catalog-demo-note">
+              <Info aria-hidden="true" size={19} weight="fill" />
+              {catalogCopy.demoDataNotice}
+            </aside>
+            <Link className="primary-button" href={`/${locale}#contact`}>
+              {catalogCopy.detailInquiry}
+              <ArrowRight aria-hidden="true" size={18} />
+            </Link>
+          </div>
+        </section>
+        <section
+          aria-labelledby="product-specifications-heading"
+          className="product-specifications"
+        >
+          <header>
+            <div>
+              <p className="eyebrow">{product.category.name}</p>
+              <h2 id="product-specifications-heading">
+                {catalogCopy.specificationsHeading}
+              </h2>
+              <p>{catalogCopy.metricBaseline}</p>
+            </div>
           </header>
           <div className="specification-table-wrap">
             <table>

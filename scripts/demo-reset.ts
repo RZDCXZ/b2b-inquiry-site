@@ -29,8 +29,8 @@ try {
   await verifyLocalDatabaseIdentity(prisma);
   await replaceDemoData(prisma);
   await replaceCatalogIdentities(prisma);
-  await seedSpecificationDemoData(prisma);
   await seedPublishedProductContent(prisma);
+  await seedSpecificationDemoData(prisma);
   await replacePresetAccounts(prisma, credentials);
   await clearTemporaryUploads();
   await regenerateDemoAssets();

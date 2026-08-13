@@ -152,7 +152,7 @@ export async function getPublishedProduct({
 
   const [[content], persistedSpecifications] = await Promise.all([
     listPublishedProductContent(prisma, [identity.currentPublicationId]),
-    listProductSpecifications(prisma, identity.id),
+    listProductSpecifications(prisma, identity.currentPublicationId),
   ]);
 
   if (!content) {

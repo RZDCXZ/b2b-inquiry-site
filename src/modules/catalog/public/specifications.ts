@@ -81,6 +81,7 @@ export type SpecificationValidationCode =
   | "duplicate_attribute"
   | "invalid_enum_option"
   | "invalid_input"
+  | "invalid_number_range"
   | "invalid_value_type"
   | "required_attribute_missing"
   | "unit_mismatch"
@@ -449,6 +450,12 @@ export function parseSpecificationValues(
         if (typeof value !== "number" || !Number.isFinite(value)) {
           throw new SpecificationValidationError(
             "invalid_value_type",
+            attributeCode,
+          );
+        }
+        if (value <= 0) {
+          throw new SpecificationValidationError(
+            "invalid_number_range",
             attributeCode,
           );
         }

@@ -356,4 +356,22 @@ describe("规格值服务端校验", () => {
       ]),
     ).toThrow(expect.objectContaining({ code: "unknown_attribute" }));
   });
+
+  it("拒绝不可能的非正数尺寸与演示性能值", () => {
+    const values = [
+      { attributeCode: "outer_diameter", unit: "millimetre", value: -1 },
+      { attributeCode: "inner_diameter", unit: "millimetre", value: 165 },
+      { attributeCode: "height", unit: "millimetre", value: 480 },
+      { attributeCode: "media_type", value: "synthetic" },
+      {
+        attributeCode: "rated_air_flow",
+        unit: "cubic_metre_per_minute",
+        value: 24,
+      },
+    ];
+
+    expect(() =>
+      parseSpecificationValues(INITIAL_SPECIFICATION_DEFINITIONS.air, values),
+    ).toThrow(expect.objectContaining({ code: "invalid_number_range" }));
+  });
 });

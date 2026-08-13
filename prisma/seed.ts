@@ -20,8 +20,8 @@ try {
   const credentials = await ensurePresetCredentials();
   await seedDemoData(prisma);
   await seedCatalogIdentities(prisma);
-  await seedSpecificationDemoData(prisma);
   await seedPublishedProductContent(prisma);
+  await seedSpecificationDemoData(prisma);
   await seedPresetAccounts(prisma, credentials);
   console.log(
     "Seeded the verified Torquelis local demo identity, preset roles, and site configuration.",

@@ -14,7 +14,7 @@ const categoryIds = {
 const productSpecificationInputs = [
   {
     category: "air",
-    productId: "product-tq-af-2106",
+    publicationId: "publication-product-tq-af-2106-v1",
     values: [
       { attributeCode: "outer_diameter", unit: "millimetre", value: 285 },
       { attributeCode: "inner_diameter", unit: "millimetre", value: 165 },
@@ -29,7 +29,7 @@ const productSpecificationInputs = [
   },
   {
     category: "cabin",
-    productId: "product-tq-cf-3021",
+    publicationId: "publication-product-tq-cf-3021-v1",
     values: [
       { attributeCode: "length", unit: "millimetre", value: 310 },
       { attributeCode: "width", unit: "millimetre", value: 225 },
@@ -44,7 +44,7 @@ const productSpecificationInputs = [
   },
   {
     category: "fuel",
-    productId: "product-tq-fl-4827",
+    publicationId: "publication-product-tq-fl-4827-v1",
     values: [
       { attributeCode: "construction_type", value: "spin_on" },
       { attributeCode: "outer_diameter", unit: "millimetre", value: 96 },
@@ -65,7 +65,7 @@ const productSpecificationInputs = [
   },
   {
     category: "oil",
-    productId: "product-tq-of-1038",
+    publicationId: "publication-product-tq-of-1038-v1",
     values: [
       { attributeCode: "construction_type", value: "spin_on" },
       { attributeCode: "outer_diameter", unit: "millimetre", value: 93 },
@@ -147,7 +147,7 @@ async function writeSpecificationDemoData(
         booleanValue: value.booleanValue,
         decimalValue: value.decimalValue,
         enumerationValue: value.enumerationValue,
-        productId: input.productId,
+        publicationId: input.publicationId,
         textValue: value.textValue,
       })),
     });
