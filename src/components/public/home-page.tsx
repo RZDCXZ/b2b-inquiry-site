@@ -15,15 +15,18 @@ import { PublicHeader } from "@/src/components/public/public-header";
 import { ProductFinder } from "@/src/components/public/product-finder";
 import { getHomeCopy } from "@/src/modules/content-publishing/public/home-copy";
 import type { PublicLocale } from "@/src/modules/site-config/public/locales";
+import type { LocalizedVehicleFitmentOption } from "@/src/modules/catalog/public/fitments";
 
 const categoryIcons = [Funnel, Engine, SlidersHorizontal, Rows] as const;
 
 export function HomePage({
   initialFinderMode,
   locale,
+  vehicleFitments,
 }: {
   initialFinderMode?: "part" | "specifications" | "vehicle";
   locale: PublicLocale;
+  vehicleFitments: LocalizedVehicleFitmentOption[];
 }) {
   const copy = getHomeCopy(locale);
 
@@ -50,6 +53,7 @@ export function HomePage({
               initialMode={initialFinderMode}
               locale={locale}
               modes={copy.finderModes}
+              vehicleFitments={vehicleFitments}
             />
           </div>
           <figure className="hero-visual">

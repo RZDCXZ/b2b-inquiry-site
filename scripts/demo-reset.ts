@@ -13,6 +13,7 @@ import {
   seedProductReferenceDemoData,
 } from "@/src/modules/catalog/server/catalog-demo-data";
 import { seedSpecificationDemoData } from "@/src/modules/catalog/server/specification-demo-data";
+import { replaceVehicleFitmentDemoData } from "@/src/modules/catalog/server/fitment-demo-data";
 import { seedPublishedProductContent } from "@/src/modules/content-publishing/server/product-demo-content";
 import { replacePresetAccounts } from "@/src/modules/identity-access/server/preset-accounts";
 import { readPresetCredentials } from "@/src/modules/identity-access/server/preset-credentials";
@@ -35,6 +36,7 @@ try {
   await seedPublishedProductContent(prisma);
   await seedProductReferenceDemoData(prisma);
   await seedSpecificationDemoData(prisma);
+  await replaceVehicleFitmentDemoData(prisma);
   await replacePresetAccounts(prisma, credentials);
   await clearTemporaryUploads();
   await regenerateDemoAssets();

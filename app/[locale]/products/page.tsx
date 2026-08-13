@@ -2,8 +2,10 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 
 import {
+  findPublishedProductsByVehicle,
   listProductCategories,
   listPublishedProducts,
+  listPublishedVehicleFitmentOptions,
   lookupPublishedProductNumber,
 } from "@/src/application/public-catalog";
 import { CatalogPage } from "@/src/components/public/catalog-page";
@@ -13,12 +15,18 @@ import {
   CATALOG_SEARCH_PARAMS_SCHEMA,
 } from "@/src/modules/catalog/public/product-identity";
 import { getCatalogCopy } from "@/src/modules/content-publishing/public/catalog-copy";
+import { VEHICLE_FINDER_SEARCH_PARAMS_SCHEMA } from "@/src/modules/catalog/public/fitments";
 
 type CatalogRouteProps = {
   params: Promise<{ locale: string }>;
   searchParams: Promise<{
     category?: string | string[];
+    engine?: string | string[];
+    finder?: string | string[];
+    make?: string | string[];
+    model?: string | string[];
     part?: string | string[];
+    year?: string | string[];
   }>;
 };
 
@@ -46,6 +54,8 @@ export default async function ProductsPage({
   const [{ locale }, query] = await Promise.all([params, searchParams]);
   const parsedParams = CATALOG_ROUTE_PARAMS_SCHEMA.safeParse({ locale });
   const parsedQuery = CATALOG_SEARCH_PARAMS_SCHEMA.safeParse(query);
+  const parsedVehicleQuery =
+    VEHICLE_FINDER_SEARCH_PARAMS_SCHEMA.safeParse(query);
 
   if (!parsedParams.success) {
     notFound();
@@ -70,17 +80,67 @@ export default async function ProductsPage({
   const categoryCode = parsedQuery.success
     ? parsedQuery.data.category
     : undefined;
-  const [categories, products] = await Promise.all([
+  const vehicleQuery = parsedVehicleQuery.success
+    ? parsedVehicleQuery.data
+    : undefined;
+  const vehicleSelection =
+    vehicleQuery?.finder === "vehicle" &&
+    vehicleQuery.make &&
+    vehicleQuery.model &&
+    vehicleQuery.year &&
+    vehicleQuery.engine &&
+    vehicleQuery.category
+      ? {
+          categoryCode: vehicleQuery.category,
+          engineId: vehicleQuery.engine,
+          makeId: vehicleQuery.make,
+          modelId: vehicleQuery.model,
+          year: vehicleQuery.year,
+        }
+      : undefined;
+  const [categories, products, vehicleFitments] = await Promise.all([
     listProductCategories({ locale: publicLocale }),
-    listPublishedProducts({ categoryCode, locale: publicLocale }),
+    vehicleSelection
+      ? findPublishedProductsByVehicle({
+          locale: publicLocale,
+          selection: vehicleSelection,
+        })
+      : listPublishedProducts({ categoryCode, locale: publicLocale }),
+    listPublishedVehicleFitmentOptions({ locale: publicLocale }),
   ]);
+  const vehicleQueryString = vehicleSelection
+    ? new URLSearchParams({
+        finder: "vehicle",
+        make: vehicleSelection.makeId,
+        model: vehicleSelection.modelId,
+        year: String(vehicleSelection.year),
+        engine: vehicleSelection.engineId,
+        category: vehicleSelection.categoryCode,
+      }).toString()
+    : undefined;
 
   return (
     <CatalogPage
       categories={categories}
+      initialFinderMode={
+        vehicleQuery?.finder === "vehicle" ? "vehicle" : undefined
+      }
+      initialVehicleSelection={
+        vehicleQuery?.finder === "vehicle"
+          ? {
+              categoryCode: vehicleQuery.category,
+              engineId: vehicleQuery.engine,
+              makeId: vehicleQuery.make,
+              modelId: vehicleQuery.model,
+              year: vehicleQuery.year,
+            }
+          : undefined
+      }
       locale={publicLocale}
       products={products}
       selectedCategory={categories.find(({ code }) => code === categoryCode)}
+      vehicleFitments={vehicleFitments}
+      vehicleQueryString={vehicleQueryString}
     />
   );
 }

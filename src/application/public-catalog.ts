@@ -25,6 +25,14 @@ import {
   type UnitSystem,
 } from "@/src/modules/catalog/public/specifications";
 import { listProductSpecifications } from "@/src/modules/catalog/server/product-specification-query";
+import {
+  type LocalizedVehicleFitmentOption,
+  type VehicleFitmentSelection,
+} from "@/src/modules/catalog/public/fitments";
+import {
+  findCatalogFitmentPublicationIdsByVehicle,
+  listCatalogVehicleFitments,
+} from "@/src/modules/catalog/server/fitment-query";
 
 export type PublishedCatalogProduct = {
   category: { code: ProductCategoryCode; name: string };
@@ -109,16 +117,11 @@ function createPublishedCatalogProduct(
   };
 }
 
-export async function listPublishedProducts({
-  categoryCode,
-  locale,
-  prisma = getApplicationPrisma(),
-}: {
-  categoryCode?: ProductCategoryCode;
-  locale: PublicLocale;
-  prisma?: ApplicationDatabase;
-}): Promise<PublishedCatalogProduct[]> {
-  const identities = await listCatalogProductIdentities(prisma, categoryCode);
+async function assemblePublishedCatalogProducts(
+  locale: PublicLocale,
+  prisma: ApplicationDatabase,
+  identities: CatalogProductIdentity[],
+): Promise<PublishedCatalogProduct[]> {
   const contents = await listPublishedProductContent(
     prisma,
     identities.flatMap(({ currentPublicationId }) =>
@@ -132,12 +135,24 @@ export async function listPublishedProducts({
   return identities.flatMap((identity) => {
     const content = contentByProductId.get(identity.id);
 
-    if (!content) {
-      return [];
-    }
-
-    return [createPublishedCatalogProduct(locale, identity, content)];
+    return content
+      ? [createPublishedCatalogProduct(locale, identity, content)]
+      : [];
   });
+}
+
+export async function listPublishedProducts({
+  categoryCode,
+  locale,
+  prisma = getApplicationPrisma(),
+}: {
+  categoryCode?: ProductCategoryCode;
+  locale: PublicLocale;
+  prisma?: ApplicationDatabase;
+}): Promise<PublishedCatalogProduct[]> {
+  const identities = await listCatalogProductIdentities(prisma, categoryCode);
+
+  return assemblePublishedCatalogProducts(locale, prisma, identities);
 }
 
 export async function listProductCategories({
@@ -153,6 +168,68 @@ export async function listProductCategories({
     code: category.code,
     name: locale === "en" ? category.nameEn : category.nameZhCn,
   }));
+}
+
+export async function listPublishedVehicleFitmentOptions({
+  locale,
+  prisma = getApplicationPrisma(),
+}: {
+  locale: PublicLocale;
+  prisma?: ApplicationDatabase;
+}): Promise<LocalizedVehicleFitmentOption[]> {
+  const [fitments, identities] = await Promise.all([
+    listCatalogVehicleFitments(prisma),
+    listCatalogProductIdentities(prisma),
+  ]);
+  const identityByPublicationId = new Map(
+    identities.flatMap((identity) =>
+      identity.currentPublicationId
+        ? ([[identity.currentPublicationId, identity]] as const)
+        : [],
+    ),
+  );
+
+  return fitments.flatMap((fitment) => {
+    const identity = identityByPublicationId.get(fitment.publicationId);
+
+    return identity
+      ? [
+          {
+            ...fitment,
+            category: {
+              code: identity.category.code,
+              name:
+                locale === "en"
+                  ? identity.category.nameEn
+                  : identity.category.nameZhCn,
+            },
+          },
+        ]
+      : [];
+  });
+}
+
+export async function findPublishedProductsByVehicle({
+  locale,
+  prisma = getApplicationPrisma(),
+  selection,
+}: {
+  locale: PublicLocale;
+  prisma?: ApplicationDatabase;
+  selection: VehicleFitmentSelection;
+}): Promise<PublishedCatalogProduct[]> {
+  const [publicationIds, identities] = await Promise.all([
+    findCatalogFitmentPublicationIdsByVehicle(prisma, selection),
+    listCatalogProductIdentities(prisma, selection.categoryCode),
+  ]);
+  const publicationIdSet = new Set(publicationIds);
+  const matchingIdentities = identities.filter(
+    ({ currentPublicationId }) =>
+      currentPublicationId !== null &&
+      publicationIdSet.has(currentPublicationId),
+  );
+
+  return assemblePublishedCatalogProducts(locale, prisma, matchingIdentities);
 }
 
 export async function getPublishedProduct({

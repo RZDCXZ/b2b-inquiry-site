@@ -21,7 +21,7 @@ test("the public shell is bilingual and the root always redirects to English", a
     "aria-selected",
     "true",
   );
-  await expect(page.getByLabel("Vehicle make, model or engine")).toBeVisible();
+  await expect(page.getByRole("combobox", { name: "Brand" })).toHaveValue("");
 
   await page.getByRole("link", { name: "简中" }).click();
   await expect(page).toHaveURL(/\/zh-cn$/);

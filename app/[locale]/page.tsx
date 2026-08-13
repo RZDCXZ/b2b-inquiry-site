@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
+import { listPublishedVehicleFitmentOptions } from "@/src/application/public-catalog";
 import { HomePage } from "@/src/components/public/home-page";
 import { HOME_SEARCH_PARAMS_SCHEMA } from "@/src/modules/catalog/public/product-identity";
 import { getHomeMetadataCopy } from "@/src/modules/content-publishing/public/home-copy";
@@ -34,6 +35,7 @@ export default async function LocaleHomePage({
   }
 
   const parsedQuery = HOME_SEARCH_PARAMS_SCHEMA.safeParse(query);
+  const vehicleFitments = await listPublishedVehicleFitmentOptions({ locale });
 
   return (
     <HomePage
@@ -41,6 +43,7 @@ export default async function LocaleHomePage({
         parsedQuery.success ? parsedQuery.data.finder : undefined
       }
       locale={locale}
+      vehicleFitments={vehicleFitments}
     />
   );
 }

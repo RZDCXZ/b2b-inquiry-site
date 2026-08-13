@@ -140,6 +140,39 @@ model ProductCategory {
   @@map("product_category")
 }
 
+model VehicleMake {
+  id     String         @id
+  name   String         @unique
+  models VehicleModel[]
+
+  @@map("vehicle_make")
+}
+
+model VehicleModel {
+  id       String      @id
+  makeId   String      @map("make_id")
+  name     String
+  make     VehicleMake @relation(fields: [makeId], references: [id], onDelete: Cascade)
+  engines  Engine[]
+
+  @@unique([makeId, name])
+  @@index([makeId])
+  @@map("vehicle_model")
+}
+
+model Engine {
+  id             String           @id
+  vehicleModelId String           @map("vehicle_model_id")
+  code           String
+  vehicleModel   VehicleModel     @relation(fields: [vehicleModelId], references: [id], onDelete: Cascade)
+  fitments       ProductFitment[]
+
+  @@unique([vehicleModelId, code])
+  @@unique([id, vehicleModelId])
+  @@index([vehicleModelId])
+  @@map("engine")
+}
+
 model Product {
   id                   String               @id
   partNumber           String               @map("part_number")
@@ -247,8 +280,24 @@ model ProductPublication {
   currentFor          Product?                    @relation("CurrentProductPublication")
   specificationValues ProductSpecificationValue[]
   references          ProductReference[]
+  fitments            ProductFitment[]
 
   @@unique([productId, version])
   @@unique([productId, id])
   @@map("product_publication")
+}
+
+model ProductFitment {
+  id             String             @id
+  publicationId  String             @map("publication_id")
+  vehicleModelId String             @map("vehicle_model_id")
+  engineId       String             @map("engine_id")
+  yearFrom       Int                @map("year_from")
+  yearTo         Int                @map("year_to")
+  publication    ProductPublication @relation(fields: [publicationId], references: [id], onDelete: Cascade)
+  engine         Engine             @relation(fields: [engineId, vehicleModelId], references: [id, vehicleModelId], onDelete: Restrict)
+
+  @@unique([publicationId, vehicleModelId, engineId, yearFrom, yearTo])
+  @@index([vehicleModelId, engineId, yearFrom, yearTo])
+  @@map("product_fitment")
 }

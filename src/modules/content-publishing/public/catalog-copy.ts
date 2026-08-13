@@ -34,6 +34,14 @@ type CatalogCopy = {
   metadataTitle: string;
   partNumberLabel: string;
   productCount: (count: number) => string;
+  resultCatalogueType: string;
+  resultClearFilters: string;
+  resultCurrentUnit: string;
+  resultGeneralInquiry: string;
+  resultNoMatchesHeading: string;
+  resultNoMatchesLede: string;
+  resultSearchByNumber: string;
+  resultVehicleType: string;
   sortedLabel: string;
   specificationColumn: string;
   specificationsHeading: string;
@@ -41,6 +49,18 @@ type CatalogCopy = {
   unitSystems: { imperial: string; metric: string };
   valueColumn: string;
   viewProduct: string;
+  vehicleBrandLabel: string;
+  vehicleCategoryLabel: string;
+  vehicleChooseBrand: string;
+  vehicleChooseCategory: string;
+  vehicleChooseEngine: string;
+  vehicleChooseModel: string;
+  vehicleChooseYear: string;
+  vehicleEngineLabel: string;
+  vehicleHelper: string;
+  vehicleModelLabel: string;
+  vehicleSearchAction: string;
+  vehicleYearLabel: string;
 };
 
 const copy: Record<PublicLocale, CatalogCopy> = {
@@ -86,6 +106,15 @@ const copy: Record<PublicLocale, CatalogCopy> = {
     partNumberLabel: "Part number",
     productCount: (count) =>
       `${count} published ${count === 1 ? "product" : "products"}`,
+    resultCatalogueType: "Catalogue results",
+    resultClearFilters: "Clear filters",
+    resultCurrentUnit: "Current unit: Metric",
+    resultGeneralInquiry: "Send a general inquiry",
+    resultNoMatchesHeading: "No matching filters",
+    resultNoMatchesLede:
+      "No published standard replacement filter matches every selected vehicle condition.",
+    resultSearchByNumber: "Search by number",
+    resultVehicleType: "Vehicle fitment results",
     sortedLabel: "Sorted by Torquelis part number",
     specificationColumn: "Specification",
     specificationsHeading: "Full specifications",
@@ -93,6 +122,19 @@ const copy: Record<PublicLocale, CatalogCopy> = {
     unitSystems: { imperial: "Imperial", metric: "Metric" },
     valueColumn: "Value",
     viewProduct: "View product",
+    vehicleBrandLabel: "Brand",
+    vehicleCategoryLabel: "Filter category",
+    vehicleChooseBrand: "Choose a brand",
+    vehicleChooseCategory: "Choose a filter category",
+    vehicleChooseEngine: "Choose an engine",
+    vehicleChooseModel: "Choose a model",
+    vehicleChooseYear: "Choose a year",
+    vehicleEngineLabel: "Engine",
+    vehicleHelper:
+      "Each step only shows applications supported by the selections before it.",
+    vehicleModelLabel: "Model",
+    vehicleSearchAction: "Show matching filters",
+    vehicleYearLabel: "Year",
   },
   "zh-cn": {
     allCategories: "全部分类",
@@ -131,6 +173,14 @@ const copy: Record<PublicLocale, CatalogCopy> = {
     metadataTitle: "标准替换滤清产品目录",
     partNumberLabel: "产品编号",
     productCount: (count) => `${count} 项已发布产品`,
+    resultCatalogueType: "目录结果",
+    resultClearFilters: "清除筛选",
+    resultCurrentUnit: "当前单位：公制",
+    resultGeneralInquiry: "提交通用询盘",
+    resultNoMatchesHeading: "没有匹配的滤清器",
+    resultNoMatchesLede: "没有已发布标准替换件同时符合全部已选车型条件。",
+    resultSearchByNumber: "改用编号查找",
+    resultVehicleType: "车型适配结果",
     sortedLabel: "按 Torquelis 产品编号排序",
     specificationColumn: "规格属性",
     specificationsHeading: "完整规格",
@@ -138,6 +188,18 @@ const copy: Record<PublicLocale, CatalogCopy> = {
     unitSystems: { imperial: "英制", metric: "公制" },
     valueColumn: "数值",
     viewProduct: "查看产品",
+    vehicleBrandLabel: "商用车品牌",
+    vehicleCategoryLabel: "滤清器分类",
+    vehicleChooseBrand: "选择品牌",
+    vehicleChooseCategory: "选择滤清器分类",
+    vehicleChooseEngine: "选择发动机",
+    vehicleChooseModel: "选择车型",
+    vehicleChooseYear: "选择年份",
+    vehicleEngineLabel: "发动机",
+    vehicleHelper: "每一步只显示与前序条件存在有效适配关系的选项。",
+    vehicleModelLabel: "车型",
+    vehicleSearchAction: "显示匹配产品",
+    vehicleYearLabel: "适用年份",
   },
 };
 
