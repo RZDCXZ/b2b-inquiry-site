@@ -9,7 +9,7 @@ When implementing from a selected generated mock, treat that image as the source
 ## Durable design decision
 
 - Selected direction: Product Design ideation option 1, “Precision Ledger”.
-- Visual source: `<local-user>/.codex/generated_images/019ff935-bfaf-7f11-bbd9-3008d3bd5af1/exec-e1aca3cc-fcae-4e97-9223-df8313ced04a.png`.
+- Visual comparison evidence: `qa/home-comparison-final.png` (the left pane contains the selected generated direction).
 - Preserve the warm editorial paper surface, deep-navy condensed display typography, thin graphite rules, near-square controls, generous public-site whitespace, and safety-orange primary actions.
 - The Chinese admin is the denser operational counterpart of the same system, not a generic SaaS dashboard.
 - Public top navigation must visibly highlight the current section with the same safety-orange underline used by the language and finder tabs; expose the active item with `aria-current="page"`.

@@ -1,0 +1,16 @@
+.DS_Store
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+
+# JavaScript dependencies and generated output
+node_modules/
+dist/
+coverage/
+*.log
+
+# Test and browser artifacts
+playwright-report/
+test-results/

@@ -1,11 +1,11 @@
 # Product Design QA
 
-- source visual truth path: `<local-user>/.codex/generated_images/019ff935-bfaf-7f11-bbd9-3008d3bd5af1/exec-e1aca3cc-fcae-4e97-9223-df8313ced04a.png`
-- implementation screenshot path: `<local-user>/code/xiaoyu-mono/b2b-inquiry-site/product-ui/qa/home-implementation-final-1440x1024.png`
-- full-view comparison evidence: `<local-user>/code/xiaoyu-mono/b2b-inquiry-site/product-ui/qa/home-comparison-final.png`
-- focused search comparison: `<local-user>/code/xiaoyu-mono/b2b-inquiry-site/product-ui/qa/home-focus-search-comparison.png`
-- focused technical-image comparison: `<local-user>/code/xiaoyu-mono/b2b-inquiry-site/product-ui/qa/home-focus-visual-comparison.png`
-- responsive evidence: `<local-user>/code/xiaoyu-mono/b2b-inquiry-site/product-ui/qa/home-mobile-390x844.png`, `<local-user>/code/xiaoyu-mono/b2b-inquiry-site/product-ui/qa/admin-1024x768.png`
+- source visual truth: the left pane of `qa/home-comparison-final.png`
+- implementation screenshot: `qa/home-implementation-final-1440x1024.png`
+- full-view comparison evidence: `qa/home-comparison-final.png`
+- focused search comparison: `qa/home-focus-search-comparison.png`
+- focused technical-image comparison: `qa/home-focus-visual-comparison.png`
+- responsive evidence: `qa/home-mobile-390x844.png`, `qa/admin-1024x768.png`
 - viewport: desktop CSS target `1440 × 1024`; mobile `390 × 844`; admin narrow desktop `1024 × 768`
 - source pixels: `1487 × 1058`; implementation screenshot pixels: `1425 × 1013`; in-app browser CSS viewport override: `1440 × 1024`, device scale 1
 - density normalization: source and implementation were proportionally scaled into separate `1440 × 1024` white canvases, then horizontally combined without stretching
