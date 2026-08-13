@@ -59,6 +59,7 @@ export function ProductDetailPage({
               priority
               sizes="(max-width: 820px) 100vw, 50vw"
               src={productImages[product.imagePath] ?? filterFamily}
+              unoptimized
             />
             <span>{product.category.name}</span>
           </figure>
