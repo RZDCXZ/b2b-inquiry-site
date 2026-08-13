@@ -64,6 +64,63 @@ const products = [
   },
 ] as const;
 
+const productReferences = [
+  {
+    brand: "Novera",
+    id: "reference-product-tq-af-2106-novera",
+    productId: "product-tq-af-2106",
+    referenceNumber: "NAF-2106",
+  },
+  {
+    brand: "Arvento",
+    id: "reference-product-tq-af-2106-arvento",
+    productId: "product-tq-af-2106",
+    referenceNumber: "ARV-4400",
+  },
+  {
+    brand: "Valecore",
+    id: "reference-product-tq-cf-3021-valecore",
+    productId: "product-tq-cf-3021",
+    referenceNumber: "VCF-3021",
+  },
+  {
+    brand: "Arvento",
+    id: "reference-product-tq-cf-3021-arvento",
+    productId: "product-tq-cf-3021",
+    referenceNumber: "ARV-4400",
+  },
+  {
+    brand: "Novera",
+    id: "reference-product-tq-fl-4827-novera",
+    productId: "product-tq-fl-4827",
+    referenceNumber: "NFX-9081",
+  },
+  {
+    brand: "Arvento",
+    id: "reference-product-tq-fl-4827-arvento",
+    productId: "product-tq-fl-4827",
+    referenceNumber: "ARV-7710",
+  },
+  {
+    brand: "Valecore",
+    id: "reference-product-tq-fl-4827-product-number-collision",
+    productId: "product-tq-fl-4827",
+    referenceNumber: "TQ-AF-2106",
+  },
+  {
+    brand: "Novera",
+    id: "reference-product-tq-of-1038-novera",
+    productId: "product-tq-of-1038",
+    referenceNumber: "NOF-1038",
+  },
+  {
+    brand: "Branton",
+    id: "reference-product-tq-of-1038-branton",
+    productId: "product-tq-of-1038",
+    referenceNumber: "BRN-1038",
+  },
+] as const;
+
 async function writeCatalogIdentities(
   transaction: Prisma.TransactionClient,
 ): Promise<void> {
@@ -82,6 +139,11 @@ async function writeCatalogIdentities(
       where: { id: product.id },
     });
   }
+
+  await transaction.productReference.createMany({
+    data: [...productReferences],
+    skipDuplicates: true,
+  });
 }
 
 export async function seedCatalogIdentities(

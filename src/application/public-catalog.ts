@@ -6,6 +6,7 @@ import {
 } from "@/src/modules/catalog/public/product-identity";
 import {
   findCatalogProductIdentity,
+  findCatalogProductReferences,
   listCatalogCategories,
   listCatalogProductIdentities,
   type CatalogProductIdentity,
@@ -42,6 +43,20 @@ export type PublishedProductDetail = PublishedCatalogProduct & {
   languageHrefs: Record<PublicLocale, string>;
   specifications: ProductSpecificationDisplay[];
   unitSystem: UnitSystem;
+};
+
+export type ProductNumberLookupResult =
+  | { kind: "product-number"; product: PublishedProductDetail }
+  | {
+      kind: "reference-number";
+      matches: PublishedReferenceMatch[];
+      number: string;
+    }
+  | { kind: "not-found"; number: string };
+
+export type PublishedReferenceMatch = {
+  product: PublishedCatalogProduct;
+  references: Array<{ brand: string; referenceNumber: string }>;
 };
 
 function localizeProduct(
@@ -196,4 +211,82 @@ export async function getPublishedProduct({
     summary: localized.summary,
     unitSystem,
   };
+}
+
+export async function lookupPublishedProductNumber({
+  locale,
+  number,
+  prisma = getApplicationPrisma(),
+}: {
+  locale: PublicLocale;
+  number: string;
+  prisma?: PrismaClient;
+}): Promise<ProductNumberLookupResult> {
+  const product = await getPublishedProduct({
+    locale,
+    partNumber: number,
+    prisma,
+  });
+
+  if (product) {
+    return { kind: "product-number", product };
+  }
+
+  const referenceRows = await findCatalogProductReferences(prisma, number);
+  const contents = await listPublishedProductContent(
+    prisma,
+    referenceRows.flatMap(({ product: match }) =>
+      match.currentPublicationId ? [match.currentPublicationId] : [],
+    ),
+  );
+  const contentByProductId = new Map(
+    contents.map((content) => [content.productId, content]),
+  );
+  const matchesByProductId = new Map<string, PublishedReferenceMatch>();
+
+  for (const row of referenceRows) {
+    const content = contentByProductId.get(row.product.id);
+
+    if (!content) {
+      continue;
+    }
+
+    const existing = matchesByProductId.get(row.product.id);
+
+    if (existing) {
+      existing.references.push({
+        brand: row.brand,
+        referenceNumber: row.referenceNumber,
+      });
+      continue;
+    }
+
+    const localized = localizeProduct(locale, row.product, content);
+    matchesByProductId.set(row.product.id, {
+      product: {
+        category: {
+          code: row.product.category.code,
+          name: localized.categoryName,
+        },
+        href: productDetailPath(locale, {
+          partNumber: row.product.partNumber,
+          slug: localized.slug,
+        }),
+        id: row.product.id,
+        imagePath: row.product.imagePath,
+        name: localized.name,
+        partNumber: row.product.partNumber,
+        slug: localized.slug,
+        summary: localized.summary,
+      },
+      references: [{ brand: row.brand, referenceNumber: row.referenceNumber }],
+    });
+  }
+
+  const matches = [...matchesByProductId.values()];
+  const trimmedNumber = number.trim();
+
+  return matches.length > 0
+    ? { kind: "reference-number", matches, number: trimmedNumber }
+    : { kind: "not-found", number: trimmedNumber };
 }

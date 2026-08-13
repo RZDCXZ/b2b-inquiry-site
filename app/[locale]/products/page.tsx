@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import {
   listProductCategories,
   listPublishedProducts,
+  lookupPublishedProductNumber,
 } from "@/src/application/public-catalog";
 import { CatalogPage } from "@/src/components/public/catalog-page";
+import { ProductNumberLookupPage } from "@/src/components/public/product-number-lookup-page";
 import {
   CATALOG_ROUTE_PARAMS_SCHEMA,
   CATALOG_SEARCH_PARAMS_SCHEMA,
@@ -14,7 +16,10 @@ import { getCatalogCopy } from "@/src/modules/content-publishing/public/catalog-
 
 type CatalogRouteProps = {
   params: Promise<{ locale: string }>;
-  searchParams: Promise<{ category?: string | string[] }>;
+  searchParams: Promise<{
+    category?: string | string[];
+    part?: string | string[];
+  }>;
 };
 
 export async function generateMetadata({
@@ -47,6 +52,21 @@ export default async function ProductsPage({
   }
 
   const publicLocale = parsedParams.data.locale;
+  const partNumber = parsedQuery.success ? parsedQuery.data.part : undefined;
+
+  if (partNumber) {
+    const lookup = await lookupPublishedProductNumber({
+      locale: publicLocale,
+      number: partNumber,
+    });
+
+    if (lookup.kind === "product-number") {
+      redirect(lookup.product.href);
+    }
+
+    return <ProductNumberLookupPage locale={publicLocale} lookup={lookup} />;
+  }
+
   const categoryCode = parsedQuery.success
     ? parsedQuery.data.category
     : undefined;

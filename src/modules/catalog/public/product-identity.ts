@@ -14,6 +14,7 @@ export const CATALOG_ROUTE_PARAMS_SCHEMA = z.object({
 
 export const CATALOG_SEARCH_PARAMS_SCHEMA = z.object({
   category: PRODUCT_CATEGORY_CODE_SCHEMA.optional(),
+  part: z.string().trim().min(1).max(64).optional(),
 });
 
 const LOCALIZED_PRODUCT_SLUG_SCHEMA = z

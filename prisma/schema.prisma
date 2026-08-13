@@ -152,10 +152,24 @@ model Product {
   category             ProductCategory      @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   currentPublication   ProductPublication?  @relation("CurrentProductPublication", fields: [id, currentPublicationId], references: [productId, id], onDelete: NoAction)
   publications         ProductPublication[] @relation("ProductPublicationVersions")
+  references           ProductReference[]
 
   @@unique([id, currentPublicationId])
   @@index([categoryId])
   @@map("product")
+}
+
+model ProductReference {
+  id                        String  @id
+  productId                 String  @map("product_id")
+  brand                     String
+  referenceNumber           String  @map("reference_number")
+  normalizedReferenceNumber String  @default(dbgenerated()) @map("normalized_reference_number")
+  product                   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, brand, normalizedReferenceNumber])
+  @@index([normalizedReferenceNumber])
+  @@map("product_reference")
 }
 
 model SpecificationAttributeDefinition {

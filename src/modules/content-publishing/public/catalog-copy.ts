@@ -11,6 +11,18 @@ type CatalogCopy = {
   detailInquiry: string;
   detailPublished: string;
   keySpecificationsHeading: string;
+  lookupAction: string;
+  lookupBrowseCategories: string;
+  lookupEyebrow: string;
+  lookupGeneralInquiry: string;
+  lookupInputLabel: string;
+  lookupMatchCount: (count: number) => string;
+  lookupMatchExplanation: string;
+  lookupNoResultHeading: string;
+  lookupNoResultLede: string;
+  lookupReferenceBrand: string;
+  lookupReferenceDisclaimer: string;
+  lookupReferenceNumber: string;
   convertedLabel: string;
   metricBaseline: string;
   metadataDescription: string;
@@ -39,6 +51,22 @@ const copy: Record<PublicLocale, CatalogCopy> = {
     detailInquiry: "Inquire about this product",
     detailPublished: "Published",
     keySpecificationsHeading: "Key specifications",
+    lookupAction: "Find a filter",
+    lookupBrowseCategories: "Browse categories",
+    lookupEyebrow: "PART / REFERENCE LOOKUP",
+    lookupGeneralInquiry: "Send a general inquiry",
+    lookupInputLabel: "Part or reference number",
+    lookupMatchCount: (count) =>
+      `${count} cross-reference ${count === 1 ? "match" : "matches"}`,
+    lookupMatchExplanation:
+      "Matched by an exact normalized reference number. Review every result before choosing a standard replacement filter.",
+    lookupNoResultHeading: "No exact match found",
+    lookupNoResultLede:
+      "The number was checked without case, spaces or hyphens. Similar numbers are never substituted automatically.",
+    lookupReferenceBrand: "Fictional brand",
+    lookupReferenceDisclaimer:
+      "Cross-references are numbers from fictional brands, not Torquelis part numbers.",
+    lookupReferenceNumber: "Reference number",
     convertedLabel: "Converted",
     metricBaseline:
       "Metric values are the persisted baseline. Imperial values are derived for display.",
@@ -68,6 +96,20 @@ const copy: Record<PublicLocale, CatalogCopy> = {
     detailInquiry: "咨询此产品",
     detailPublished: "已发布",
     keySpecificationsHeading: "关键规格",
+    lookupAction: "查找滤清器",
+    lookupBrowseCategories: "浏览产品分类",
+    lookupEyebrow: "产品编号／参考号查找",
+    lookupGeneralInquiry: "提交通用询盘",
+    lookupInputLabel: "产品编号或参考号",
+    lookupMatchCount: (count) => `${count} 项参考号匹配`,
+    lookupMatchExplanation:
+      "以下结果来自标准化后的精确参考号匹配。请选择标准替换件前逐项核对。",
+    lookupNoResultHeading: "未找到精确匹配",
+    lookupNoResultLede:
+      "系统已忽略大小写、空格和连字符；不会自动替换成相似号码。",
+    lookupReferenceBrand: "虚构品牌",
+    lookupReferenceDisclaimer: "参考号来自虚构品牌，不是 Torquelis 产品编号。",
+    lookupReferenceNumber: "参考号",
     convertedLabel: "换算值",
     metricBaseline: "公制值是持久化基准；英制值仅由系统换算用于显示。",
     metadataDescription: "按分类浏览已发布的 Torquelis 标准替换滤清产品。",

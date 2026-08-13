@@ -22,6 +22,12 @@ export type CatalogProductIdentity = {
   currentPublicationId: string | null;
 };
 
+export type CatalogProductReferenceMatch = {
+  brand: string;
+  product: CatalogProductIdentity;
+  referenceNumber: string;
+};
+
 export async function listCatalogProductIdentities(
   prisma: PrismaClient,
   categoryCode?: ProductCategoryCode,
@@ -72,4 +78,38 @@ export async function findCatalogProductIdentity(
   });
 
   return product as CatalogProductIdentity | null;
+}
+
+export async function findCatalogProductReferences(
+  prisma: PrismaClient,
+  number: string,
+): Promise<CatalogProductReferenceMatch[]> {
+  const references = await prisma.productReference.findMany({
+    orderBy: [
+      { product: { partNumber: "asc" } },
+      { brand: "asc" },
+      { referenceNumber: "asc" },
+    ],
+    select: {
+      brand: true,
+      product: {
+        select: {
+          category: {
+            select: { code: true, nameEn: true, nameZhCn: true },
+          },
+          currentPublicationId: true,
+          id: true,
+          imagePath: true,
+          partNumber: true,
+        },
+      },
+      referenceNumber: true,
+    },
+    where: {
+      normalizedReferenceNumber: normalizeProductNumber(number),
+      product: { currentPublicationId: { not: null } },
+    },
+  });
+
+  return references as CatalogProductReferenceMatch[];
 }
