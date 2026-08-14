@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { MobileNavigation } from "@/src/components/public/mobile-navigation";
 import type { PublicLocale } from "@/src/modules/site-config/public/locales";
+import { publicNavigationHref } from "@/src/modules/content-publishing/public/public-navigation";
 
 type PublicHeaderProps = {
   activeNavigationAnchor?: string;
@@ -13,6 +14,7 @@ type PublicHeaderProps = {
   navigation: ReadonlyArray<{ label: string; anchor: string }>;
   primaryNavigationLabel: string;
   unavailableLanguages?: Partial<Record<PublicLocale, string>>;
+  visibleNavigationAnchors: readonly string[];
 };
 
 const localeOptions = [
@@ -30,22 +32,16 @@ export function PublicHeader({
   navigation,
   primaryNavigationLabel,
   unavailableLanguages,
+  visibleNavigationAnchors,
 }: PublicHeaderProps) {
-  const routeByAnchor: Record<string, string> = {
-    about: "about",
-    contact: "inquiry",
-    "private-label": "private-label",
-    quality: "quality",
-    resources: "resources",
-  };
-  const items = navigation.map((item) => ({
-    active: item.anchor === activeNavigationAnchor,
-    label: item.label,
-    href:
-      item.anchor === "products"
-        ? `/${locale}/products`
-        : `/${locale}/${routeByAnchor[item.anchor] ?? ""}`,
-  }));
+  const visibleAnchors = new Set(visibleNavigationAnchors);
+  const items = navigation
+    .filter((item) => visibleAnchors.has(item.anchor))
+    .map((item) => ({
+      active: item.anchor === activeNavigationAnchor,
+      label: item.label,
+      href: publicNavigationHref(locale, item.anchor),
+    }));
 
   return (
     <header className="public-header">

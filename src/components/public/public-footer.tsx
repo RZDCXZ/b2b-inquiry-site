@@ -1,11 +1,13 @@
 import Link from "next/link";
 
+import type { PublicSiteShellData } from "@/src/application/public-site-shell";
+import { publicNavigationHref } from "@/src/modules/content-publishing/public/public-navigation";
 import type { PublicLocale } from "@/src/modules/site-config/public/locales";
-import { getPublicSiteConfiguration } from "@/src/application/site-configuration";
 
 type PublicFooterProps = {
   companyName: string;
   contactHeading: string;
+  configuration: PublicSiteShellData["configuration"];
   demoNotice: string;
   description: string;
   exploreHeading: string;
@@ -13,11 +15,13 @@ type PublicFooterProps = {
   locale: PublicLocale;
   navigation: ReadonlyArray<{ label: string; anchor: string }>;
   privacyLabel: string;
+  visibleNavigationAnchors: readonly string[];
 };
 
-export async function PublicFooter({
+export function PublicFooter({
   companyName: fallbackCompanyName,
   contactHeading,
+  configuration: settings,
   demoNotice,
   description,
   exploreHeading,
@@ -25,8 +29,8 @@ export async function PublicFooter({
   locale,
   navigation,
   privacyLabel,
+  visibleNavigationAnchors,
 }: PublicFooterProps) {
-  const settings = await getPublicSiteConfiguration();
   const configuredCompanyName =
     locale === "en"
       ? `${settings.companyNameEn} / ${settings.companyNameZhCn}`
@@ -42,24 +46,17 @@ export async function PublicFooter({
       </section>
       <section>
         <h2>{exploreHeading}</h2>
-        {navigation.slice(0, 4).map((item) => (
-          <Link
-            href={
-              item.anchor === "products"
-                ? `/${locale}/products`
-                : `/${locale}/${
-                    {
-                      "private-label": "private-label",
-                      quality: "quality",
-                      resources: "resources",
-                    }[item.anchor] ?? ""
-                  }`
-            }
-            key={item.anchor}
-          >
-            {item.label}
-          </Link>
-        ))}
+        {navigation
+          .filter((item) => visibleNavigationAnchors.includes(item.anchor))
+          .slice(0, 4)
+          .map((item) => (
+            <Link
+              href={publicNavigationHref(locale, item.anchor)}
+              key={item.anchor}
+            >
+              {item.label}
+            </Link>
+          ))}
       </section>
       <section>
         <h2>{informationHeading}</h2>

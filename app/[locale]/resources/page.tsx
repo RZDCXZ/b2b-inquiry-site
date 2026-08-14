@@ -5,6 +5,7 @@ import {
   getPublishedCorePage,
   listPublishedArticles,
 } from "@/src/application/site-content-management";
+import { getPublicSiteShellData } from "@/src/application/public-site-shell";
 import { CoreContentPage } from "@/src/components/public/core-content-page";
 import { isPublicLocale } from "@/src/modules/site-config/public/locales";
 
@@ -27,9 +28,10 @@ export async function generateMetadata({
 export default async function ResourcesPage({ params }: PageProperties) {
   const { locale } = await params;
   if (!isPublicLocale(locale)) notFound();
-  const [page, articles] = await Promise.all([
+  const [page, articles, shell] = await Promise.all([
     getPublishedCorePage({ key: "technical_resources", locale }),
     listPublishedArticles({ locale }),
+    getPublicSiteShellData({ locale }),
   ]);
   if (!page) notFound();
   return (
@@ -38,6 +40,7 @@ export default async function ResourcesPage({ params }: PageProperties) {
       articles={articles}
       content={page.content}
       locale={locale}
+      shell={shell}
     />
   );
 }

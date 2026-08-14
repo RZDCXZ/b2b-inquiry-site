@@ -68,6 +68,12 @@ export default async function ArticleEditorRoute({
         publishedBy: publication.publishedBy?.name ?? "系统",
         restored: publication.restoredFromPublicationId !== null,
         status: publication.status,
+        summary:
+          publication.status === "archived"
+            ? "归档文章快照"
+            : publication.restoredFromPublicationId
+              ? "历史内容恢复后重新发布"
+              : `发布《${publication.title}》`,
         version: publication.version,
       }))}
     />

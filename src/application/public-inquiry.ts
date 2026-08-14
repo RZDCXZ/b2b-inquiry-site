@@ -15,6 +15,7 @@ import {
 import type { PublicLocale } from "@/src/modules/site-config/public/locales";
 import { getPublicInquiryReceipt } from "@/src/modules/inquiry-operations/server/inquiry-query";
 import { captureConfiguredInquiryNotifications } from "@/src/modules/notifications/server/notification-outbox";
+import { findFirstSalesRecipientId } from "@/src/modules/identity-access/public/user-query";
 
 type StoredInquiryReceipt = InquirySubmissionResult["receipt"];
 
@@ -98,22 +99,18 @@ export async function submitInquiry({
   };
 }> {
   const configuration = await getPublicSiteConfiguration({ prisma });
-  const salesRecipient = configuration.notificationRecipientRoles.includes(
+  const salesRecipientId = configuration.notificationRecipientRoles.includes(
     "sales",
   )
-    ? await prisma.user.findFirst({
-        orderBy: { id: "asc" },
-        select: { id: true },
-        where: { role: "sales" },
-      })
+    ? await findFirstSalesRecipientId({ prisma })
     : null;
   const recipients = configuration.notificationRecipientRoles.flatMap(
     (role) => {
-      if (role === "sales" && !salesRecipient) return [];
+      if (role === "sales" && !salesRecipientId) return [];
       return [
         {
           role,
-          userId: role === "sales" ? (salesRecipient?.id ?? null) : null,
+          userId: role === "sales" ? salesRecipientId : null,
         },
       ];
     },

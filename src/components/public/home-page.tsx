@@ -8,6 +8,7 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 
+import type { PublicSiteShellData } from "@/src/application/public-site-shell";
 import filterFamily from "@/product-ui/public/assets/filter-family.png";
 import heroCutaway from "@/product-ui/public/assets/hero-filter-cutaway.png";
 import { PublicFooter } from "@/src/components/public/public-footer";
@@ -24,11 +25,13 @@ export function HomePage({
   initialFinderMode,
   content,
   locale,
+  shell,
   vehicleFitments,
 }: {
   content: CorePageTranslation;
   initialFinderMode?: "part" | "specifications" | "vehicle";
   locale: PublicLocale;
+  shell: PublicSiteShellData;
   vehicleFitments: LocalizedVehicleFitmentOption[];
 }) {
   const copy = getHomeCopy(locale);
@@ -45,6 +48,7 @@ export function HomePage({
         mobileNavigationLabel={copy.mobileNavigationLabel}
         navigation={copy.nav}
         primaryNavigationLabel={copy.primaryNavigationLabel}
+        visibleNavigationAnchors={shell.visibleNavigationAnchors}
       />
       <main>
         <section className="home-hero">
@@ -159,6 +163,7 @@ export function HomePage({
       </main>
       <PublicFooter
         companyName={copy.companyName}
+        configuration={shell.configuration}
         contactHeading={copy.footerContact}
         demoNotice={copy.demoNotice}
         description={copy.footerDescription}
@@ -167,6 +172,7 @@ export function HomePage({
         locale={locale}
         navigation={copy.nav}
         privacyLabel={copy.footerPrivacy}
+        visibleNavigationAnchors={shell.visibleNavigationAnchors}
       />
     </div>
   );

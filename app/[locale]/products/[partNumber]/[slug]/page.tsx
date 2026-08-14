@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound, permanentRedirect } from "next/navigation";
 
 import { getPublishedProduct } from "@/src/application/public-catalog";
+import { getPublicSiteShellData } from "@/src/application/public-site-shell";
 import { ProductDetailPage } from "@/src/components/public/product-detail-page";
 import { PRODUCT_ROUTE_PARAMS_SCHEMA } from "@/src/modules/catalog/public/product-identity";
 import { UNIT_SYSTEM_SCHEMA } from "@/src/modules/catalog/public/specifications";
@@ -58,11 +59,14 @@ export default async function ProductPage({
     ? parsedUnitSystem.data
     : "metric";
 
-  const product = await getPublishedProduct({
-    locale: parsedParams.data.locale,
-    partNumber: parsedParams.data.partNumber,
-    unitSystem,
-  });
+  const [product, shell] = await Promise.all([
+    getPublishedProduct({
+      locale: parsedParams.data.locale,
+      partNumber: parsedParams.data.partNumber,
+      unitSystem,
+    }),
+    getPublicSiteShellData({ locale: parsedParams.data.locale }),
+  ]);
 
   if (!product) {
     notFound();
@@ -78,6 +82,10 @@ export default async function ProductPage({
   }
 
   return (
-    <ProductDetailPage locale={parsedParams.data.locale} product={product} />
+    <ProductDetailPage
+      locale={parsedParams.data.locale}
+      product={product}
+      shell={shell}
+    />
   );
 }

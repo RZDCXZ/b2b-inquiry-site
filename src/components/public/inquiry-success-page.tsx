@@ -2,6 +2,7 @@ import { CheckCircle } from "@phosphor-icons/react/dist/ssr";
 import Link from "next/link";
 
 import type { PublishedProductDetail } from "@/src/application/public-catalog";
+import type { PublicSiteShellData } from "@/src/application/public-site-shell";
 import { PublicFooter } from "@/src/components/public/public-footer";
 import { PublicHeader } from "@/src/components/public/public-header";
 import { getHomeCopy } from "@/src/modules/content-publishing/public/home-copy";
@@ -12,10 +13,12 @@ export function InquirySuccessPage({
   locale,
   product,
   referenceNumber,
+  shell,
 }: {
   locale: PublicLocale;
   product: PublishedProductDetail | null;
   referenceNumber: string;
+  shell: PublicSiteShellData;
 }) {
   const copy = getInquiryCopy(locale);
   const homeCopy = getHomeCopy(locale);
@@ -36,6 +39,7 @@ export function InquirySuccessPage({
         mobileNavigationLabel={homeCopy.mobileNavigationLabel}
         navigation={homeCopy.nav}
         primaryNavigationLabel={homeCopy.primaryNavigationLabel}
+        visibleNavigationAnchors={shell.visibleNavigationAnchors}
       />
       <main className="inquiry-success-page">
         <CheckCircle aria-hidden="true" size={62} weight="thin" />
@@ -70,6 +74,7 @@ export function InquirySuccessPage({
       </main>
       <PublicFooter
         companyName={homeCopy.companyName}
+        configuration={shell.configuration}
         contactHeading={homeCopy.footerContact}
         demoNotice={homeCopy.demoNotice}
         description={homeCopy.footerDescription}
@@ -78,6 +83,7 @@ export function InquirySuccessPage({
         locale={locale}
         navigation={homeCopy.nav}
         privacyLabel={homeCopy.footerPrivacy}
+        visibleNavigationAnchors={shell.visibleNavigationAnchors}
       />
     </div>
   );

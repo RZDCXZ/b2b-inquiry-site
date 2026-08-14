@@ -250,15 +250,29 @@ function corePublicationErrors(key: CorePageKey, input: CorePageDraftInput) {
   const zhCn = validateCorePageTranslation(key, input.contentZhCn);
   if (!en.success) {
     errors.push(
-      ...en.issues.map((message) => ({ field: "contentEn", message })),
+      ...en.issues.map((message) => corePageFieldError("en", message)),
     );
   }
   if (!zhCn.success) {
     errors.push(
-      ...zhCn.issues.map((message) => ({ field: "contentZhCn", message })),
+      ...zhCn.issues.map((message) => corePageFieldError("zhCn", message)),
     );
   }
   return errors;
+}
+
+function corePageFieldError(
+  prefix: "en" | "zhCn",
+  issue: string,
+): { field: string; message: string } {
+  const separator = issue.indexOf(": ");
+  if (separator < 1) return { field: `${prefix}:eyebrow`, message: issue };
+  const path = issue.slice(0, separator);
+  const sectionMatch = /^sections\.([^.]+)\.(heading|body)$/u.exec(path);
+  const field = sectionMatch
+    ? `${prefix}:section:${sectionMatch[1]}:${sectionMatch[2]}`
+    : `${prefix}:${path}`;
+  return { field, message: issue.slice(separator + 2) };
 }
 
 async function nextCorePublicationVersion(
@@ -538,6 +552,16 @@ export async function getPublishedCorePage({
     publishedAt: publication.publishedAt,
     version: publication.version,
   };
+}
+
+export async function listPublishedCorePageKeys({
+  prisma: providedPrisma,
+}: { prisma?: ApplicationDatabase } = {}): Promise<CorePageKey[]> {
+  const records = await database(providedPrisma).corePagePublication.findMany({
+    select: { pageKey: true },
+    where: { currentFor: { isNot: null }, status: "published" },
+  });
+  return records.map(({ pageKey }) => pageKey);
 }
 
 const articleInputSchema = z.object({

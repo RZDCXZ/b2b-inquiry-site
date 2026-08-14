@@ -1,6 +1,7 @@
 import { CalendarBlank, Info } from "@phosphor-icons/react/dist/ssr";
 import Link from "next/link";
 
+import type { PublicSiteShellData } from "@/src/application/public-site-shell";
 import { PublicFooter } from "@/src/components/public/public-footer";
 import { PublicHeader } from "@/src/components/public/public-header";
 import { RestrictedRichText } from "@/src/components/public/restricted-rich-text";
@@ -20,10 +21,14 @@ export type ArticlePageContent = {
 
 export function ArticlePage({
   article,
+  languageHrefs: providedLanguageHrefs,
   locale,
+  shell,
 }: {
   article: ArticlePageContent;
+  languageHrefs?: Partial<Record<PublicLocale, string>>;
   locale: PublicLocale;
+  shell: PublicSiteShellData;
 }) {
   const copy = getHomeCopy(locale);
   const languageHrefs: Partial<Record<PublicLocale, string>> = {
@@ -33,6 +38,7 @@ export function ArticlePage({
     languageHrefs[article.otherLanguage.locale] =
       `/${article.otherLanguage.locale}/resources/${article.otherLanguage.slug}`;
   }
+  Object.assign(languageHrefs, providedLanguageHrefs);
   const unavailableLanguages:
     Partial<Record<PublicLocale, string>> | undefined = article.otherLanguage
     .available
@@ -54,6 +60,7 @@ export function ArticlePage({
         navigation={copy.nav}
         primaryNavigationLabel={copy.primaryNavigationLabel}
         unavailableLanguages={unavailableLanguages}
+        visibleNavigationAnchors={shell.visibleNavigationAnchors}
       />
       <main className="article-page">
         <header>
@@ -83,6 +90,7 @@ export function ArticlePage({
       </main>
       <PublicFooter
         companyName={copy.companyName}
+        configuration={shell.configuration}
         contactHeading={copy.footerContact}
         demoNotice={copy.demoNotice}
         description={copy.footerDescription}
@@ -91,6 +99,7 @@ export function ArticlePage({
         locale={locale}
         navigation={copy.nav}
         privacyLabel={copy.footerPrivacy}
+        visibleNavigationAnchors={shell.visibleNavigationAnchors}
       />
     </div>
   );

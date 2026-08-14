@@ -9,6 +9,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import type { PublishedProductDetail } from "@/src/application/public-catalog";
+import type { PublicSiteShellData } from "@/src/application/public-site-shell";
 import { PublicFooter } from "@/src/components/public/public-footer";
 import { PublicHeader } from "@/src/components/public/public-header";
 import { productImageSource } from "@/src/components/product-image-source";
@@ -90,6 +91,7 @@ export function InquiryFormPage({
   fieldErrors,
   locale,
   product,
+  shell,
   token,
 }: {
   contactContent: CorePageTranslation;
@@ -97,6 +99,7 @@ export function InquiryFormPage({
   fieldErrors: readonly PublicInquiryFieldName[];
   locale: PublicLocale;
   product: PublishedProductDetail | null;
+  shell: PublicSiteShellData;
   token: string;
 }) {
   const copy = getInquiryCopy(locale);
@@ -155,6 +158,7 @@ export function InquiryFormPage({
         mobileNavigationLabel={homeCopy.mobileNavigationLabel}
         navigation={homeCopy.nav}
         primaryNavigationLabel={homeCopy.primaryNavigationLabel}
+        visibleNavigationAnchors={shell.visibleNavigationAnchors}
       />
       <main className="inquiry-page">
         <header className="inquiry-heading">
@@ -413,6 +417,7 @@ export function InquiryFormPage({
       </main>
       <PublicFooter
         companyName={homeCopy.companyName}
+        configuration={shell.configuration}
         contactHeading={homeCopy.footerContact}
         demoNotice={homeCopy.demoNotice}
         description={homeCopy.footerDescription}
@@ -421,6 +426,7 @@ export function InquiryFormPage({
         locale={locale}
         navigation={homeCopy.nav}
         privacyLabel={homeCopy.footerPrivacy}
+        visibleNavigationAnchors={shell.visibleNavigationAnchors}
       />
     </div>
   );

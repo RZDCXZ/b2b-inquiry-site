@@ -7,6 +7,7 @@ import Image from "next/image";
 import Link from "next/link";
 
 import type { ProductNumberLookupResult } from "@/src/application/public-catalog";
+import type { PublicSiteShellData } from "@/src/application/public-site-shell";
 import { PublicFooter } from "@/src/components/public/public-footer";
 import { PublicHeader } from "@/src/components/public/public-header";
 import { productImageSource } from "@/src/components/product-image-source";
@@ -22,9 +23,11 @@ type DisplayedProductNumberLookup = Exclude<
 export function ProductNumberLookupPage({
   locale,
   lookup,
+  shell,
 }: {
   locale: PublicLocale;
   lookup: DisplayedProductNumberLookup;
+  shell: PublicSiteShellData;
 }) {
   const catalogCopy = getCatalogCopy(locale);
   const homeCopy = getHomeCopy(locale);
@@ -45,6 +48,7 @@ export function ProductNumberLookupPage({
         mobileNavigationLabel={homeCopy.mobileNavigationLabel}
         navigation={homeCopy.nav}
         primaryNavigationLabel={homeCopy.primaryNavigationLabel}
+        visibleNavigationAnchors={shell.visibleNavigationAnchors}
       />
       <main className="catalog-page product-number-lookup-page">
         <section className="catalog-heading lookup-heading">
@@ -173,6 +177,7 @@ export function ProductNumberLookupPage({
       </main>
       <PublicFooter
         companyName={homeCopy.companyName}
+        configuration={shell.configuration}
         contactHeading={homeCopy.footerContact}
         demoNotice={homeCopy.demoNotice}
         description={homeCopy.footerDescription}
@@ -181,6 +186,7 @@ export function ProductNumberLookupPage({
         locale={locale}
         navigation={homeCopy.nav}
         privacyLabel={homeCopy.footerPrivacy}
+        visibleNavigationAnchors={shell.visibleNavigationAnchors}
       />
     </div>
   );

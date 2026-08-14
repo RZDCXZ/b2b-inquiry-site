@@ -59,6 +59,12 @@ export default async function CorePageEditorRoute({
         publishedBy: publication.publishedBy?.name ?? "系统",
         restored: publication.restoredFromPublicationId !== null,
         status: publication.status,
+        summary:
+          publication.status === "archived"
+            ? "归档页面快照"
+            : publication.restoredFromPublicationId
+              ? "历史内容恢复后重新发布"
+              : "双语内容发布",
         version: publication.version,
       }))}
     />

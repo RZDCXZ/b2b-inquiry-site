@@ -29,7 +29,7 @@ export type ContentMutationState = {
     latestModifiedBy: string;
     latestVersion: number;
   };
-  fieldErrors?: Record<string, string>;
+  fieldErrors?: Array<{ field: string; message: string }>;
   message: string;
   status: "error" | "idle" | "success";
   version?: number;
@@ -68,9 +68,7 @@ function errorState(error: unknown): ContentMutationState {
           latestVersion: error.conflict.latestVersion,
         }
       : undefined,
-    fieldErrors: Object.fromEntries(
-      error.fieldErrors.map(({ field, message }) => [field, message]),
-    ),
+    fieldErrors: error.fieldErrors,
     message: messages[error.code],
     status: "error",
   };
@@ -106,6 +104,8 @@ function revalidateCorePage(key: CorePageKey) {
   const route = CORE_PAGE_DEFINITIONS[key].route;
   revalidatePath(`/en${route}`);
   revalidatePath(`/zh-cn${route}`);
+  revalidatePath("/en", "layout");
+  revalidatePath("/zh-cn", "layout");
   revalidatePath("/admin/content");
   revalidatePath(`/admin/content/pages/${key}`);
 }

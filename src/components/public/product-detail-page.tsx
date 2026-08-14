@@ -9,6 +9,7 @@ import Image from "next/image";
 import Link from "next/link";
 
 import type { PublishedProductDetail } from "@/src/application/public-catalog";
+import type { PublicSiteShellData } from "@/src/application/public-site-shell";
 import { PublicFooter } from "@/src/components/public/public-footer";
 import { PublicHeader } from "@/src/components/public/public-header";
 import { RestrictedRichText } from "@/src/components/public/restricted-rich-text";
@@ -21,9 +22,11 @@ import type { PublicLocale } from "@/src/modules/site-config/public/locales";
 export function ProductDetailPage({
   locale,
   product,
+  shell,
 }: {
   locale: PublicLocale;
   product: PublishedProductDetail;
+  shell: PublicSiteShellData;
 }) {
   const catalogCopy = getCatalogCopy(locale);
   const homeCopy = getHomeCopy(locale);
@@ -39,6 +42,7 @@ export function ProductDetailPage({
         mobileNavigationLabel={homeCopy.mobileNavigationLabel}
         navigation={homeCopy.nav}
         primaryNavigationLabel={homeCopy.primaryNavigationLabel}
+        visibleNavigationAnchors={shell.visibleNavigationAnchors}
       />
       <main className="product-detail-page">
         <nav aria-label="Breadcrumb" className="product-breadcrumbs">
@@ -281,6 +285,7 @@ export function ProductDetailPage({
       </main>
       <PublicFooter
         companyName={homeCopy.companyName}
+        configuration={shell.configuration}
         contactHeading={homeCopy.footerContact}
         demoNotice={homeCopy.demoNotice}
         description={homeCopy.footerDescription}
@@ -289,6 +294,7 @@ export function ProductDetailPage({
         locale={locale}
         navigation={homeCopy.nav}
         privacyLabel={homeCopy.footerPrivacy}
+        visibleNavigationAnchors={shell.visibleNavigationAnchors}
       />
     </div>
   );

@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import {
   archiveArticle,
+  archiveCorePage,
   getArticleDraft,
   getCorePageDraft,
   getPublishedArticle,
@@ -12,6 +13,7 @@ import {
   saveArticleDraft,
   saveCorePageDraft,
 } from "@/src/application/site-content-management";
+import { getPublicSiteShellData } from "@/src/application/public-site-shell";
 import {
   getEditableSiteConfiguration,
   saveSiteConfiguration,
@@ -66,7 +68,7 @@ describe("核心页面、文章与站点设置", () => {
       expectedDraftVersion: original.version,
       input: {
         contentEn: original.contentEn,
-        contentZhCn: { ...original.contentZhCn, title: "" },
+        contentZhCn: { ...original.contentZhCn, lede: "", title: "" },
       },
       key: "about",
       prisma,
@@ -79,7 +81,13 @@ describe("核心页面、文章与站点设置", () => {
         key: "about",
         prisma,
       }),
-    ).rejects.toMatchObject({ code: "PUBLISH_VALIDATION_FAILED" });
+    ).rejects.toMatchObject({
+      code: "PUBLISH_VALIDATION_FAILED",
+      fieldErrors: expect.arrayContaining([
+        expect.objectContaining({ field: "zhCn:title" }),
+        expect.objectContaining({ field: "zhCn:lede" }),
+      ]),
+    });
 
     const ready = await saveCorePageDraft({
       actor: contentEditor,
@@ -280,5 +288,32 @@ describe("核心页面、文章与站点设置", () => {
       code: "CONFLICT",
       conflict: expect.objectContaining({ latestVersion: saved.version }),
     });
+  });
+
+  it("归档核心页面会从公共导航中隐藏", async () => {
+    const draft = await getCorePageDraft({
+      actor: contentEditor,
+      key: "manufacturing_quality",
+      prisma,
+    });
+    await expect(
+      getPublicSiteShellData({ locale: "en", prisma }),
+    ).resolves.toMatchObject({
+      visibleNavigationAnchors: expect.arrayContaining(["quality"]),
+    });
+
+    await archiveCorePage({
+      actor: contentEditor,
+      expectedDraftVersion: draft.version,
+      key: "manufacturing_quality",
+      prisma,
+    });
+    const archivedShell = await getPublicSiteShellData({
+      locale: "en",
+      prisma,
+    });
+    expect(archivedShell.visibleNavigationAnchors).not.toContain("quality");
+
+    await replaceSiteContent(prisma);
   });
 });

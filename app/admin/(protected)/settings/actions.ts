@@ -16,7 +16,7 @@ export type SettingsMutationState = {
     latestModifiedBy: string;
     latestVersion: number;
   };
-  fieldErrors?: Record<string, string>;
+  fieldErrors?: Array<{ field: string; message: string }>;
   message: string;
   status: "error" | "idle" | "success";
   version?: number;
@@ -108,9 +108,7 @@ export async function saveSiteConfigurationAction(
             latestVersion: error.conflict.latestVersion,
           }
         : undefined,
-      fieldErrors: Object.fromEntries(
-        error.fieldErrors.map(({ field, message }) => [field, message]),
-      ),
+      fieldErrors: error.fieldErrors,
       message:
         error.code === "CONFLICT"
           ? "配置已由其他窗口更新，本次保存未覆盖较新内容。"

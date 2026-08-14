@@ -133,6 +133,18 @@ test("强类型页面完整呈现内容、保持同页语言切换，并提供�
   ).toBeVisible();
   await pagePreview.close();
 
+  await editorPage.goto("/admin/content/pages/technical_resources");
+  const resourcesPreviewPromise = editorPage.waitForEvent("popup");
+  await editorPage.getByRole("link", { name: "Preview English draft" }).click();
+  const resourcesPreview = await resourcesPreviewPromise;
+  await expect(
+    resourcesPreview.getByRole("heading", {
+      level: 3,
+      name: "Commercial vehicle fitment basics",
+    }),
+  ).toBeVisible();
+  await resourcesPreview.close();
+
   await editorPage.goto("/admin/content/articles/article-fitment-basics/en");
   const articlePreviewPromise = editorPage.waitForEvent("popup");
   await editorPage.getByRole("link", { name: "Preview draft" }).click();
@@ -143,6 +155,11 @@ test("强类型页面完整呈现内容、保持同页语言切换，并提供�
       level: 1,
       name: "Commercial vehicle fitment basics",
     }),
+  ).toBeVisible();
+  await expect(
+    articlePreview.locator(
+      '.locale-switcher a[href="/admin/content/articles/article-fitment-basics/zh-cn/preview"]',
+    ),
   ).toBeVisible();
   await articlePreview.close();
 

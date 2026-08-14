@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { getPublishedProduct } from "@/src/application/public-catalog";
 import { getInquiryReceipt } from "@/src/application/public-inquiry";
+import { getPublicSiteShellData } from "@/src/application/public-site-shell";
 import { InquirySuccessPage } from "@/src/components/public/inquiry-success-page";
 import { getInquiryCopy } from "@/src/modules/content-publishing/public/inquiry-copy";
 import { INQUIRY_REFERENCE_SCHEMA } from "@/src/modules/inquiry-operations/public/inquiry-submission";
@@ -49,18 +50,22 @@ export default async function InquirySuccessRoute({
     notFound();
   }
 
-  const product = receipt.productPartNumber
-    ? await getPublishedProduct({
-        locale,
-        partNumber: receipt.productPartNumber,
-      })
-    : null;
+  const [product, shell] = await Promise.all([
+    receipt.productPartNumber
+      ? getPublishedProduct({
+          locale,
+          partNumber: receipt.productPartNumber,
+        })
+      : Promise.resolve(null),
+    getPublicSiteShellData({ locale }),
+  ]);
 
   return (
     <InquirySuccessPage
       locale={locale}
       product={product}
       referenceNumber={receipt.referenceNumber}
+      shell={shell}
     />
   );
 }

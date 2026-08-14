@@ -7,6 +7,7 @@ import { HOME_SEARCH_PARAMS_SCHEMA } from "@/src/modules/catalog/public/product-
 import { getHomeMetadataCopy } from "@/src/modules/content-publishing/public/home-copy";
 import { isPublicLocale } from "@/src/modules/site-config/public/locales";
 import { getPublishedCorePage } from "@/src/application/site-content-management";
+import { getPublicSiteShellData } from "@/src/application/public-site-shell";
 
 type LocalePageProps = {
   params: Promise<{ locale: string }>;
@@ -39,9 +40,10 @@ export default async function LocaleHomePage({
   }
 
   const parsedQuery = HOME_SEARCH_PARAMS_SCHEMA.safeParse(query);
-  const [vehicleFitments, content] = await Promise.all([
+  const [vehicleFitments, content, shell] = await Promise.all([
     listPublishedVehicleFitmentOptions({ locale }),
     getPublishedCorePage({ key: "home", locale }),
+    getPublicSiteShellData({ locale }),
   ]);
   if (!content) notFound();
 
@@ -52,6 +54,7 @@ export default async function LocaleHomePage({
       }
       content={content.content}
       locale={locale}
+      shell={shell}
       vehicleFitments={vehicleFitments}
     />
   );

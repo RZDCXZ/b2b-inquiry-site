@@ -10,6 +10,7 @@ import {
   prepareSpecificationFilterRequest,
   searchPublishedProductsBySpecifications,
 } from "@/src/application/public-catalog";
+import { getPublicSiteShellData } from "@/src/application/public-site-shell";
 import { CatalogPage } from "@/src/components/public/catalog-page";
 import { ProductNumberLookupPage } from "@/src/components/public/product-number-lookup-page";
 import {
@@ -63,23 +64,33 @@ export default async function ProductsPage({
   const partNumber = parsedQuery.success ? parsedQuery.data.part : undefined;
 
   if (partNumber) {
-    const lookup = await lookupPublishedProductNumber({
-      locale: publicLocale,
-      number: partNumber,
-    });
+    const [lookup, shell] = await Promise.all([
+      lookupPublishedProductNumber({
+        locale: publicLocale,
+        number: partNumber,
+      }),
+      getPublicSiteShellData({ locale: publicLocale }),
+    ]);
 
     if (lookup.kind === "product-number") {
       redirect(lookup.product.href);
     }
 
-    return <ProductNumberLookupPage locale={publicLocale} lookup={lookup} />;
+    return (
+      <ProductNumberLookupPage
+        locale={publicLocale}
+        lookup={lookup}
+        shell={shell}
+      />
+    );
   }
 
-  const [initialSpecificationRequest, categories, vehicleFitments] =
+  const [initialSpecificationRequest, categories, vehicleFitments, shell] =
     await Promise.all([
       prepareSpecificationFilterRequest({ locale: publicLocale, query }),
       listProductCategories({ locale: publicLocale }),
       listPublishedVehicleFitmentOptions({ locale: publicLocale }),
+      getPublicSiteShellData({ locale: publicLocale }),
     ]);
   let specificationRequest = initialSpecificationRequest;
 
@@ -203,6 +214,7 @@ export default async function ProductsPage({
       products={products}
       resultTotal={resultTotal}
       selectedCategory={categories.find(({ code }) => code === categoryCode)}
+      shell={shell}
       specificationIssues={specificationRequest.issues}
       specificationQueryString={specificationQueryString}
       unitSystem={specificationRequest.unitSystem}

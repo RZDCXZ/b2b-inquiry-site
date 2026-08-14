@@ -165,6 +165,7 @@ export function CorePageEditor({
     publishedBy: string;
     restored: boolean;
     status: "archived" | "published";
+    summary: string;
     version: number;
   }>;
 }) {
@@ -315,7 +316,7 @@ export function CorePageEditor({
                 {publication.status === "archived" ? "归档" : "已发布"}
               </b>
               <small>
-                {publication.publishedBy} ·{" "}
+                {publication.summary} · {publication.publishedBy} ·{" "}
                 {new Date(publication.publishedAt).toLocaleString("zh-CN", {
                   timeZone: "Asia/Shanghai",
                 })}

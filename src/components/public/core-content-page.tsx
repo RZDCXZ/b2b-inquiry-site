@@ -5,10 +5,12 @@ import {
 } from "@phosphor-icons/react/dist/ssr";
 import Link from "next/link";
 
+import type { PublicSiteShellData } from "@/src/application/public-site-shell";
 import { PublicFooter } from "@/src/components/public/public-footer";
 import { PublicHeader } from "@/src/components/public/public-header";
 import type { CorePageTranslation } from "@/src/modules/content-publishing/public/core-page-contracts";
 import { getHomeCopy } from "@/src/modules/content-publishing/public/home-copy";
+import { publicNavigationHref } from "@/src/modules/content-publishing/public/public-navigation";
 import type { PublicLocale } from "@/src/modules/site-config/public/locales";
 
 type ArticleCard = {
@@ -23,35 +25,30 @@ export function CoreContentPage({
   articles = [],
   content,
   locale,
+  shell,
 }: {
   activeNavigationAnchor: string;
   articles?: ArticleCard[];
   content: CorePageTranslation;
   locale: PublicLocale;
+  shell: PublicSiteShellData;
 }) {
   const copy = getHomeCopy(locale);
-  const routeByAnchor: Record<string, string> = {
-    about: "about",
-    contact: "inquiry",
-    "private-label": "private-label",
-    quality: "quality",
-    resources: "resources",
-  };
-  const route = routeByAnchor[activeNavigationAnchor] ?? "";
   return (
     <div className="public-shell">
       <PublicHeader
         activeNavigationAnchor={activeNavigationAnchor}
         descriptor={copy.brandDescriptor}
         languageHrefs={{
-          en: `/en/${route}`.replace(/\/$/u, ""),
-          "zh-cn": `/zh-cn/${route}`.replace(/\/$/u, ""),
+          en: publicNavigationHref("en", activeNavigationAnchor),
+          "zh-cn": publicNavigationHref("zh-cn", activeNavigationAnchor),
         }}
         languageLabel={copy.languageLabel}
         locale={locale}
         mobileNavigationLabel={copy.mobileNavigationLabel}
         navigation={copy.nav}
         primaryNavigationLabel={copy.primaryNavigationLabel}
+        visibleNavigationAnchors={shell.visibleNavigationAnchors}
       />
       <main className="core-content-page">
         <header>
@@ -108,6 +105,7 @@ export function CoreContentPage({
       </main>
       <PublicFooter
         companyName={copy.companyName}
+        configuration={shell.configuration}
         contactHeading={copy.footerContact}
         demoNotice={copy.demoNotice}
         description={copy.footerDescription}
@@ -116,6 +114,7 @@ export function CoreContentPage({
         locale={locale}
         navigation={copy.nav}
         privacyLabel={copy.footerPrivacy}
+        visibleNavigationAnchors={shell.visibleNavigationAnchors}
       />
     </div>
   );

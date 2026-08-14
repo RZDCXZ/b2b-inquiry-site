@@ -6,6 +6,7 @@ import type {
   PublishedCatalogProduct,
   SpecificationSearchProduct,
 } from "@/src/application/public-catalog";
+import type { PublicSiteShellData } from "@/src/application/public-site-shell";
 import { PublicFooter } from "@/src/components/public/public-footer";
 import { PublicHeader } from "@/src/components/public/public-header";
 import { productImageSource } from "@/src/components/product-image-source";
@@ -46,6 +47,7 @@ type CatalogPageProps = {
   products: Array<PublishedCatalogProduct | SpecificationSearchProduct>;
   resultTotal?: number;
   selectedCategory?: LocalizedProductCategory;
+  shell: PublicSiteShellData;
   vehicleFitments: LocalizedVehicleFitmentOption[];
   vehicleQueryString?: string;
   specificationIssues?: SpecificationFilterIssue[];
@@ -65,6 +67,7 @@ export function CatalogPage({
   products,
   resultTotal,
   selectedCategory,
+  shell,
   vehicleFitments,
   vehicleQueryString,
   specificationIssues = [],
@@ -171,6 +174,7 @@ export function CatalogPage({
         mobileNavigationLabel={homeCopy.mobileNavigationLabel}
         navigation={homeCopy.nav}
         primaryNavigationLabel={homeCopy.primaryNavigationLabel}
+        visibleNavigationAnchors={shell.visibleNavigationAnchors}
       />
       <main className="catalog-page">
         <section className="catalog-heading">
@@ -391,6 +395,7 @@ export function CatalogPage({
       </main>
       <PublicFooter
         companyName={homeCopy.companyName}
+        configuration={shell.configuration}
         contactHeading={homeCopy.footerContact}
         demoNotice={homeCopy.demoNotice}
         description={homeCopy.footerDescription}
@@ -399,6 +404,7 @@ export function CatalogPage({
         locale={locale}
         navigation={homeCopy.nav}
         privacyLabel={homeCopy.footerPrivacy}
+        visibleNavigationAnchors={shell.visibleNavigationAnchors}
       />
     </div>
   );

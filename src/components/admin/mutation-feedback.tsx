@@ -5,7 +5,7 @@ type MutationFeedbackState = {
     latestModifiedAt: string;
     latestModifiedBy: string;
   };
-  fieldErrors?: Record<string, string>;
+  fieldErrors?: Array<{ field: string; message: string }>;
   message: string;
   status: "error" | "idle" | "success";
 };
@@ -42,10 +42,10 @@ export function MutationFeedback({
         ) : null}
         {state.fieldErrors ? (
           <ul>
-            {Object.entries(state.fieldErrors).map(([field, message]) => {
+            {state.fieldErrors.map(({ field, message }, index) => {
               const target = fieldTarget(field);
               return (
-                <li key={field}>
+                <li key={`${field}:${index}`}>
                   {target ? <a href={`#${target}`}>{field}</a> : field}：
                   {message}
                 </li>

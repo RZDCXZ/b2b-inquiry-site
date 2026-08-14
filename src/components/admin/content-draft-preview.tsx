@@ -20,7 +20,9 @@ export function ContentDraftPreview({
         </span>
         <p>此画布不会改变前台；确认内容后返回编辑页发布。</p>
       </header>
-      <div className="content-draft-preview-canvas">{children}</div>
+      <div className="content-draft-preview-canvas" inert>
+        {children}
+      </div>
     </section>
   );
 }

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { issueInquiryForm } from "@/src/application/public-inquiry";
 import { getPublishedCorePage } from "@/src/application/site-content-management";
+import { getPublicSiteShellData } from "@/src/application/public-site-shell";
 import { InquiryFormPage } from "@/src/components/public/inquiry-form-page";
 import { getInquiryCopy } from "@/src/modules/content-publishing/public/inquiry-copy";
 import {
@@ -53,9 +54,10 @@ export default async function InquiryPage({
 
   const productPartNumber =
     typeof query.product === "string" ? query.product : undefined;
-  const [form, content] = await Promise.all([
+  const [form, content, shell] = await Promise.all([
     issueInquiryForm({ locale, productPartNumber }),
     getPublishedCorePage({ key: "contact", locale }),
+    getPublicSiteShellData({ locale }),
   ]);
 
   if (!form || !content) {
@@ -85,6 +87,7 @@ export default async function InquiryPage({
       fieldErrors={fieldErrors}
       locale={locale as PublicLocale}
       product={form.product}
+      shell={shell}
       token={form.token}
     />
   );

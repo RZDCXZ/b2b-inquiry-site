@@ -3,8 +3,10 @@ import { notFound } from "next/navigation";
 import { listPublishedVehicleFitmentOptions } from "@/src/application/public-catalog";
 import {
   getCorePageDraft,
+  listPublishedArticles,
   SiteContentError,
 } from "@/src/application/site-content-management";
+import { getPublicSiteShellData } from "@/src/application/public-site-shell";
 import { ContentDraftPreview } from "@/src/components/admin/content-draft-preview";
 import { PermissionDenied } from "@/src/components/admin/admin-page";
 import { CoreContentPage } from "@/src/components/public/core-content-page";
@@ -64,6 +66,7 @@ export default async function CorePageDraftPreviewRoute({
   const previewLocale = locale as PublicLocale;
   const content =
     previewLocale === "en" ? result.draft.contentEn : result.draft.contentZhCn;
+  const shell = await getPublicSiteShellData({ locale: previewLocale });
   let preview;
   if (pageKey === "home") {
     const vehicleFitments = await listPublishedVehicleFitmentOptions({
@@ -73,6 +76,7 @@ export default async function CorePageDraftPreviewRoute({
       <HomePage
         content={content}
         locale={previewLocale}
+        shell={shell}
         vehicleFitments={vehicleFitments}
       />
     );
@@ -83,15 +87,22 @@ export default async function CorePageDraftPreviewRoute({
         fieldErrors={[]}
         locale={previewLocale}
         product={null}
+        shell={shell}
         token="draft-preview"
       />
     );
   } else {
+    const articles =
+      pageKey === "technical_resources"
+        ? await listPublishedArticles({ locale: previewLocale })
+        : [];
     preview = (
       <CoreContentPage
         activeNavigationAnchor={navigationAnchorByKey[pageKey]}
+        articles={articles}
         content={content}
         locale={previewLocale}
+        shell={shell}
       />
     );
   }
