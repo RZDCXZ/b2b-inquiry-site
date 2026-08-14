@@ -176,6 +176,18 @@ export async function findCatalogProductIdentity(
   return product as CatalogProductIdentity | null;
 }
 
+export async function findCatalogProductIdentityById(
+  prisma: PrismaClient,
+  productId: string,
+): Promise<CatalogProductIdentity | null> {
+  const product = await prisma.product.findUnique({
+    select: catalogProductIdentitySelect,
+    where: { id: productId },
+  });
+
+  return product as CatalogProductIdentity | null;
+}
+
 export async function findCatalogProductReferences(
   prisma: PrismaClient,
   number: string,

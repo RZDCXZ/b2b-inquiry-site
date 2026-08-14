@@ -2494,6 +2494,370 @@ select {
   text-transform: uppercase;
 }
 
+/* Structured public inquiry and safe receipt */
+.inquiry-page {
+  width: min(calc(100% - 80px), 1220px);
+  margin: 0 auto;
+}
+
+.inquiry-heading {
+  min-height: 280px;
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(260px, 0.65fr);
+  align-items: center;
+  gap: 64px;
+  border-bottom: 1px solid var(--line);
+}
+
+.inquiry-heading h1,
+.inquiry-success-page h1 {
+  margin: 13px 0 16px;
+  color: var(--navy-900);
+  font-family: "Barlow Condensed", Impact, sans-serif;
+  font-size: clamp(48px, 5vw, 68px);
+  letter-spacing: -0.03em;
+  line-height: 0.98;
+}
+
+.inquiry-heading > div > p:last-child,
+.inquiry-success-page > p:last-of-type {
+  max-width: 690px;
+  margin: 0;
+  color: var(--graphite-600);
+  font-size: 14px;
+  line-height: 1.75;
+}
+
+.inquiry-heading > aside {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  border-left: 2px solid var(--orange);
+  padding: 14px 0 14px 18px;
+  color: var(--graphite-600);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.inquiry-heading > aside svg {
+  flex: 0 0 auto;
+  color: var(--orange);
+}
+
+.inquiry-layout {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  gap: 64px;
+  padding: 42px 0 100px;
+}
+
+.inquiry-layout--general {
+  grid-template-columns: minmax(0, 820px);
+  justify-content: center;
+}
+
+.inquiry-product-context {
+  position: sticky;
+  top: 24px;
+  align-self: start;
+  border: 1px solid var(--line);
+  padding: 24px;
+  background: rgb(255 255 255 / 52%);
+}
+
+.inquiry-product-context > p {
+  margin: 0;
+  color: var(--graphite-600);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.inquiry-product-context figure {
+  position: relative;
+  aspect-ratio: 1.25;
+  margin: 18px 0 20px;
+  background: #e8e3d9;
+}
+
+.inquiry-product-context figure img {
+  object-fit: cover;
+}
+
+.inquiry-product-context h2 {
+  margin: 0;
+  color: var(--navy-900);
+  font-family: "Barlow Condensed", Impact, sans-serif;
+  font-size: 44px;
+  letter-spacing: 0.025em;
+  line-height: 1;
+}
+
+.inquiry-product-context > strong {
+  display: block;
+  margin-top: 6px;
+  color: var(--graphite-600);
+  font-size: 13px;
+}
+
+.inquiry-product-context dl {
+  margin: 22px 0 0;
+}
+
+.inquiry-product-context dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  border-top: 1px solid var(--line);
+  padding: 13px 0;
+  font-size: 11px;
+}
+
+.inquiry-product-context dd {
+  margin: 0;
+  color: var(--navy-900);
+  font-weight: 700;
+  text-align: right;
+}
+
+.inquiry-product-context > a {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  color: var(--navy-900);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.inquiry-form {
+  position: relative;
+  min-width: 0;
+}
+
+.inquiry-honeypot {
+  position: absolute;
+  left: -10000px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.inquiry-error-summary {
+  margin-bottom: 24px;
+  border-left: 4px solid var(--danger);
+  padding: 17px 20px;
+  background: #f8e7e5;
+  color: var(--danger);
+}
+
+.inquiry-error-summary p {
+  margin: 5px 0 0;
+  color: var(--graphite-600);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.inquiry-error-summary ul {
+  margin: 10px 0 0;
+  padding-left: 18px;
+}
+
+.inquiry-error-summary a {
+  color: var(--danger);
+  font-size: 12px;
+  font-weight: 700;
+  text-underline-offset: 3px;
+}
+
+.inquiry-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.inquiry-field {
+  display: grid;
+  gap: 8px;
+  color: var(--navy-900);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.inquiry-field > span small,
+.inquiry-choice-row small,
+.inquiry-consent small {
+  color: var(--graphite-600);
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.inquiry-field input,
+.inquiry-field textarea {
+  width: 100%;
+  border: 1px solid #bfc3c2;
+  border-radius: 4px;
+  padding: 13px 14px;
+  background: white;
+  color: var(--graphite-900);
+}
+
+.inquiry-field input {
+  min-height: 50px;
+}
+
+.inquiry-field textarea {
+  resize: vertical;
+  line-height: 1.6;
+}
+
+.inquiry-field--error input,
+.inquiry-field--error textarea {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 1px var(--danger);
+}
+
+.inquiry-field-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+  color: var(--danger);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.inquiry-field-error svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+
+.inquiry-choice-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px 28px;
+  margin: 24px 0;
+}
+
+.inquiry-choice-row label,
+.inquiry-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: var(--graphite-900);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.inquiry-choice-row input,
+.inquiry-consent input {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  margin: 0;
+  accent-color: var(--orange);
+}
+
+.inquiry-choice-row input[aria-invalid="true"],
+.inquiry-consent input[aria-invalid="true"] {
+  outline: 2px solid var(--danger);
+  outline-offset: 2px;
+}
+
+.inquiry-choice-field,
+.inquiry-consent-field {
+  display: grid;
+  gap: 7px;
+}
+
+.inquiry-consent-field {
+  margin: 24px 0;
+}
+
+.inquiry-submit-row {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  border-top: 1px solid var(--line);
+  padding-top: 24px;
+}
+
+.inquiry-submit-row p {
+  max-width: 390px;
+  margin: 0;
+  color: var(--graphite-600);
+  font-size: 10px;
+  line-height: 1.55;
+}
+
+.inquiry-success-page {
+  width: min(calc(100% - 40px), 820px);
+  min-height: 680px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 16px;
+  margin: 30px auto;
+  text-align: center;
+}
+
+.inquiry-success-page > svg {
+  color: var(--success);
+}
+
+.inquiry-success-page dl {
+  width: 100%;
+  margin: 18px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.inquiry-success-page dl div {
+  display: grid;
+  grid-template-columns: 1fr 1.5fr;
+  text-align: left;
+}
+
+.inquiry-success-page dl div + div {
+  border-top: 1px solid var(--line);
+}
+
+.inquiry-success-page dt,
+.inquiry-success-page dd {
+  margin: 0;
+  padding: 16px;
+}
+
+.inquiry-success-page dt {
+  color: var(--graphite-600);
+  font-size: 11px;
+}
+
+.inquiry-success-page dd {
+  color: var(--navy-900);
+  font-family: "Barlow Condensed", Impact, sans-serif;
+  font-size: 23px;
+  font-weight: 700;
+  letter-spacing: 0.035em;
+}
+
+.inquiry-success-page nav {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.inquiry-success-page nav .secondary-button {
+  margin-top: 0;
+  border-color: var(--navy-900);
+  color: var(--navy-900);
+}
+
+.inquiry-success-page nav .secondary-button:hover {
+  background: var(--navy-900);
+  color: white;
+}
+
 @media (max-width: 1080px) {
   .public-header {
     width: calc(100% - 40px);
@@ -2964,6 +3328,84 @@ select {
 @media (min-width: 541px) and (max-width: 820px) {
   .vehicle-finder {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 820px) {
+  .inquiry-page {
+    width: calc(100% - 40px);
+  }
+
+  .inquiry-heading {
+    min-height: auto;
+    grid-template-columns: 1fr;
+    gap: 28px;
+    padding: 52px 0 36px;
+  }
+
+  .inquiry-layout {
+    grid-template-columns: 1fr;
+    gap: 34px;
+    padding-top: 32px;
+  }
+
+  .inquiry-product-context {
+    position: static;
+    display: grid;
+    grid-template-columns: 120px 1fr;
+    gap: 0 18px;
+  }
+
+  .inquiry-product-context > p,
+  .inquiry-product-context dl,
+  .inquiry-product-context > a {
+    grid-column: 1 / -1;
+  }
+
+  .inquiry-product-context figure {
+    grid-row: 2 / 5;
+    width: 120px;
+    height: 120px;
+  }
+
+  .inquiry-product-context h2 {
+    align-self: end;
+  }
+}
+
+@media (max-width: 540px) {
+  .inquiry-product-context {
+    display: block;
+  }
+
+  .inquiry-product-context figure {
+    width: 100%;
+    height: auto;
+  }
+
+  .inquiry-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .inquiry-choice-row,
+  .inquiry-submit-row,
+  .inquiry-success-page nav {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .inquiry-submit-row .primary-button,
+  .inquiry-success-page nav a {
+    width: 100%;
+  }
+
+  .inquiry-success-page dl div {
+    grid-template-columns: 1fr;
+  }
+
+  .inquiry-success-page dd {
+    padding-top: 0;
+    font-size: 18px;
   }
 }
 

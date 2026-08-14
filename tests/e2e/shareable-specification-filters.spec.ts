@@ -161,10 +161,7 @@ test("规格无结果时保留条件并提供三个恢复入口", async ({ page 
   ).toHaveAttribute("href", "/en?finder=part#products");
   await expect(
     page.getByRole("link", { name: "Send a general inquiry" }),
-  ).toHaveAttribute(
-    "href",
-    "mailto:inquiries@torquelis.example?subject=General%20inquiry",
-  );
+  ).toHaveAttribute("href", "/en/inquiry");
 });
 
 test("过期、跨分类和非法 URL 条件显示可理解反馈", async ({ page }) => {

@@ -356,12 +356,12 @@ export function CatalogPage({
                   >
                     {catalogCopy.resultSearchByNumber}
                   </Link>
-                  <a
+                  <Link
                     className="secondary-button"
-                    href="mailto:inquiries@torquelis.example?subject=General%20inquiry"
+                    href={`/${locale}/inquiry`}
                   >
                     {catalogCopy.resultGeneralInquiry}
-                  </a>
+                  </Link>
                 </div>
               </div>
             )}

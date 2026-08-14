@@ -170,12 +170,9 @@ export function ProductNumberLookupPage({
                 >
                   {catalogCopy.lookupSearchByVehicle}
                 </Link>
-                <a
-                  className="primary-button"
-                  href="mailto:inquiries@torquelis.example?subject=General%20inquiry"
-                >
+                <Link className="primary-button" href={`/${locale}/inquiry`}>
                   {catalogCopy.lookupGeneralInquiry}
-                </a>
+                </Link>
               </div>
             </div>
           )}

@@ -10,6 +10,7 @@ import {
 } from "@/src/modules/catalog/public/product-identity";
 import {
   findCatalogProductIdentity,
+  findCatalogProductIdentityById,
   findCatalogProductReferences,
   findCatalogProductIdentitiesBySpecifications,
   listCatalogCategories,
@@ -485,6 +486,30 @@ export async function getPublishedProduct({
     status: identity.status,
     unitSystem,
   };
+}
+
+export async function getPublishedProductById({
+  locale,
+  prisma = getApplicationPrisma(),
+  productId,
+  unitSystem = "metric",
+}: {
+  locale: PublicLocale;
+  prisma?: ApplicationDatabase;
+  productId: string;
+  unitSystem?: UnitSystem;
+}): Promise<PublishedProductDetail | null> {
+  const identity = await findCatalogProductIdentityById(prisma, productId);
+
+  return identity
+    ? getPublishedProduct({
+        knownIdentity: identity,
+        locale,
+        partNumber: identity.partNumber,
+        prisma,
+        unitSystem,
+      })
+    : null;
 }
 
 export async function lookupPublishedProductNumber({

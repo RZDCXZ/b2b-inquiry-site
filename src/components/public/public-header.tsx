@@ -35,7 +35,9 @@ export function PublicHeader({
     href:
       item.anchor === "products"
         ? `/${locale}/products`
-        : `/${locale}#${item.anchor}`,
+        : item.anchor === "contact"
+          ? `/${locale}/inquiry`
+          : `/${locale}#${item.anchor}`,
   }));
 
   return (

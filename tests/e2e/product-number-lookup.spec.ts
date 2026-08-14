@@ -72,10 +72,7 @@ test("相似但不同的号码不匹配并提供继续查找路径", async ({ pa
   ).toHaveAttribute("href", "/en?finder=vehicle#products");
   await expect(
     page.getByRole("link", { name: "Send a general inquiry" }),
-  ).toHaveAttribute(
-    "href",
-    "mailto:inquiries@torquelis.example?subject=General%20inquiry",
-  );
+  ).toHaveAttribute("href", "/en/inquiry");
   await expect(page.getByText("TQ-FL-4827", { exact: true })).toHaveCount(0);
 
   await page.getByRole("link", { name: "Search by vehicle" }).click();

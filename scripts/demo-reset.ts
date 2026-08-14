@@ -18,6 +18,7 @@ import { replaceVehicleFitmentDemoData } from "@/src/modules/catalog/server/fitm
 import { seedPublishedProductContent } from "@/src/modules/content-publishing/server/product-demo-content";
 import { replacePresetAccounts } from "@/src/modules/identity-access/server/preset-accounts";
 import { readPresetCredentials } from "@/src/modules/identity-access/server/preset-credentials";
+import { replaceInquiryAndNotificationData } from "@/src/application/inquiry-demo-reset";
 import { replaceDemoData } from "@/src/modules/site-config/server/local-demo-data";
 import { verifyLocalDatabaseIdentity } from "@/src/modules/site-config/server/verify-local-database";
 
@@ -33,6 +34,7 @@ try {
   const credentials = await readPresetCredentials();
   await verifyLocalDatabaseIdentity(prisma);
   await replaceDemoData(prisma);
+  await replaceInquiryAndNotificationData(prisma);
   await replaceCatalogIdentities(prisma);
   await seedPublishedProductContent(prisma);
   await seedCatalogProductLifecycleDemoData(prisma);

@@ -86,8 +86,5 @@ test("无匹配车型结果保留查找器并提供三个恢复入口", async ({
     "/en?finder=part#products",
   );
   await expect(generalInquiry).toBeVisible();
-  await expect(generalInquiry).toHaveAttribute(
-    "href",
-    "mailto:inquiries@torquelis.example?subject=General%20inquiry",
-  );
+  await expect(generalInquiry).toHaveAttribute("href", "/en/inquiry");
 });

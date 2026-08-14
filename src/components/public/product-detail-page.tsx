@@ -151,7 +151,10 @@ export function ProductDetailPage({
               {catalogCopy.demoDataNotice}
             </aside>
             <div className="product-detail-actions">
-              <Link className="primary-button" href={`/${locale}#contact`}>
+              <Link
+                className="primary-button"
+                href={`/${locale}/inquiry?product=${encodeURIComponent(product.partNumber)}`}
+              >
                 {catalogCopy.detailInquiry}
                 <ArrowRight aria-hidden="true" size={18} />
               </Link>
