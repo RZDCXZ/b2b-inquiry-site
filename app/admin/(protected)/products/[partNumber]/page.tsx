@@ -50,7 +50,6 @@ export default async function ProductEditorPage({
     currentPublicationId: draft.currentPublicationId,
     descriptionEn: draft.descriptionEn,
     descriptionZhCn: draft.descriptionZhCn,
-    fitmentCount: draft.fitments.length,
     fitmentSummaryEn: draft.fitmentSummaryEn,
     fitmentSummaryZhCn: draft.fitmentSummaryZhCn,
     imageAltEn: draft.imageAltEn,
@@ -63,6 +62,7 @@ export default async function ProductEditorPage({
     nameZhCn: draft.nameZhCn,
     partNumber: draft.partNumber,
     productStatus: draft.productStatus,
+    publicationReadiness: draft.publicationReadiness,
     publications: draft.publications.map((publication) => ({
       current: publication.id === draft.currentPublicationId,
       id: publication.id,

@@ -72,7 +72,9 @@ describe("商用车型适配查找", () => {
         partNumber: "TQ-FL-4800",
         publications: {
           create: {
+            categoryId: "category-fuel",
             id: publicationId,
+            imagePath: "/assets/fuel-filter-product.png",
             nameEn: "Multiple fitment candidate fixture",
             nameZhCn: "多候选适配测试数据",
             slugEn: "multiple-fitment-candidate-fixture",
@@ -153,7 +155,9 @@ describe("商用车型适配查找", () => {
         partNumber: "TQ-UF-9999",
         publications: {
           create: {
+            categoryId: "category-fuel",
             id: publicationId,
+            imagePath: "/assets/fuel-filter-product.png",
             nameEn: "Unpublished fitment fixture",
             nameZhCn: "未发布适配测试数据",
             slugEn: "unpublished-fitment-fixture",

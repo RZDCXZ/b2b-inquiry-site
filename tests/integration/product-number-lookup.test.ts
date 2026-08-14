@@ -114,7 +114,9 @@ describe("产品编号与参考号查找", () => {
     const publicationId = "publication-product-tq-fl-4827-v2-reference-test";
     await prisma.productPublication.create({
       data: {
+        categoryId: "category-fuel",
         id: publicationId,
+        imagePath: "/assets/fuel-filter-product.png",
         nameEn: "Reference snapshot fixture",
         nameZhCn: "参考号快照测试数据",
         productId: "product-tq-fl-4827",

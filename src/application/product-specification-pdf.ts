@@ -37,7 +37,10 @@ export async function generatePublishedProductSpecificationPdf({
 }): Promise<ProductSpecificationPdfDownload | null> {
   const identity = await findCatalogProductIdentity(prisma, partNumber);
 
-  if (!identity?.currentPublicationId || identity.status === "draft") {
+  if (
+    !identity?.currentPublicationId ||
+    identity.currentPublication?.status === "draft"
+  ) {
     return null;
   }
 

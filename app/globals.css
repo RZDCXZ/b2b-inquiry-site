@@ -5173,18 +5173,9 @@ a.product-admin-row:hover {
   }
 }
 
-.product-confirm-dialog-backdrop {
-  position: fixed;
-  z-index: 100;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  padding: 24px;
-  background: rgb(12 19 16 / 62%);
-}
-
-.product-confirm-dialog-backdrop > div {
+.product-confirm-dialog {
   width: min(100%, 500px);
+  max-width: calc(100% - 48px);
   padding: 28px;
   border: 1px solid var(--line);
   border-radius: 18px;
@@ -5192,7 +5183,11 @@ a.product-admin-row:hover {
   box-shadow: 0 24px 70px rgb(12 19 16 / 28%);
 }
 
-.product-confirm-dialog-backdrop strong {
+.product-confirm-dialog::backdrop {
+  background: rgb(12 19 16 / 62%);
+}
+
+.product-confirm-dialog strong {
   display: block;
   margin-bottom: 10px;
   color: var(--navy-900);
@@ -5200,15 +5195,28 @@ a.product-admin-row:hover {
   font-size: 1.25rem;
 }
 
-.product-confirm-dialog-backdrop p {
+.product-confirm-dialog p {
   margin: 0;
   color: var(--graphite-600);
   line-height: 1.65;
 }
 
-.product-confirm-dialog-backdrop > div > div {
+.product-confirm-dialog section > div {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
   margin-top: 24px;
+}
+
+@media (max-width: 700px) {
+  .product-confirm-dialog {
+    width: 100%;
+    max-width: none;
+    margin: auto 0 0;
+    border-right: 0;
+    border-bottom: 0;
+    border-left: 0;
+    border-radius: 18px 18px 0 0;
+    padding: 24px 18px;
+  }
 }

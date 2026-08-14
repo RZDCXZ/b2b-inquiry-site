@@ -55,10 +55,8 @@ function assertCanManageProducts(actor: AdminActor): void {
   }
 }
 
-const requiredTextFields = [
-  "imagePath",
+const requiredEnglishTextFields = [
   "imageAltEn",
-  "imageAltZhCn",
   "nameEn",
   "slugEn",
   "summaryEn",
@@ -66,6 +64,10 @@ const requiredTextFields = [
   "seoTitleEn",
   "seoDescriptionEn",
   "fitmentSummaryEn",
+] as const;
+
+const requiredChineseTextFields = [
+  "imageAltZhCn",
   "nameZhCn",
   "slugZhCn",
   "summaryZhCn",
@@ -73,6 +75,12 @@ const requiredTextFields = [
   "seoTitleZhCn",
   "seoDescriptionZhCn",
   "fitmentSummaryZhCn",
+] as const;
+
+const requiredTextFields = [
+  "imagePath",
+  ...requiredEnglishTextFields,
+  ...requiredChineseTextFields,
 ] as const;
 
 type ProductDraftSpecificationInput = {
@@ -160,7 +168,7 @@ function normalizeReferences(
 }
 
 async function resolveReplacementProduct(
-  prisma: Pick<ApplicationDatabase, "product">,
+  prisma: Pick<ApplicationDatabase, "product" | "productDraft">,
   {
     productId,
     replacementPartNumber,
@@ -186,10 +194,9 @@ async function resolveReplacementProduct(
 
   const replacement = await prisma.product.findUnique({
     select: {
-      currentPublicationId: true,
+      currentPublication: { select: { status: true } },
       id: true,
       partNumber: true,
-      status: true,
     },
     where: {
       normalizedPartNumber: normalizeProductNumber(replacementPartNumber),
@@ -198,8 +205,8 @@ async function resolveReplacementProduct(
 
   if (
     !replacement ||
-    replacement.status === "draft" ||
-    !replacement.currentPublicationId
+    replacement.currentPublication?.status === "draft" ||
+    !replacement.currentPublication
   ) {
     throw new ProductPublishingError("INVALID_DRAFT", [
       {
@@ -215,12 +222,12 @@ async function resolveReplacementProduct(
     ]);
   }
 
-  const replacementEdges = await prisma.product.findMany({
-    select: { id: true, replacementProductId: true },
+  const replacementEdges = await prisma.productDraft.findMany({
+    select: { productId: true, replacementProductId: true },
   });
   const nextProductIdById = new Map(
-    replacementEdges.map(({ id, replacementProductId }) => [
-      id,
+    replacementEdges.map(({ productId, replacementProductId }) => [
+      productId,
       replacementProductId,
     ]),
   );
@@ -315,6 +322,41 @@ function specificationInputFromSnapshot(
   };
 }
 
+function draftLanguageCompleteness(
+  draft: Pick<
+    ProductDraftInput,
+    | (typeof requiredEnglishTextFields)[number]
+    | (typeof requiredChineseTextFields)[number]
+  >,
+) {
+  return {
+    en: requiredEnglishTextFields.every(
+      (field) => draft[field].trim().length > 0,
+    ),
+    zhCn: requiredChineseTextFields.every(
+      (field) => draft[field].trim().length > 0,
+    ),
+  };
+}
+
+async function draftSpecificationsArePublishable(
+  prisma: ApplicationDatabase,
+  draft: {
+    categoryId: string;
+    specificationValues: PersistedSpecificationSnapshot[];
+  },
+): Promise<boolean> {
+  try {
+    await validateProductSpecificationsForCategory(prisma, {
+      categoryId: draft.categoryId,
+      values: draft.specificationValues.map(specificationInputFromSnapshot),
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function getProductDraft({
   actor,
   partNumber,
@@ -327,8 +369,8 @@ export async function getProductDraft({
   assertCanManageProducts(actor);
 
   const product = await prisma.product.findUnique({
-    include: {
-      category: true,
+    select: {
+      currentPublicationId: true,
       draft: {
         include: {
           category: {
@@ -339,14 +381,7 @@ export async function getProductDraft({
               },
             },
           },
-          fitments: {
-            include: {
-              engine: {
-                include: { vehicleModel: { include: { make: true } } },
-              },
-            },
-            orderBy: [{ vehicleModelId: "asc" }, { yearFrom: "asc" }],
-          },
+          _count: { select: { fitments: true } },
           lastModifiedBy: { select: { id: true, name: true } },
           references: {
             orderBy: [{ brand: "asc" }, { referenceNumber: "asc" }],
@@ -365,6 +400,8 @@ export async function getProductDraft({
           version: true,
         },
       },
+      partNumber: true,
+      status: true,
     },
     where: { normalizedPartNumber: normalizeProductNumber(partNumber) },
   });
@@ -373,11 +410,23 @@ export async function getProductDraft({
     throw new ProductPublishingError("NOT_FOUND");
   }
 
+  const languageCompleteness = draftLanguageCompleteness(product.draft);
+  const specifications = await draftSpecificationsArePublishable(
+    prisma,
+    product.draft,
+  );
+
   return {
     ...product.draft,
     currentPublicationId: product.currentPublicationId,
     partNumber: product.partNumber,
     productStatus: product.status,
+    publicationReadiness: {
+      bilingualContent: languageCompleteness.en && languageCompleteness.zhCn,
+      image: product.draft.imagePath.trim().length > 0,
+      references: product.draft.references.length > 0,
+      specifications,
+    },
     publications: product.publications,
   };
 }
@@ -391,19 +440,33 @@ export async function listProductDrafts({
 }) {
   assertCanManageProducts(actor);
 
-  return prisma.product.findMany({
+  const products = await prisma.product.findMany({
     orderBy: { partNumber: "asc" },
     select: {
       category: { select: { nameZhCn: true } },
       currentPublicationId: true,
       draft: {
         select: {
+          descriptionEn: true,
+          descriptionZhCn: true,
+          fitmentSummaryEn: true,
+          fitmentSummaryZhCn: true,
+          imageAltEn: true,
+          imageAltZhCn: true,
           lastModifiedBy: { select: { name: true } },
           lastPublishedVersion: true,
           nameEn: true,
           nameZhCn: true,
           references: { select: { id: true } },
+          seoDescriptionEn: true,
+          seoDescriptionZhCn: true,
+          seoTitleEn: true,
+          seoTitleZhCn: true,
+          slugEn: true,
+          slugZhCn: true,
           specificationValues: { select: { attributeId: true } },
+          summaryEn: true,
+          summaryZhCn: true,
           updatedAt: true,
           version: true,
         },
@@ -413,6 +476,16 @@ export async function listProductDrafts({
       status: true,
     },
   });
+
+  return products.map((product) => ({
+    ...product,
+    draft: product.draft
+      ? {
+          ...product.draft,
+          languageCompleteness: draftLanguageCompleteness(product.draft),
+        }
+      : null,
+  }));
 }
 
 export async function listRecentProductPublications({

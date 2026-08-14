@@ -154,7 +154,9 @@ describe("强类型产品规格持久化", () => {
 
     await prisma.productPublication.create({
       data: {
+        categoryId: "category-fuel",
         id: publicationId,
+        imagePath: "/assets/fuel-filter-product.png",
         nameEn: "Specification snapshot test",
         nameZhCn: "规格快照测试",
         productId: "product-tq-fl-4827",

@@ -106,9 +106,14 @@ function localizeProduct(
   identity: CatalogProductIdentity | CatalogReplacementProductIdentity,
   content: PublishedProductContent,
 ) {
+  const publication = identity.currentPublication;
+  if (!publication?.category) {
+    throw new Error("Published catalog identity is missing its publication.");
+  }
+
   return locale === "en"
     ? {
-        categoryName: identity.category.nameEn,
+        categoryName: publication.category.nameEn,
         description: content.descriptionEn,
         fitmentSummary: content.fitmentSummaryEn,
         imageAlt: content.imageAltEn,
@@ -119,7 +124,7 @@ function localizeProduct(
         summary: content.summaryEn,
       }
     : {
-        categoryName: identity.category.nameZhCn,
+        categoryName: publication.category.nameZhCn,
         description: content.descriptionZhCn,
         fitmentSummary: content.fitmentSummaryZhCn,
         imageAlt: content.imageAltZhCn,
@@ -137,10 +142,14 @@ function createPublishedCatalogProduct(
   content: PublishedProductContent,
 ): PublishedCatalogProduct {
   const localized = localizeProduct(locale, identity, content);
+  const publication = identity.currentPublication;
+  if (!publication?.category) {
+    throw new Error("Published catalog identity is missing its publication.");
+  }
 
   return {
     category: {
-      code: identity.category.code,
+      code: publication.category.code,
       name: localized.categoryName,
     },
     href: productDetailPath(locale, {
@@ -149,7 +158,7 @@ function createPublishedCatalogProduct(
     }),
     id: identity.id,
     imageAlt: localized.imageAlt,
-    imagePath: identity.imagePath,
+    imagePath: publication.imagePath,
     name: localized.name,
     partNumber: identity.partNumber,
     slug: localized.slug,
@@ -175,7 +184,7 @@ async function assemblePublishedCatalogProducts(
   return identities.flatMap((identity) => {
     const content = contentByProductId.get(identity.id);
 
-    return content
+    return content && identity.currentPublication?.category
       ? [createPublishedCatalogProduct(locale, identity, content)]
       : [];
   });
@@ -314,17 +323,18 @@ export async function listPublishedVehicleFitmentOptions({
 
   return fitments.flatMap((fitment) => {
     const identity = identityByPublicationId.get(fitment.publicationId);
+    const publication = identity?.currentPublication;
 
-    return identity
+    return identity && publication?.category
       ? [
           {
             ...fitment,
             category: {
-              code: identity.category.code,
+              code: publication.category.code,
               name:
                 locale === "en"
-                  ? identity.category.nameEn
-                  : identity.category.nameZhCn,
+                  ? publication.category.nameEn
+                  : publication.category.nameZhCn,
             },
           },
         ]
@@ -444,13 +454,20 @@ export async function getPublishedProduct({
     return null;
   }
 
-  if (!identity.currentPublicationId || identity.status === "draft") {
+  const publication = identity.currentPublication;
+  if (
+    !identity.currentPublicationId ||
+    !publication ||
+    !publication.category ||
+    publication.status === "draft"
+  ) {
     return null;
   }
 
+  const replacementIdentity = publication.replacementProduct;
   const replacementPublicationId =
-    identity.replacementProduct?.status !== "draft"
-      ? identity.replacementProduct?.currentPublicationId
+    replacementIdentity?.currentPublication?.status !== "draft"
+      ? replacementIdentity?.currentPublicationId
       : null;
   const [
     [content],
@@ -480,10 +497,10 @@ export async function getPublishedProduct({
   );
   const replacementContent = replacementContents[0];
   const replacement =
-    identity.replacementProduct && replacementContent
+    replacementIdentity?.currentPublication?.category && replacementContent
       ? createPublishedCatalogProduct(
           locale,
-          identity.replacementProduct,
+          replacementIdentity,
           replacementContent,
         )
       : null;
@@ -525,7 +542,7 @@ export async function getPublishedProduct({
     seoDescription:
       locale === "en" ? content.seoDescriptionEn : content.seoDescriptionZhCn,
     seoTitle: locale === "en" ? content.seoTitleEn : content.seoTitleZhCn,
-    status: identity.status,
+    status: publication.status,
     unitSystem,
   };
 }

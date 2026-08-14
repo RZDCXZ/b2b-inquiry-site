@@ -66,6 +66,47 @@ describe("双语标准替换件目录", () => {
     expect(chinese?.languageHrefs.en).toBe(english?.href);
   });
 
+  it("公开详情只读取当前不可变发布快照而不读取可变产品投影", async () => {
+    const original = await prisma.product.findUniqueOrThrow({
+      where: { id: "product-tq-fl-4827" },
+    });
+
+    try {
+      await prisma.product.update({
+        data: {
+          categoryId: "category-air",
+          imagePath: "/assets/filter-family.png",
+          replacementProductId: "product-tq-af-2106",
+          status: "discontinued",
+        },
+        where: { id: original.id },
+      });
+
+      await expect(
+        getPublishedProduct({
+          locale: "en",
+          partNumber: original.partNumber,
+          prisma,
+        }),
+      ).resolves.toMatchObject({
+        category: { code: "fuel" },
+        imagePath: "/assets/fuel-filter-product.png",
+        replacement: null,
+        status: "published",
+      });
+    } finally {
+      await prisma.product.update({
+        data: {
+          categoryId: original.categoryId,
+          imagePath: original.imagePath,
+          replacementProductId: original.replacementProductId,
+          status: original.status,
+        },
+        where: { id: original.id },
+      });
+    }
+  });
+
   it("已停产产品保留双语历史详情但不进入默认目录，并按当前语言提供可选替代产品", async () => {
     const [catalogue, englishWithReplacement, chineseWithoutReplacement] =
       await Promise.all([
@@ -135,7 +176,9 @@ describe("双语标准替换件目录", () => {
     const mismatchedPublicationId = "publication-product-tq-fl-4827-v2-test";
     await prisma.productPublication.create({
       data: {
+        categoryId: "category-fuel",
         id: mismatchedPublicationId,
+        imagePath: "/assets/fuel-filter-product.png",
         nameEn: "Fuel publication ownership fixture",
         nameZhCn: "燃油发布归属测试数据",
         productId: "product-tq-fl-4827",

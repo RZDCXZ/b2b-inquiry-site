@@ -219,7 +219,9 @@ test("规格结果固定每页十二项并通过 URL 进入下一页", async ({
           partNumber: fixture.partNumber,
           publications: {
             create: {
+              categoryId: "category-fuel",
               id: fixture.publicationId,
+              imagePath: "/assets/fuel-filter-product.png",
               nameEn: `Browser pagination fixture ${fixture.partNumber}`,
               nameZhCn: `浏览器分页测试 ${fixture.partNumber}`,
               slugEn: `browser-pagination-${fixture.partNumber.toLowerCase()}`,

@@ -47,7 +47,7 @@ export default async function ProductsPage() {
         {products.map((product) => {
           const draft = product.draft;
           const languageComplete = Boolean(
-            draft?.nameEn.trim() && draft.nameZhCn.trim(),
+            draft?.languageCompleteness.en && draft.languageCompleteness.zhCn,
           );
           const hasUnpublishedChanges =
             draft?.lastPublishedVersion !== draft?.version;

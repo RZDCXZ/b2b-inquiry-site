@@ -40,21 +40,22 @@ export async function setProductLifecycle({
     async (transaction) => {
       const product = await transaction.product.findUnique({
         select: {
-          currentPublicationId: true,
+          currentPublication: { select: { status: true } },
+          draft: { select: { productId: true } },
           id: true,
           partNumber: true,
         },
         where: { normalizedPartNumber: normalizeProductNumber(partNumber) },
       });
 
-      if (!product) {
+      if (!product?.draft) {
         throw new ProductLifecycleError(
           "PRODUCT_NOT_FOUND",
           `Product ${partNumber} does not exist.`,
         );
       }
 
-      if (status !== "draft" && !product.currentPublicationId) {
+      if (status !== "draft" && !product.currentPublication) {
         throw new ProductLifecycleError(
           "PUBLICATION_REQUIRED",
           "Published and discontinued products require a current publication.",
@@ -71,10 +72,9 @@ export async function setProductLifecycle({
       const replacement = replacementPartNumber
         ? await transaction.product.findUnique({
             select: {
-              currentPublicationId: true,
+              currentPublication: { select: { status: true } },
               id: true,
               partNumber: true,
-              status: true,
             },
             where: {
               normalizedPartNumber: normalizeProductNumber(
@@ -100,7 +100,8 @@ export async function setProductLifecycle({
 
       if (
         replacement &&
-        (replacement.status === "draft" || !replacement.currentPublicationId)
+        (replacement.currentPublication?.status === "draft" ||
+          !replacement.currentPublication)
       ) {
         throw new ProductLifecycleError(
           "REPLACEMENT_NOT_PUBLIC",
@@ -109,12 +110,12 @@ export async function setProductLifecycle({
       }
 
       if (replacement) {
-        const replacementEdges = await transaction.product.findMany({
-          select: { id: true, replacementProductId: true },
+        const replacementEdges = await transaction.productDraft.findMany({
+          select: { productId: true, replacementProductId: true },
         });
         const nextProductIdById = new Map(
-          replacementEdges.map(({ id, replacementProductId }) => [
-            id,
+          replacementEdges.map(({ productId, replacementProductId }) => [
+            productId,
             replacementProductId,
           ]),
         );
@@ -138,18 +139,20 @@ export async function setProductLifecycle({
         }
       }
 
-      const updated = await transaction.product.update({
+      const updated = await transaction.productDraft.update({
         data: {
           replacementProductId: replacement?.id ?? null,
           status,
+          version: { increment: 1 },
         },
-        select: { partNumber: true, status: true },
-        where: { id: product.id },
+        select: { status: true },
+        where: { productId: product.id },
       });
 
       return {
-        ...updated,
+        partNumber: product.partNumber,
         replacementPartNumber: replacement?.partNumber ?? null,
+        status: updated.status,
       };
     },
     { isolationLevel: "Serializable" },

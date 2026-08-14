@@ -4,6 +4,7 @@ import { getPublishedProduct } from "@/src/application/public-catalog";
 import {
   deleteNeverPublishedProductDraft,
   getProductDraft,
+  listProductDrafts,
   publishProductDraft,
   restoreProductPublication,
   saveProductDraft,
@@ -105,6 +106,35 @@ describe("产品草稿发布", () => {
     } finally {
       await prisma.productDraft.update({
         data: { imagePath: draft.imagePath },
+        where: { productId: draft.productId },
+      });
+    }
+  });
+
+  it("产品列表按全部双语必填字段计算语言完整度", async () => {
+    const draft = await getProductDraft({
+      actor: contentEditor,
+      partNumber: "TQ-FL-4827",
+      prisma,
+    });
+
+    try {
+      await prisma.productDraft.update({
+        data: { seoDescriptionZhCn: "" },
+        where: { productId: draft.productId },
+      });
+
+      const product = (
+        await listProductDrafts({ actor: contentEditor, prisma })
+      ).find(({ id }) => id === draft.productId);
+
+      expect(product?.draft?.languageCompleteness).toEqual({
+        en: true,
+        zhCn: false,
+      });
+    } finally {
+      await prisma.productDraft.update({
+        data: { seoDescriptionZhCn: draft.seoDescriptionZhCn },
         where: { productId: draft.productId },
       });
     }
@@ -281,6 +311,24 @@ describe("产品草稿发布", () => {
           where: { publicationId },
         }),
       ).rejects.toThrow();
+      const sealedPublication =
+        await prisma.productPublication.findUniqueOrThrow({
+          where: { id: publicationId },
+        });
+      await prisma.productPublication.create({
+        data: {
+          ...sealedPublication,
+          id: "publication-unsealed-reparent-target",
+          sealedAt: null,
+          version: 999,
+        },
+      });
+      await expect(
+        prisma.productReference.updateMany({
+          data: { publicationId: "publication-unsealed-reparent-target" },
+          where: { publicationId },
+        }),
+      ).rejects.toThrow();
       await expect(
         prisma.auditLog.findFirst({
           orderBy: { createdAt: "desc" },
@@ -309,11 +357,16 @@ describe("产品草稿发布", () => {
           },
           where: { id: original.productId },
         });
-        if (publicationId) {
-          await transaction.productPublication.delete({
-            where: { id: publicationId },
-          });
-        }
+        await transaction.productPublication.deleteMany({
+          where: {
+            id: {
+              in: [
+                publicationId,
+                "publication-unsealed-reparent-target",
+              ].filter((id): id is string => Boolean(id)),
+            },
+          },
+        });
         await transaction.auditLog.deleteMany({
           where: {
             event: "PRODUCT_PUBLISHED",
@@ -365,6 +418,9 @@ describe("产品草稿发布", () => {
       actor: contentEditor,
       partNumber: "TQ-FL-4827",
       prisma,
+    });
+    const originalFitments = await prisma.productDraftFitment.findMany({
+      where: { productId: original.productId },
     });
     const createdPublicationIds: string[] = [];
 
@@ -554,9 +610,9 @@ describe("产品草稿发布", () => {
             })),
           });
         }
-        if (original.fitments.length > 0) {
+        if (originalFitments.length > 0) {
           await transaction.productDraftFitment.createMany({
-            data: original.fitments.map(
+            data: originalFitments.map(
               ({ engineId, vehicleModelId, yearFrom, yearTo }) => ({
                 engineId,
                 productId: original.productId,

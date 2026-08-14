@@ -184,9 +184,7 @@ test("内容编辑预览、发布、恢复并处理草稿并发冲突", async ({
     await expect(page.getByText("草稿 v2")).toBeVisible();
 
     const sitemapBeforePreviewResponse = await page.request.get("/sitemap.xml");
-    expect(sitemapBeforePreviewResponse.ok()).toBe(true);
-    const sitemapBeforePreview = await sitemapBeforePreviewResponse.text();
-    expect(sitemapBeforePreview).not.toContain(fixture.partNumber);
+    expect(sitemapBeforePreviewResponse.status()).toBe(404);
 
     const previewPromise = page.waitForEvent("popup");
     await page.getByRole("link", { name: "英文预览" }).click();
@@ -201,14 +199,16 @@ test("内容编辑预览、发布、恢复并处理草稿并发冲突", async ({
     ).toBeVisible();
     await preview.close();
 
-    const sitemapAfterPreview = await (
-      await page.request.get("/sitemap.xml")
-    ).text();
-    expect(sitemapAfterPreview).toBe(sitemapBeforePreview);
+    expect((await page.request.get("/sitemap.xml")).status()).toBe(404);
 
     expect((await page.request.get(publicPath)).status()).toBe(404);
     await page.getByRole("button", { name: "发布产品" }).click();
     await expect(page.getByText("产品尚未满足发布条件。")).toBeVisible();
+    await expect(
+      page.getByRole("alert").filter({
+        hasText: "产品尚未满足发布条件。",
+      }),
+    ).toBeFocused();
     await expect(
       page.getByRole("link", {
         name: "简体中文 / 产品名称：此公开字段为必填项。",
@@ -226,9 +226,7 @@ test("内容编辑预览、发布、恢复并处理草稿并发冲突", async ({
     await expect(page.getByText("草稿 v3")).toBeVisible();
     await page.getByRole("button", { name: "发布产品" }).click();
     await expect(page.getByText("已创建不可变公开版本 v1。")).toBeVisible();
-    await expect
-      .poll(async () => (await page.request.get("/sitemap.xml")).text())
-      .toContain(publicPath);
+    expect((await page.request.get("/sitemap.xml")).status()).toBe(404);
 
     await page.goto(publicPath);
     await expect(
@@ -252,7 +250,15 @@ test("内容编辑预览、发布、恢复并处理草稿并发冲突", async ({
     const versionOne = page
       .locator(".product-version-history article")
       .filter({ hasText: "v1" });
-    await versionOne.getByRole("button", { name: "恢复为新草稿" }).click();
+    const restoreTrigger = versionOne.getByRole("button", {
+      name: "恢复为新草稿",
+    });
+    await restoreTrigger.click();
+    await expect(page.getByRole("alertdialog")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("alertdialog")).toBeHidden();
+    await expect(restoreTrigger).toBeFocused();
+    await restoreTrigger.click();
     await page.getByRole("button", { name: "确认恢复为新草稿" }).click();
     await expect(
       page.getByRole("heading", { name: "首次发布 " + suffix }),

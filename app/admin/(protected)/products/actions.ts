@@ -257,7 +257,6 @@ export async function publishProductDraftAction(
     revalidatePath("/admin/products");
     revalidatePath("/admin/content");
     revalidatePath("/en/products");
-    revalidatePath("/sitemap.xml");
     revalidatePath("/zh-cn/products");
 
     return {

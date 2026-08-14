@@ -51,7 +51,9 @@ describe("可分享的分类规格筛选", () => {
         partNumber: "TQ-FL-4999",
         publications: {
           create: {
+            categoryId: "category-fuel",
             id: publicationId,
+            imagePath: "/assets/fuel-filter-product.png",
             nameEn: "Range filter fixture",
             nameZhCn: "范围筛选测试数据",
             slugEn: "range-filter-fixture",
@@ -152,7 +154,9 @@ describe("可分享的分类规格筛选", () => {
         partNumber: "TQ-FL-4998",
         publications: {
           create: {
+            categoryId: "category-fuel",
             id: publicationId,
+            imagePath: "/assets/fuel-filter-product.png",
             nameEn: "Enumeration filter fixture",
             nameZhCn: "枚举筛选测试数据",
             slugEn: "enumeration-filter-fixture",
@@ -246,7 +250,9 @@ describe("可分享的分类规格筛选", () => {
             partNumber: fixture.partNumber,
             publications: {
               create: {
+                categoryId: "category-fuel",
                 id: fixture.publicationId,
+                imagePath: "/assets/fuel-filter-product.png",
                 nameEn: `Pagination fixture ${fixture.partNumber}`,
                 nameZhCn: `分页测试数据 ${fixture.partNumber}`,
                 slugEn: `pagination-fixture-${fixture.partNumber.toLowerCase()}`,

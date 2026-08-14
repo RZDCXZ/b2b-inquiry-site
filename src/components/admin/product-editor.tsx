@@ -11,7 +11,7 @@ import {
 } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useId, useRef, useState } from "react";
 
 import {
   deleteProductDraftAction,
@@ -51,6 +51,7 @@ const productFieldLabels: Record<string, string> = {
   nameEn: "English / 产品名称",
   nameZhCn: "简体中文 / 产品名称",
   references: "参考号",
+  replacementPartNumber: "基础身份 / 替代产品编号",
   seoDescriptionEn: "English / SEO 描述",
   seoDescriptionZhCn: "简体中文 / SEO 描述",
   seoTitleEn: "English / SEO 标题",
@@ -68,7 +69,6 @@ export type ProductEditorDraftView = {
   currentPublicationId: string | null;
   descriptionEn: string;
   descriptionZhCn: string;
-  fitmentCount: number;
   fitmentSummaryEn: string;
   fitmentSummaryZhCn: string;
   imageAltEn: string;
@@ -81,6 +81,12 @@ export type ProductEditorDraftView = {
   nameZhCn: string;
   partNumber: string;
   productStatus: "discontinued" | "draft" | "published";
+  publicationReadiness: {
+    bilingualContent: boolean;
+    image: boolean;
+    references: boolean;
+    specifications: boolean;
+  };
   publications: Array<{
     current: boolean;
     id: string;
@@ -111,6 +117,14 @@ function MutationFeedback({
   onFieldNavigate?: (field: string) => void;
   state: ProductMutationState;
 }) {
+  const feedbackRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (state.status === "error") {
+      feedbackRef.current?.focus();
+    }
+  }, [state]);
+
   if (state.status === "idle") {
     return null;
   }
@@ -118,6 +132,7 @@ function MutationFeedback({
   return (
     <div
       className={"product-mutation-feedback is-" + state.status}
+      ref={feedbackRef}
       role={state.status === "error" ? "alert" : "status"}
       tabIndex={state.status === "error" ? -1 : undefined}
     >
@@ -140,7 +155,13 @@ function MutationFeedback({
           <ul>
             {Object.entries(state.fieldErrors).map(([field, message]) => (
               <li key={field}>
-                <a href={"#" + field} onClick={() => onFieldNavigate?.(field)}>
+                <a
+                  href={"#" + field}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    onFieldNavigate?.(field);
+                  }}
+                >
                   {productFieldLabels[field] ?? field}：{message}
                 </a>
               </li>
@@ -217,10 +238,33 @@ function RestoreVersionButton({
   publicationId: string;
 }) {
   const [confirming, setConfirming] = useState(false);
+  const cancelRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const [state, action, pending] = useActionState(
     restoreProductPublicationAction,
     initialProductMutationState,
   );
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+
+    if (confirming && dialog && !dialog.open) {
+      dialog.showModal();
+      cancelRef.current?.focus();
+    }
+  }, [confirming]);
+
+  useEffect(() => {
+    if (state.status === "success") {
+      dialogRef.current?.close();
+    }
+  }, [state.status]);
+
+  function closeDialog() {
+    dialogRef.current?.close();
+  }
 
   return (
     <div className="product-version-action">
@@ -228,49 +272,55 @@ function RestoreVersionButton({
         className="admin-secondary-button"
         disabled={pending}
         onClick={() => setConfirming(true)}
+        ref={triggerRef}
         type="button"
       >
         <ArrowCounterClockwise aria-hidden="true" /> 恢复为新草稿
       </button>
-      {confirming ? (
-        <div className="product-confirm-dialog-backdrop">
-          <div aria-modal="true" role="alertdialog">
-            <strong>确认恢复这个发布版本？</strong>
-            <p>
-              当前未发布草稿会被替换；前台公开版本不会改变，仍需重新发布才会生效。
-            </p>
-            <div>
-              <button
-                className="admin-secondary-button"
-                onClick={() => setConfirming(false)}
-                type="button"
-              >
-                取消
+      <dialog
+        aria-labelledby={titleId}
+        className="product-confirm-dialog"
+        onClick={(event) => {
+          if (event.target === event.currentTarget) {
+            closeDialog();
+          }
+        }}
+        onClose={() => {
+          setConfirming(false);
+          triggerRef.current?.focus();
+        }}
+        ref={dialogRef}
+        role="alertdialog"
+      >
+        <section>
+          <strong id={titleId}>确认恢复这个发布版本？</strong>
+          <p>
+            当前未发布草稿会被替换；前台公开版本不会改变，仍需重新发布才会生效。
+          </p>
+          <div>
+            <button
+              className="admin-secondary-button"
+              onClick={closeDialog}
+              ref={cancelRef}
+              type="button"
+            >
+              取消
+            </button>
+            <form action={action}>
+              <input
+                name="expectedDraftVersion"
+                type="hidden"
+                value={draft.version}
+              />
+              <input name="partNumber" type="hidden" value={draft.partNumber} />
+              <input name="publicationId" type="hidden" value={publicationId} />
+              <button className="admin-primary-button" disabled={pending}>
+                {pending ? "恢复中…" : "确认恢复为新草稿"}
               </button>
-              <form action={action}>
-                <input
-                  name="expectedDraftVersion"
-                  type="hidden"
-                  value={draft.version}
-                />
-                <input
-                  name="partNumber"
-                  type="hidden"
-                  value={draft.partNumber}
-                />
-                <input
-                  name="publicationId"
-                  type="hidden"
-                  value={publicationId}
-                />
-                <button className="admin-primary-button" disabled={pending}>
-                  {pending ? "恢复中…" : "确认恢复为新草稿"}
-                </button>
-              </form>
-            </div>
+            </form>
           </div>
-        </div>
-      ) : null}
+        </section>
+      </dialog>
       <MutationFeedback state={state} />
     </div>
   );
@@ -279,6 +329,10 @@ function RestoreVersionButton({
 function DeleteDraftButton({ draft }: { draft: ProductEditorDraftView }) {
   const router = useRouter();
   const [confirming, setConfirming] = useState(false);
+  const cancelRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const [state, action, pending] = useActionState(
     deleteProductDraftAction,
     initialProductMutationState,
@@ -286,9 +340,23 @@ function DeleteDraftButton({ draft }: { draft: ProductEditorDraftView }) {
 
   useEffect(() => {
     if (state.status === "success") {
+      dialogRef.current?.close();
       router.replace("/admin/products");
     }
   }, [router, state.status]);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+
+    if (confirming && dialog && !dialog.open) {
+      dialog.showModal();
+      cancelRef.current?.focus();
+    }
+  }, [confirming]);
+
+  function closeDialog() {
+    dialogRef.current?.close();
+  }
 
   return (
     <div className="product-delete-form">
@@ -296,6 +364,7 @@ function DeleteDraftButton({ draft }: { draft: ProductEditorDraftView }) {
         className="admin-danger-button"
         disabled={pending || draft.publications.length > 0}
         onClick={() => setConfirming(true)}
+        ref={triggerRef}
         type="button"
       >
         <Trash aria-hidden="true" />
@@ -304,38 +373,47 @@ function DeleteDraftButton({ draft }: { draft: ProductEditorDraftView }) {
       {draft.publications.length > 0 ? (
         <small>已有发布历史的产品不能硬删除。</small>
       ) : null}
-      {confirming ? (
-        <div className="product-confirm-dialog-backdrop">
-          <div aria-modal="true" role="alertdialog">
-            <strong>永久删除这个草稿？</strong>
-            <p>此操作不可撤销；服务端会再次确认它没有发布历史或业务引用。</p>
-            <div>
-              <button
-                className="admin-secondary-button"
-                onClick={() => setConfirming(false)}
-                type="button"
-              >
-                取消
+      <dialog
+        aria-labelledby={titleId}
+        className="product-confirm-dialog"
+        onClick={(event) => {
+          if (event.target === event.currentTarget) {
+            closeDialog();
+          }
+        }}
+        onClose={() => {
+          setConfirming(false);
+          triggerRef.current?.focus();
+        }}
+        ref={dialogRef}
+        role="alertdialog"
+      >
+        <section>
+          <strong id={titleId}>永久删除这个草稿？</strong>
+          <p>此操作不可撤销；服务端会再次确认它没有发布历史或业务引用。</p>
+          <div>
+            <button
+              className="admin-secondary-button"
+              onClick={closeDialog}
+              ref={cancelRef}
+              type="button"
+            >
+              取消
+            </button>
+            <form action={action}>
+              <input
+                name="expectedDraftVersion"
+                type="hidden"
+                value={draft.version}
+              />
+              <input name="partNumber" type="hidden" value={draft.partNumber} />
+              <button className="admin-danger-button" disabled={pending}>
+                {pending ? "删除中…" : "确认永久删除"}
               </button>
-              <form action={action}>
-                <input
-                  name="expectedDraftVersion"
-                  type="hidden"
-                  value={draft.version}
-                />
-                <input
-                  name="partNumber"
-                  type="hidden"
-                  value={draft.partNumber}
-                />
-                <button className="admin-danger-button" disabled={pending}>
-                  {pending ? "删除中…" : "确认永久删除"}
-                </button>
-              </form>
-            </div>
+            </form>
           </div>
-        </div>
-      ) : null}
+        </section>
+      </dialog>
       <MutationFeedback state={state} />
     </div>
   );
@@ -526,35 +604,17 @@ export function ProductEditor({ draft }: { draft: ProductEditorDraftView }) {
 
     window.setTimeout(() => document.getElementById(field)?.focus(), 0);
   };
-  const requiredValues = [
-    draft.nameEn,
-    draft.nameZhCn,
-    draft.summaryEn,
-    draft.summaryZhCn,
-    draft.descriptionEn,
-    draft.descriptionZhCn,
-    draft.seoTitleEn,
-    draft.seoTitleZhCn,
-    draft.seoDescriptionEn,
-    draft.seoDescriptionZhCn,
-    draft.fitmentSummaryEn,
-    draft.fitmentSummaryZhCn,
-    draft.imageAltEn,
-    draft.imageAltZhCn,
-    draft.slugEn,
-    draft.slugZhCn,
-  ];
   const checks = [
-    { label: "中英文公开字段", passed: requiredValues.every(Boolean) },
+    {
+      label: "中英文公开字段（含适配摘要）",
+      passed: draft.publicationReadiness.bilingualContent,
+    },
     {
       label: "分类规格",
-      passed:
-        draft.specifications.length > 0 &&
-        draft.specifications.every(({ complete }) => complete),
+      passed: draft.publicationReadiness.specifications,
     },
-    { label: "参考号", passed: draft.references.length > 0 },
-    { label: "适配关系与摘要", passed: draft.fitmentCount > 0 },
-    { label: "图片与替代文本", passed: Boolean(draft.imagePath) },
+    { label: "参考号", passed: draft.publicationReadiness.references },
+    { label: "产品图片路径", passed: draft.publicationReadiness.image },
   ];
 
   return (
@@ -625,6 +685,7 @@ export function ProductEditor({ draft }: { draft: ProductEditorDraftView }) {
                 <span>替代产品编号（仅停产时）</span>
                 <input
                   defaultValue={draft.replacementPartNumber ?? ""}
+                  id="replacementPartNumber"
                   name="replacementPartNumber"
                 />
               </label>
@@ -671,7 +732,7 @@ export function ProductEditor({ draft }: { draft: ProductEditorDraftView }) {
               <p>04 / 分类规格</p>
               <h2>{draft.categoryName}规格属性</h2>
             </header>
-            <div id="specifications">
+            <div id="specifications" tabIndex={-1}>
               <SpecificationFields draft={draft} />
             </div>
           </section>

@@ -13,24 +13,33 @@ export type CatalogCategory = {
 };
 
 export type CatalogProductIdentity = {
+  currentPublication:
+    | (CatalogPublicationIdentity & {
+        replacementProduct: CatalogReplacementProductIdentity | null;
+        replacementProductId: string | null;
+      })
+    | null;
+  currentPublicationId: string | null;
+  id: string;
+  partNumber: string;
+};
+
+type CatalogPublicationIdentity = {
   category: {
     code: ProductCategoryCode;
     nameEn: string;
     nameZhCn: string;
-  };
-  id: string;
+  } | null;
   imagePath: string;
-  partNumber: string;
-  currentPublicationId: string | null;
-  replacementProduct: CatalogReplacementProductIdentity | null;
-  replacementProductId: string | null;
   status: ProductStatus;
 };
 
-export type CatalogReplacementProductIdentity = Omit<
-  CatalogProductIdentity,
-  "replacementProduct" | "replacementProductId"
->;
+export type CatalogReplacementProductIdentity = {
+  currentPublication: CatalogPublicationIdentity | null;
+  currentPublicationId: string | null;
+  id: string;
+  partNumber: string;
+};
 
 export type CatalogProductReferenceMatch = {
   brand: string;
@@ -44,33 +53,36 @@ export type CatalogProductReference = Omit<
 >;
 
 const catalogProductIdentitySelect = {
-  category: {
-    select: { code: true, nameEn: true, nameZhCn: true },
-  },
-  id: true,
-  imagePath: true,
-  partNumber: true,
-  currentPublicationId: true,
-  replacementProduct: {
+  currentPublication: {
     select: {
       category: {
         select: { code: true, nameEn: true, nameZhCn: true },
       },
-      currentPublicationId: true,
-      id: true,
       imagePath: true,
-      partNumber: true,
+      replacementProduct: {
+        select: {
+          currentPublication: {
+            select: {
+              category: {
+                select: { code: true, nameEn: true, nameZhCn: true },
+              },
+              imagePath: true,
+              status: true,
+            },
+          },
+          currentPublicationId: true,
+          id: true,
+          partNumber: true,
+        },
+      },
+      replacementProductId: true,
       status: true,
     },
   },
-  replacementProductId: true,
-  status: true,
+  currentPublicationId: true,
+  id: true,
+  partNumber: true,
 } as const;
-
-const publishedCatalogProductWhere = {
-  currentPublicationId: { not: null },
-  status: "published",
-} satisfies Prisma.ProductWhereInput;
 
 export async function listPublishedCatalogProductIdentities(
   prisma: PrismaClient,
@@ -80,8 +92,12 @@ export async function listPublishedCatalogProductIdentities(
     orderBy: { partNumber: "asc" },
     select: catalogProductIdentitySelect,
     where: {
-      ...publishedCatalogProductWhere,
-      category: categoryCode ? { code: categoryCode } : undefined,
+      currentPublication: {
+        is: {
+          category: categoryCode ? { code: categoryCode } : undefined,
+          status: "published",
+        },
+      },
     },
   });
 
@@ -136,8 +152,9 @@ export async function findCatalogProductIdentitiesBySpecifications(
         },
       };
     }),
-    category: { code: categoryCode },
-    ...publishedCatalogProductWhere,
+    currentPublication: {
+      is: { category: { code: categoryCode }, status: "published" },
+    },
   } satisfies Prisma.ProductWhereInput;
   const [identities, total] = await prisma.$transaction([
     prisma.product.findMany({

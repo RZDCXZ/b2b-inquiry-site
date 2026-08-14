@@ -308,6 +308,7 @@ RETURNS TRIGGER AS $$
 DECLARE
   target_publication_id TEXT;
   publication_is_sealed BOOLEAN;
+  source_publication_is_sealed BOOLEAN := FALSE;
 BEGIN
   IF TG_OP = 'DELETE' THEN
     target_publication_id := OLD."publication_id";
@@ -315,12 +316,19 @@ BEGIN
     target_publication_id := NEW."publication_id";
   END IF;
 
+  IF TG_OP = 'UPDATE' THEN
+    SELECT publication."sealed_at" IS NOT NULL
+    INTO source_publication_is_sealed
+    FROM "product_publication" AS publication
+    WHERE publication."id" = OLD."publication_id";
+  END IF;
+
   SELECT publication."sealed_at" IS NOT NULL
   INTO publication_is_sealed
   FROM "product_publication" AS publication
   WHERE publication."id" = target_publication_id;
 
-  IF publication_is_sealed
+  IF (publication_is_sealed OR source_publication_is_sealed)
     AND current_setting('torquelis.allow_product_publication_mutation', true) IS DISTINCT FROM 'on'
   THEN
     RAISE EXCEPTION '% records are immutable after publication sealing', TG_TABLE_NAME;
