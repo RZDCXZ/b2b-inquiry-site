@@ -1,5 +1,9 @@
-import { PermissionDenied } from "@/src/components/admin/admin-page";
-import { AdminPlaceholderSection } from "@/src/components/admin/admin-placeholder-section";
+import { getEditableSiteConfiguration } from "@/src/application/site-configuration";
+import {
+  AdminPageHeader,
+  PermissionDenied,
+} from "@/src/components/admin/admin-page";
+import { SiteSettingsForm } from "@/src/components/admin/site-settings-form";
 import { PERMISSIONS } from "@/src/modules/identity-access/public/permissions";
 import { authorizeAdminPage } from "@/src/modules/identity-access/server/authorization";
 
@@ -8,16 +12,21 @@ export default async function SettingsPage() {
     PERMISSIONS.SETTINGS_MANAGE,
     "/admin/settings",
   );
-
-  if (!allowed) {
-    return <PermissionDenied role={actor.role} />;
-  }
-
+  if (!allowed) return <PermissionDenied role={actor.role} />;
+  const settings = await getEditableSiteConfiguration({ actor });
   return (
-    <AdminPlaceholderSection
-      description="维护公开企业资料；数据库与会话密钥始终由本地环境配置控制。"
-      eyebrow="系统管理"
-      title="站点配置"
-    />
+    <>
+      <AdminPageHeader
+        description="只维护企业公开资料、默认 SEO 与本地模拟通知收件角色；环境安全配置没有后台入口。"
+        eyebrow="站点配置"
+        title="可编辑配置与环境边界"
+      />
+      <SiteSettingsForm
+        settings={{
+          ...settings,
+          lastModifiedAt: settings.lastModifiedAt.toISOString(),
+        }}
+      />
+    </>
   );
 }

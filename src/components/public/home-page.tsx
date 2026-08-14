@@ -16,19 +16,25 @@ import { ProductFinder } from "@/src/components/public/product-finder";
 import { getHomeCopy } from "@/src/modules/content-publishing/public/home-copy";
 import type { PublicLocale } from "@/src/modules/site-config/public/locales";
 import type { LocalizedVehicleFitmentOption } from "@/src/modules/catalog/public/fitments";
+import type { CorePageTranslation } from "@/src/modules/content-publishing/public/core-page-contracts";
 
 const categoryIcons = [Funnel, Engine, SlidersHorizontal, Rows] as const;
 
 export function HomePage({
   initialFinderMode,
+  content,
   locale,
   vehicleFitments,
 }: {
+  content: CorePageTranslation;
   initialFinderMode?: "part" | "specifications" | "vehicle";
   locale: PublicLocale;
   vehicleFitments: LocalizedVehicleFitmentOption[];
 }) {
   const copy = getHomeCopy(locale);
+  const sections = new Map(
+    content.sections.map((section) => [section.id, section]),
+  );
 
   return (
     <div className="public-shell">
@@ -43,9 +49,9 @@ export function HomePage({
       <main>
         <section className="home-hero">
           <div className="home-copy">
-            <p className="eyebrow">{copy.eyebrow}</p>
-            <h1>{copy.heading}</h1>
-            <p className="lede">{copy.lede}</p>
+            <p className="eyebrow">{content.eyebrow}</p>
+            <h1>{content.title}</h1>
+            <p className="lede">{content.lede}</p>
             <ProductFinder
               action={copy.findAction}
               categories={copy.categories.map(({ code, name }) => ({
@@ -102,7 +108,8 @@ export function HomePage({
         <section className="process-band" id="quality">
           <div className="process-heading">
             <p className="eyebrow">{copy.processEyebrow}</p>
-            <h2>{copy.processHeading}</h2>
+            <h2>{sections.get("process")?.heading ?? copy.processHeading}</h2>
+            <p>{sections.get("process")?.body}</p>
           </div>
           {copy.process.map((step, index) => (
             <article key={step.title}>
@@ -124,16 +131,27 @@ export function HomePage({
           </div>
           <div>
             <p className="eyebrow">{copy.categoryEyebrow}</p>
-            <h2>{copy.categoryHeading}</h2>
-            <p>{copy.footerDescription}</p>
+            <h2>
+              {sections.get("private_label")?.heading ?? copy.categoryHeading}
+            </h2>
+            <p>
+              {sections.get("private_label")?.body ?? copy.footerDescription}
+            </p>
             <Link className="secondary-button" href={`/${locale}/products`}>
               {copy.findAction}
               <ArrowRight aria-hidden="true" size={18} />
             </Link>
           </div>
         </section>
-        <div id="resources" />
-        <div id="about" />
+        <section className="home-resource-band">
+          <p className="eyebrow">{copy.nav[3].label}</p>
+          <h2>{sections.get("resources")?.heading}</h2>
+          <p>{sections.get("resources")?.body}</p>
+          <Link className="secondary-button" href={`/${locale}/resources`}>
+            {copy.nav[3].label}
+            <ArrowRight aria-hidden="true" size={18} />
+          </Link>
+        </section>
       </main>
       <PublicFooter
         companyName={copy.companyName}

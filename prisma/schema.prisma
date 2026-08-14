@@ -35,6 +35,25 @@ enum ProductStatus {
   discontinued
 }
 
+enum ContentLocale {
+  en
+  zh_cn
+}
+
+enum ContentPublicationStatus {
+  published
+  archived
+}
+
+enum CorePageKey {
+  home
+  private_label
+  manufacturing_quality
+  technical_resources
+  about
+  contact
+}
+
 enum AssetKind {
   image
   document
@@ -83,28 +102,33 @@ enum InquiryCloseResult {
 }
 
 model User {
-  id                        String                     @id
-  name                      String
-  email                     String                     @unique
-  emailVerified             Boolean                    @default(true) @map("email_verified")
-  image                     String?
-  role                      AppRole
-  createdAt                 DateTime                   @default(now()) @map("created_at")
-  updatedAt                 DateTime                   @updatedAt @map("updated_at")
-  sessions                  Session[]
-  accounts                  Account[]
-  auditLogs                 AuditLog[]
-  currentOwnedInquiries     Inquiry[]                  @relation("InquiryCurrentOwner")
-  lastModifiedInquiries     Inquiry[]                  @relation("InquiryLastModifier")
-  inquiryAssignmentsMade    InquiryAssignment[]        @relation("InquiryAssignmentActor")
-  inquiryAssignmentsFrom    InquiryAssignment[]        @relation("InquiryAssignmentPreviousOwner")
-  inquiryAssignmentsTo      InquiryAssignment[]        @relation("InquiryAssignmentNewOwner")
-  inquiryFollowUps          InquiryFollowUp[]
-  inquiryStatusChanges      InquiryStatusChange[]
-  notificationOutboxRecords NotificationOutboxRecord[]
-  modifiedProductDrafts     ProductDraft[]             @relation("ProductDraftLastModifier")
-  productPublications       ProductPublication[]       @relation("ProductPublicationPublisher")
-  createdAssets             Asset[]                    @relation("AssetCreator")
+  id                         String                     @id
+  name                       String
+  email                      String                     @unique
+  emailVerified              Boolean                    @default(true) @map("email_verified")
+  image                      String?
+  role                       AppRole
+  createdAt                  DateTime                   @default(now()) @map("created_at")
+  updatedAt                  DateTime                   @updatedAt @map("updated_at")
+  sessions                   Session[]
+  accounts                   Account[]
+  auditLogs                  AuditLog[]
+  currentOwnedInquiries      Inquiry[]                  @relation("InquiryCurrentOwner")
+  lastModifiedInquiries      Inquiry[]                  @relation("InquiryLastModifier")
+  inquiryAssignmentsMade     InquiryAssignment[]        @relation("InquiryAssignmentActor")
+  inquiryAssignmentsFrom     InquiryAssignment[]        @relation("InquiryAssignmentPreviousOwner")
+  inquiryAssignmentsTo       InquiryAssignment[]        @relation("InquiryAssignmentNewOwner")
+  inquiryFollowUps           InquiryFollowUp[]
+  inquiryStatusChanges       InquiryStatusChange[]
+  notificationOutboxRecords  NotificationOutboxRecord[]
+  modifiedProductDrafts      ProductDraft[]             @relation("ProductDraftLastModifier")
+  productPublications        ProductPublication[]       @relation("ProductPublicationPublisher")
+  createdAssets              Asset[]                    @relation("AssetCreator")
+  modifiedCorePageDrafts     CorePageDraft[]            @relation("CorePageDraftLastModifier")
+  corePagePublications       CorePagePublication[]      @relation("CorePagePublicationPublisher")
+  modifiedArticleDrafts      ArticleDraft[]             @relation("ArticleDraftLastModifier")
+  articlePublications        ArticlePublication[]       @relation("ArticlePublicationPublisher")
+  modifiedSiteConfigurations SiteConfiguration[]        @relation("SiteConfigurationLastModifier")
 
   @@map("user")
 }
@@ -185,14 +209,155 @@ model EnvironmentIdentity {
 }
 
 model SiteConfiguration {
-  key             String   @id @default("primary")
-  companyNameEn   String   @map("company_name_en")
-  companyNameZhCn String   @map("company_name_zh_cn")
-  contactEmail    String   @map("contact_email")
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
+  key                        String    @id @default("primary")
+  companyNameEn              String    @map("company_name_en")
+  companyNameZhCn            String    @map("company_name_zh_cn")
+  contactEmail               String    @map("contact_email")
+  contactPhone               String    @map("contact_phone")
+  addressEn                  String    @map("address_en")
+  addressZhCn                String    @map("address_zh_cn")
+  socialLinks                Json      @map("social_links")
+  defaultSeoTitleEn          String    @map("default_seo_title_en")
+  defaultSeoTitleZhCn        String    @map("default_seo_title_zh_cn")
+  defaultSeoDescriptionEn    String    @map("default_seo_description_en")
+  defaultSeoDescriptionZhCn  String    @map("default_seo_description_zh_cn")
+  notificationRecipientRoles AppRole[] @map("notification_recipient_roles")
+  version                    Int       @default(1)
+  lastModifiedByUserId       String?   @map("last_modified_by_user_id")
+  createdAt                  DateTime  @default(now()) @map("created_at")
+  updatedAt                  DateTime  @updatedAt @map("updated_at")
+  lastModifiedBy             User?     @relation("SiteConfigurationLastModifier", fields: [lastModifiedByUserId], references: [id], onDelete: SetNull)
 
+  @@index([lastModifiedByUserId])
   @@map("site_configuration")
+}
+
+model CorePage {
+  key                  CorePageKey           @id
+  currentPublicationId String?               @unique @map("current_publication_id")
+  draft                CorePageDraft?
+  publications         CorePagePublication[] @relation("CorePagePublications")
+  currentPublication   CorePagePublication?  @relation("CurrentCorePagePublication", fields: [key, currentPublicationId], references: [pageKey, id], onDelete: Restrict)
+  createdAt            DateTime              @default(now()) @map("created_at")
+
+  @@unique([key, currentPublicationId])
+  @@map("core_page")
+}
+
+model CorePageDraft {
+  pageKey                   CorePageKey              @id @map("page_key")
+  version                   Int                      @default(1)
+  lastPublishedVersion      Int?                     @map("last_published_version")
+  contentEn                 Json                     @map("content_en")
+  contentZhCn               Json                     @map("content_zh_cn")
+  status                    ContentPublicationStatus @default(published)
+  restoredFromPublicationId String?                  @map("restored_from_publication_id")
+  lastModifiedByUserId      String?                  @map("last_modified_by_user_id")
+  updatedAt                 DateTime                 @default(now()) @updatedAt @map("updated_at")
+  page                      CorePage                 @relation(fields: [pageKey], references: [key], onDelete: Cascade)
+  restoredFromPublication   CorePagePublication?     @relation("CorePageDraftRestorationSource", fields: [restoredFromPublicationId], references: [id], onDelete: SetNull)
+  lastModifiedBy            User?                    @relation("CorePageDraftLastModifier", fields: [lastModifiedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([restoredFromPublicationId])
+  @@index([lastModifiedByUserId])
+  @@map("core_page_draft")
+}
+
+model CorePagePublication {
+  id                        String                   @id @default(uuid())
+  pageKey                   CorePageKey              @map("page_key")
+  version                   Int
+  sourceDraftVersion        Int                      @map("source_draft_version")
+  contentEn                 Json                     @map("content_en")
+  contentZhCn               Json                     @map("content_zh_cn")
+  status                    ContentPublicationStatus @default(published)
+  restoredFromPublicationId String?                  @map("restored_from_publication_id")
+  publishedByUserId         String?                  @map("published_by_user_id")
+  publishedAt               DateTime                 @default(now()) @map("published_at")
+  sealedAt                  DateTime?                @map("sealed_at")
+  page                      CorePage                 @relation("CorePagePublications", fields: [pageKey], references: [key], onDelete: Cascade)
+  currentFor                CorePage?                @relation("CurrentCorePagePublication")
+  restoredFromPublication   CorePagePublication?     @relation("CorePagePublicationRestoration", fields: [restoredFromPublicationId], references: [id], onDelete: Restrict)
+  restoredPublications      CorePagePublication[]    @relation("CorePagePublicationRestoration")
+  restoredDrafts            CorePageDraft[]          @relation("CorePageDraftRestorationSource")
+  publishedBy               User?                    @relation("CorePagePublicationPublisher", fields: [publishedByUserId], references: [id], onDelete: Restrict)
+
+  @@unique([pageKey, version])
+  @@unique([pageKey, id])
+  @@index([publishedByUserId])
+  @@index([restoredFromPublicationId])
+  @@map("core_page_publication")
+}
+
+model Article {
+  id           String               @id @default(uuid())
+  topicKey     String               @unique @map("topic_key")
+  drafts       ArticleDraft[]
+  publications ArticlePublication[]
+  createdAt    DateTime             @default(now()) @map("created_at")
+
+  @@map("article")
+}
+
+model ArticleDraft {
+  articleId                 String                   @map("article_id")
+  locale                    ContentLocale
+  version                   Int                      @default(1)
+  lastPublishedVersion      Int?                     @map("last_published_version")
+  currentPublicationId      String?                  @unique @map("current_publication_id")
+  title                     String
+  slug                      String
+  excerpt                   String
+  body                      String
+  seoTitle                  String                   @map("seo_title")
+  seoDescription            String                   @map("seo_description")
+  status                    ContentPublicationStatus @default(published)
+  restoredFromPublicationId String?                  @map("restored_from_publication_id")
+  lastModifiedByUserId      String?                  @map("last_modified_by_user_id")
+  updatedAt                 DateTime                 @default(now()) @updatedAt @map("updated_at")
+  article                   Article                  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  currentPublication        ArticlePublication?      @relation("CurrentArticlePublication", fields: [articleId, locale, currentPublicationId], references: [articleId, locale, id], onDelete: Restrict)
+  restoredFromPublication   ArticlePublication?      @relation("ArticleDraftRestorationSource", fields: [restoredFromPublicationId], references: [id], onDelete: SetNull)
+  lastModifiedBy            User?                    @relation("ArticleDraftLastModifier", fields: [lastModifiedByUserId], references: [id], onDelete: SetNull)
+
+  @@id([articleId, locale])
+  @@unique([locale, slug])
+  @@unique([articleId, locale, currentPublicationId])
+  @@index([restoredFromPublicationId])
+  @@index([lastModifiedByUserId])
+  @@map("article_draft")
+}
+
+model ArticlePublication {
+  id                        String                   @id @default(uuid())
+  articleId                 String                   @map("article_id")
+  locale                    ContentLocale
+  version                   Int
+  sourceDraftVersion        Int                      @map("source_draft_version")
+  title                     String
+  slug                      String
+  excerpt                   String
+  body                      String
+  seoTitle                  String                   @map("seo_title")
+  seoDescription            String                   @map("seo_description")
+  status                    ContentPublicationStatus @default(published)
+  restoredFromPublicationId String?                  @map("restored_from_publication_id")
+  publishedByUserId         String?                  @map("published_by_user_id")
+  publishedAt               DateTime                 @default(now()) @map("published_at")
+  sealedAt                  DateTime?                @map("sealed_at")
+  article                   Article                  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  currentFor                ArticleDraft?            @relation("CurrentArticlePublication")
+  restoredFromPublication   ArticlePublication?      @relation("ArticlePublicationRestoration", fields: [restoredFromPublicationId], references: [id], onDelete: Restrict)
+  restoredPublications      ArticlePublication[]     @relation("ArticlePublicationRestoration")
+  restoredDrafts            ArticleDraft[]           @relation("ArticleDraftRestorationSource")
+  publishedBy               User?                    @relation("ArticlePublicationPublisher", fields: [publishedByUserId], references: [id], onDelete: Restrict)
+
+  @@unique([articleId, locale, version])
+  @@unique([articleId, locale, id])
+  @@index([locale, slug])
+  @@index([publishedByUserId])
+  @@index([restoredFromPublicationId])
+  @@map("article_publication")
 }
 
 model ProductCategory {

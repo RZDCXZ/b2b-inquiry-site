@@ -205,6 +205,18 @@ export async function replaceCatalogIdentities(
         true
       )
     `;
+    await transaction.productDraft.updateMany({
+      data: {
+        replacementProductId: null,
+        restoredFromPublicationId: null,
+      },
+    });
+    await transaction.productPublication.updateMany({
+      data: {
+        replacementProductId: null,
+        restoredFromPublicationId: null,
+      },
+    });
     await transaction.product.deleteMany();
     await transaction.productCategory.deleteMany();
     await writeCatalogIdentities(transaction);

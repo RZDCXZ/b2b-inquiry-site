@@ -14,6 +14,7 @@ import { PublicHeader } from "@/src/components/public/public-header";
 import { productImageSource } from "@/src/components/product-image-source";
 import { getHomeCopy } from "@/src/modules/content-publishing/public/home-copy";
 import { getInquiryCopy } from "@/src/modules/content-publishing/public/inquiry-copy";
+import type { CorePageTranslation } from "@/src/modules/content-publishing/public/core-page-contracts";
 import type { PublicInquiryFieldName } from "@/src/modules/inquiry-operations/public/inquiry-submission";
 import type { PublicLocale } from "@/src/modules/site-config/public/locales";
 
@@ -84,12 +85,14 @@ function InquiryFieldError({ id, message }: { id: string; message: string }) {
 }
 
 export function InquiryFormPage({
+  contactContent,
   error,
   fieldErrors,
   locale,
   product,
   token,
 }: {
+  contactContent: CorePageTranslation;
   error?: "expired" | "invalid" | "unavailable";
   fieldErrors: readonly PublicInquiryFieldName[];
   locale: PublicLocale;
@@ -157,10 +160,10 @@ export function InquiryFormPage({
         <header className="inquiry-heading">
           <div>
             <p className="eyebrow">
-              {product ? copy.productEyebrow : copy.generalEyebrow}
+              {product ? copy.productEyebrow : contactContent.eyebrow}
             </p>
-            <h1>{product ? copy.productHeading : copy.generalHeading}</h1>
-            <p>{product ? copy.productLede : copy.generalLede}</p>
+            <h1>{product ? copy.productHeading : contactContent.title}</h1>
+            <p>{product ? copy.productLede : contactContent.lede}</p>
           </div>
           <aside>
             <Info aria-hidden="true" size={20} weight="fill" />

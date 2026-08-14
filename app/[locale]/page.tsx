@@ -6,6 +6,7 @@ import { HomePage } from "@/src/components/public/home-page";
 import { HOME_SEARCH_PARAMS_SCHEMA } from "@/src/modules/catalog/public/product-identity";
 import { getHomeMetadataCopy } from "@/src/modules/content-publishing/public/home-copy";
 import { isPublicLocale } from "@/src/modules/site-config/public/locales";
+import { getPublishedCorePage } from "@/src/application/site-content-management";
 
 type LocalePageProps = {
   params: Promise<{ locale: string }>;
@@ -21,7 +22,10 @@ export async function generateMetadata({
     return {};
   }
 
-  return getHomeMetadataCopy(locale);
+  const page = await getPublishedCorePage({ key: "home", locale });
+  return page
+    ? { description: page.content.lede, title: page.content.title }
+    : getHomeMetadataCopy(locale);
 }
 
 export default async function LocaleHomePage({
@@ -35,13 +39,18 @@ export default async function LocaleHomePage({
   }
 
   const parsedQuery = HOME_SEARCH_PARAMS_SCHEMA.safeParse(query);
-  const vehicleFitments = await listPublishedVehicleFitmentOptions({ locale });
+  const [vehicleFitments, content] = await Promise.all([
+    listPublishedVehicleFitmentOptions({ locale }),
+    getPublishedCorePage({ key: "home", locale }),
+  ]);
+  if (!content) notFound();
 
   return (
     <HomePage
       initialFinderMode={
         parsedQuery.success ? parsedQuery.data.finder : undefined
       }
+      content={content.content}
       locale={locale}
       vehicleFitments={vehicleFitments}
     />

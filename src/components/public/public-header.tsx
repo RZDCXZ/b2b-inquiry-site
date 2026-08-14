@@ -12,6 +12,7 @@ type PublicHeaderProps = {
   mobileNavigationLabel: string;
   navigation: ReadonlyArray<{ label: string; anchor: string }>;
   primaryNavigationLabel: string;
+  unavailableLanguages?: Partial<Record<PublicLocale, string>>;
 };
 
 const localeOptions = [
@@ -28,16 +29,22 @@ export function PublicHeader({
   mobileNavigationLabel,
   navigation,
   primaryNavigationLabel,
+  unavailableLanguages,
 }: PublicHeaderProps) {
+  const routeByAnchor: Record<string, string> = {
+    about: "about",
+    contact: "inquiry",
+    "private-label": "private-label",
+    quality: "quality",
+    resources: "resources",
+  };
   const items = navigation.map((item) => ({
     active: item.anchor === activeNavigationAnchor,
     label: item.label,
     href:
       item.anchor === "products"
         ? `/${locale}/products`
-        : item.anchor === "contact"
-          ? `/${locale}/inquiry`
-          : `/${locale}#${item.anchor}`,
+        : `/${locale}/${routeByAnchor[item.anchor] ?? ""}`,
   }));
 
   return (
@@ -58,15 +65,22 @@ export function PublicHeader({
         ))}
       </nav>
       <div aria-label={languageLabel} className="locale-switcher" role="group">
-        {localeOptions.map((option) => (
-          <Link
-            aria-current={option.locale === locale ? "page" : undefined}
-            href={languageHrefs?.[option.locale] ?? `/${option.locale}`}
-            key={option.locale}
-          >
-            {option.label}
-          </Link>
-        ))}
+        {localeOptions.map((option) =>
+          unavailableLanguages?.[option.locale] ? (
+            <span aria-disabled="true" key={option.locale}>
+              {option.label}
+              <small>{unavailableLanguages[option.locale]}</small>
+            </span>
+          ) : (
+            <Link
+              aria-current={option.locale === locale ? "page" : undefined}
+              href={languageHrefs?.[option.locale] ?? `/${option.locale}`}
+              key={option.locale}
+            >
+              {option.label}
+            </Link>
+          ),
+        )}
       </div>
       <MobileNavigation items={items} label={mobileNavigationLabel} />
     </header>

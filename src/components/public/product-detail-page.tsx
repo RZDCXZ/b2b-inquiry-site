@@ -11,6 +11,7 @@ import Link from "next/link";
 import type { PublishedProductDetail } from "@/src/application/public-catalog";
 import { PublicFooter } from "@/src/components/public/public-footer";
 import { PublicHeader } from "@/src/components/public/public-header";
+import { RestrictedRichText } from "@/src/components/public/restricted-rich-text";
 import { productImageSource } from "@/src/components/product-image-source";
 import { getCatalogCopy } from "@/src/modules/content-publishing/public/catalog-copy";
 import { getHomeCopy } from "@/src/modules/content-publishing/public/home-copy";
@@ -166,7 +167,10 @@ export function ProductDetailPage({
           <article>
             <p className="eyebrow">{product.partNumber}</p>
             <h2>{catalogCopy.detailDescriptionHeading}</h2>
-            <p>{product.description}</p>
+            <RestrictedRichText
+              className="restricted-rich-text"
+              source={product.description}
+            />
           </article>
           <article>
             <p className="eyebrow">{product.category.name}</p>

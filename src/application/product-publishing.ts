@@ -16,6 +16,7 @@ import { validateProductSpecificationsForCategory } from "@/src/modules/catalog/
 import type { AdminActor } from "@/src/modules/identity-access/public/actor";
 import { APP_ROLES } from "@/src/modules/identity-access/public/permissions";
 import type { PublicLocale } from "@/src/modules/site-config/public/locales";
+import { validateRestrictedRichText } from "@/src/modules/content-publishing/public/restricted-rich-text";
 
 export type ProductPublishingFieldError = {
   field: string;
@@ -721,6 +722,18 @@ export async function saveProductDraft({
 }) {
   assertCanManageProducts(actor);
   const references = normalizeReferences(input.references);
+  for (const [field, value] of [
+    ["descriptionEn", input.descriptionEn],
+    ["descriptionZhCn", input.descriptionZhCn],
+  ] as const) {
+    const richText = validateRestrictedRichText(value);
+    if (!richText.success) {
+      throw new ProductPublishingError(
+        "INVALID_DRAFT",
+        richText.issues.map((message) => ({ field, message })),
+      );
+    }
+  }
 
   return prisma.$transaction(
     async (transaction) => {
@@ -1154,6 +1167,18 @@ export async function publishProductDraft({
       for (const field of requiredTextFields) {
         if (draft[field].trim().length === 0) {
           fieldErrors.push({ field, message: "此公开字段为必填项。" });
+        }
+      }
+
+      for (const [field, value] of [
+        ["descriptionEn", draft.descriptionEn],
+        ["descriptionZhCn", draft.descriptionZhCn],
+      ] as const) {
+        const richText = validateRestrictedRichText(value);
+        if (!richText.success) {
+          fieldErrors.push(
+            ...richText.issues.map((message) => ({ field, message })),
+          );
         }
       }
 

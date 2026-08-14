@@ -22,15 +22,41 @@ async function writeDemoData(
 
   await transaction.siteConfiguration.upsert({
     create: {
+      addressEn: "Shanghai, China (fictional demo address)",
+      addressZhCn: "中国上海（虚构演示地址）",
       companyNameEn: "Torquelis Filters",
       companyNameZhCn: "拓擎利滤清",
       contactEmail: "inquiries@torquelis.example",
+      contactPhone: "+86 000 0000 0000",
+      defaultSeoDescriptionEn:
+        "Fictional commercial vehicle filtration catalogue and inquiry demo.",
+      defaultSeoDescriptionZhCn: "虚构商用车滤清器目录与询盘演示系统。",
+      defaultSeoTitleEn: "Torquelis Filters",
+      defaultSeoTitleZhCn: "拓擎利滤清",
       key: "primary",
+      notificationRecipientRoles: ["administrator"],
+      socialLinks: {
+        linkedin: "https://www.linkedin.com/company/torquelis-demo",
+      },
     },
     update: {
+      addressEn: "Shanghai, China (fictional demo address)",
+      addressZhCn: "中国上海（虚构演示地址）",
       companyNameEn: "Torquelis Filters",
       companyNameZhCn: "拓擎利滤清",
       contactEmail: "inquiries@torquelis.example",
+      contactPhone: "+86 000 0000 0000",
+      defaultSeoDescriptionEn:
+        "Fictional commercial vehicle filtration catalogue and inquiry demo.",
+      defaultSeoDescriptionZhCn: "虚构商用车滤清器目录与询盘演示系统。",
+      defaultSeoTitleEn: "Torquelis Filters",
+      defaultSeoTitleZhCn: "拓擎利滤清",
+      lastModifiedByUserId: null,
+      notificationRecipientRoles: ["administrator"],
+      socialLinks: {
+        linkedin: "https://www.linkedin.com/company/torquelis-demo",
+      },
+      version: 1,
     },
     where: { key: "primary" },
   });

@@ -9,6 +9,7 @@ import { seedSpecificationDemoData } from "@/src/modules/catalog/server/specific
 import { seedVehicleFitmentDemoData } from "@/src/modules/catalog/server/fitment-demo-data";
 import { seedPublishedProductContent } from "@/src/modules/content-publishing/server/product-demo-content";
 import { seedProductDraftDemoData } from "@/src/modules/content-publishing/server/product-draft-demo-data";
+import { seedSiteContent } from "@/src/modules/content-publishing/server/site-content-demo-data";
 import { seedDemoData } from "@/src/modules/site-config/server/local-demo-data";
 import { createPrismaClient } from "@/src/infrastructure/database/prisma";
 import { seedPresetAccounts } from "@/src/modules/identity-access/server/preset-accounts";
@@ -32,6 +33,7 @@ try {
   await seedSpecificationDemoData(prisma);
   await seedVehicleFitmentDemoData(prisma);
   await seedProductDraftDemoData(prisma);
+  await seedSiteContent(prisma);
   await seedPresetAccounts(prisma, credentials);
   console.log(
     "Seeded the verified Torquelis local demo identity, preset roles, and site configuration.",

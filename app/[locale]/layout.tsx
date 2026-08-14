@@ -4,21 +4,37 @@ import type { ReactNode } from "react";
 
 import "../globals.css";
 
+import { getPublicSiteConfiguration } from "@/src/application/site-configuration";
 import {
   isPublicLocale,
   localeHtmlLanguage,
   PUBLIC_LOCALES,
 } from "@/src/modules/site-config/public/locales";
 
-export const metadata: Metadata = {
-  title: {
-    default: "Torquelis Filters",
-    template: "%s | Torquelis Filters",
-  },
-};
-
 export function generateStaticParams() {
   return PUBLIC_LOCALES.map((locale) => ({ locale }));
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  if (!isPublicLocale(locale)) return {};
+
+  const settings = await getPublicSiteConfiguration();
+  const title =
+    locale === "zh-cn"
+      ? settings.defaultSeoTitleZhCn
+      : settings.defaultSeoTitleEn;
+  return {
+    description:
+      locale === "zh-cn"
+        ? settings.defaultSeoDescriptionZhCn
+        : settings.defaultSeoDescriptionEn,
+    title: { default: title, template: `%s | ${title}` },
+  };
 }
 
 export default async function LocaleLayout({

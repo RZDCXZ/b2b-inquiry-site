@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import type { PublicLocale } from "@/src/modules/site-config/public/locales";
+import { getPublicSiteConfiguration } from "@/src/application/site-configuration";
 
 type PublicFooterProps = {
   companyName: string;
@@ -14,8 +15,8 @@ type PublicFooterProps = {
   privacyLabel: string;
 };
 
-export function PublicFooter({
-  companyName,
+export async function PublicFooter({
+  companyName: fallbackCompanyName,
   contactHeading,
   demoNotice,
   description,
@@ -25,6 +26,13 @@ export function PublicFooter({
   navigation,
   privacyLabel,
 }: PublicFooterProps) {
+  const settings = await getPublicSiteConfiguration();
+  const configuredCompanyName =
+    locale === "en"
+      ? `${settings.companyNameEn} / ${settings.companyNameZhCn}`
+      : `${settings.companyNameZhCn} / ${settings.companyNameEn}`;
+  const companyName = configuredCompanyName.trim() || fallbackCompanyName;
+  const address = locale === "en" ? settings.addressEn : settings.addressZhCn;
   return (
     <footer className="public-footer" id="contact">
       <section>
@@ -39,7 +47,13 @@ export function PublicFooter({
             href={
               item.anchor === "products"
                 ? `/${locale}/products`
-                : `/${locale}#${item.anchor}`
+                : `/${locale}/${
+                    {
+                      "private-label": "private-label",
+                      quality: "quality",
+                      resources: "resources",
+                    }[item.anchor] ?? ""
+                  }`
             }
             key={item.anchor}
           >
@@ -51,10 +65,16 @@ export function PublicFooter({
         <h2>{informationHeading}</h2>
         <Link href={`/${locale}#demo-data`}>{privacyLabel}</Link>
         <h2 className="footer-contact-heading">{contactHeading}</h2>
-        <a href="mailto:inquiries@torquelis.example">
-          inquiries@torquelis.example
+        <a href={`mailto:${settings.contactEmail}`}>{settings.contactEmail}</a>
+        <a href={`tel:${settings.contactPhone.replace(/\s/gu, "")}`}>
+          {settings.contactPhone}
         </a>
-        <span>+86 000 0000 0000</span>
+        <span>{address}</span>
+        {Object.entries(settings.socialLinks).map(([label, href]) => (
+          <a href={href} key={label} rel="noreferrer">
+            {label}
+          </a>
+        ))}
       </section>
       <aside className="demo-boundary" id="demo-data">
         <span aria-hidden="true">i</span>

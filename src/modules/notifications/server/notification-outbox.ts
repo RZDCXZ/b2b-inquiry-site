@@ -10,14 +10,36 @@ export async function captureAdministratorInquiryNotification(
     referenceNumber: string;
   },
 ): Promise<void> {
-  await transaction.notificationOutboxRecord.create({
-    data: {
-      contentPreview: `New inquiry ${input.referenceNumber} from ${input.company} (${input.countryRegion}).`,
-      createdAt: input.createdAt,
-      inquiryId: input.inquiryId,
-      inquiryReferenceNumber: input.referenceNumber,
-      recipientRole: "administrator",
-      template: "new_inquiry_for_administrator",
-    },
+  const configuration = await transaction.siteConfiguration.findUnique({
+    select: { notificationRecipientRoles: true },
+    where: { key: "primary" },
+  });
+  const recipientRoles = configuration?.notificationRecipientRoles ?? [
+    "administrator",
+  ];
+  const salesRecipient = recipientRoles.includes("sales")
+    ? await transaction.user.findFirst({
+        orderBy: { id: "asc" },
+        select: { id: true },
+        where: { role: "sales" },
+      })
+    : null;
+
+  await transaction.notificationOutboxRecord.createMany({
+    data: recipientRoles.flatMap((recipientRole) => {
+      if (recipientRole === "sales" && !salesRecipient) return [];
+      return [
+        {
+          contentPreview: `New inquiry ${input.referenceNumber} from ${input.company} (${input.countryRegion}).`,
+          createdAt: input.createdAt,
+          inquiryId: input.inquiryId,
+          inquiryReferenceNumber: input.referenceNumber,
+          recipientRole,
+          recipientUserId:
+            recipientRole === "sales" ? salesRecipient?.id : null,
+          template: `new_inquiry_for_${recipientRole}`,
+        },
+      ];
+    }),
   });
 }

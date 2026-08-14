@@ -4,6 +4,7 @@ import Link from "next/link";
 
 import type { getProductDraftPreview } from "@/src/application/product-publishing";
 import { productImageSource } from "@/src/components/product-image-source";
+import { RestrictedRichText } from "@/src/components/public/restricted-rich-text";
 
 type ProductDraftPreviewView = Awaited<
   ReturnType<typeof getProductDraftPreview>
@@ -45,7 +46,10 @@ export function ProductDraftPreview({
           </figure>
           <section>
             <p>{chinese ? "产品描述" : "Product description"}</p>
-            <h2>{preview.description}</h2>
+            <RestrictedRichText
+              className="restricted-rich-text"
+              source={preview.description}
+            />
             <div className="product-preview-seo">
               <small>SEO</small>
               <strong>{preview.seoTitle}</strong>

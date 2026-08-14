@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { issueInquiryForm } from "@/src/application/public-inquiry";
+import { getPublishedCorePage } from "@/src/application/site-content-management";
 import { InquiryFormPage } from "@/src/components/public/inquiry-form-page";
 import { getInquiryCopy } from "@/src/modules/content-publishing/public/inquiry-copy";
 import {
@@ -31,8 +32,13 @@ export async function generateMetadata({
     return {};
   }
 
-  const copy = getInquiryCopy(locale);
-  return { description: copy.metadataDescription, title: copy.metadataTitle };
+  const [copy, page] = await Promise.all([
+    Promise.resolve(getInquiryCopy(locale)),
+    getPublishedCorePage({ key: "contact", locale }),
+  ]);
+  return page
+    ? { description: page.content.lede, title: page.content.title }
+    : { description: copy.metadataDescription, title: copy.metadataTitle };
 }
 
 export default async function InquiryPage({
@@ -47,12 +53,12 @@ export default async function InquiryPage({
 
   const productPartNumber =
     typeof query.product === "string" ? query.product : undefined;
-  const form = await issueInquiryForm({
-    locale,
-    productPartNumber,
-  });
+  const [form, content] = await Promise.all([
+    issueInquiryForm({ locale, productPartNumber }),
+    getPublishedCorePage({ key: "contact", locale }),
+  ]);
 
-  if (!form) {
+  if (!form || !content) {
     notFound();
   }
 
@@ -74,6 +80,7 @@ export default async function InquiryPage({
 
   return (
     <InquiryFormPage
+      contactContent={content.content}
       error={error}
       fieldErrors={fieldErrors}
       locale={locale as PublicLocale}
