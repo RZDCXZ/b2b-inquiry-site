@@ -15,6 +15,7 @@ import { useActionState, useEffect, useRef, useState } from "react";
 import {
   mutateInquiryLifecycleAction,
   type InquiryLifecycleActionState,
+  type InquiryLifecycleFieldName,
 } from "@/app/admin/(protected)/inquiries/actions";
 import type { AppRole } from "@/src/modules/identity-access/public/permissions";
 import { APP_ROLES } from "@/src/modules/identity-access/public/permissions";
@@ -74,6 +75,61 @@ const initialState: InquiryLifecycleActionState = {
   status: "idle",
 };
 
+const lifecycleFieldIds: Record<InquiryLifecycleFieldName, string> = {
+  closeResult: "lifecycle-close-result",
+  correctionOfId: "lifecycle-correction-record",
+  nextStepDate: "lifecycle-next-step-date",
+  quoteAmount: "lifecycle-quote-amount",
+  quoteCurrency: "lifecycle-quote-currency",
+  quoteValidUntil: "lifecycle-quote-valid-until",
+  reason: "lifecycle-reason",
+  summary: "lifecycle-summary",
+};
+
+const lifecycleFieldLabels: Record<InquiryLifecycleFieldName, string> = {
+  closeResult: "关闭结果",
+  correctionOfId: "需要更正的记录",
+  nextStepDate: "下一步日期",
+  quoteAmount: "报价金额",
+  quoteCurrency: "币种",
+  quoteValidUntil: "有效期",
+  reason: "说明",
+  summary: "摘要",
+};
+
+function fieldAccessibilityProps(
+  state: InquiryLifecycleActionState,
+  field: InquiryLifecycleFieldName,
+) {
+  const error = state.fieldErrors?.[field];
+  const id = lifecycleFieldIds[field];
+
+  return {
+    "aria-describedby": error ? `${id}-error` : undefined,
+    "aria-invalid": error ? (true as const) : undefined,
+    id,
+  };
+}
+
+function LifecycleFieldError({
+  field,
+  state,
+}: {
+  field: InquiryLifecycleFieldName;
+  state: InquiryLifecycleActionState;
+}) {
+  const error = state.fieldErrors?.[field];
+
+  return error ? (
+    <small
+      className="admin-field-error"
+      id={`${lifecycleFieldIds[field]}-error`}
+    >
+      {error}
+    </small>
+  ) : null;
+}
+
 export function InquiryLifecycleActions({
   actorRole,
   correctableRecords,
@@ -101,6 +157,10 @@ export function InquiryLifecycleActions({
     (status === "assigned" || status === "in_progress" || status === "quoted");
   const canReopen =
     actorRole === APP_ROLES.ADMINISTRATOR && status === "closed";
+  const activeFollowUpOperations =
+    status === "assigned"
+      ? (["contact"] as const)
+      : (["contact", "quote", "internal_note"] as const);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -150,29 +210,27 @@ export function InquiryLifecycleActions({
         <h2>{canReopen ? "已关闭询盘" : "下一步动作"}</h2>
         {canFollowUp ? (
           <>
-            {(["contact", "quote", "internal_note"] as const).map(
-              (nextOperation) => {
-                const action = actionDefinitions[nextOperation];
-                const Icon = action.Icon;
+            {activeFollowUpOperations.map((nextOperation) => {
+              const action = actionDefinitions[nextOperation];
+              const Icon = action.Icon;
 
-                return (
-                  <button
-                    key={nextOperation}
-                    onClick={(event) =>
-                      openDrawer(nextOperation, event.currentTarget)
-                    }
-                    type="button"
-                  >
-                    <Icon aria-hidden="true" size={20} />
-                    <span>
-                      <strong>{action.label}</strong>
-                      <small>{action.description}</small>
-                    </span>
-                  </button>
-                );
-              },
-            )}
-            {correctableRecords.length > 0 ? (
+              return (
+                <button
+                  key={nextOperation}
+                  onClick={(event) =>
+                    openDrawer(nextOperation, event.currentTarget)
+                  }
+                  type="button"
+                >
+                  <Icon aria-hidden="true" size={20} />
+                  <span>
+                    <strong>{action.label}</strong>
+                    <small>{action.description}</small>
+                  </span>
+                </button>
+              );
+            })}
+            {status !== "assigned" && correctableRecords.length > 0 ? (
               <button
                 onClick={(event) =>
                   openDrawer("correction", event.currentTarget)
@@ -186,17 +244,19 @@ export function InquiryLifecycleActions({
                 </span>
               </button>
             ) : null}
-            <button
-              className="is-danger"
-              onClick={(event) => openDrawer("close", event.currentTarget)}
-              type="button"
-            >
-              <Check aria-hidden="true" size={20} />
-              <span>
-                <strong>关闭询盘</strong>
-                <small>必须保存关闭结果</small>
-              </span>
-            </button>
+            {status !== "assigned" ? (
+              <button
+                className="is-danger"
+                onClick={(event) => openDrawer("close", event.currentTarget)}
+                type="button"
+              >
+                <Check aria-hidden="true" size={20} />
+                <span>
+                  <strong>关闭询盘</strong>
+                  <small>必须保存关闭结果</small>
+                </span>
+              </button>
+            ) : null}
           </>
         ) : (
           <button
@@ -256,6 +316,22 @@ export function InquiryLifecycleActions({
                     {state.conflict ? "保存冲突" : "无法保存本次操作"}
                   </strong>
                   <p>{state.message}</p>
+                  {state.fieldErrors &&
+                  Object.keys(state.fieldErrors).length > 0 ? (
+                    <ul className="admin-error-links">
+                      {Object.keys(state.fieldErrors).map((field) => {
+                        const fieldName = field as InquiryLifecycleFieldName;
+
+                        return (
+                          <li key={fieldName}>
+                            <a href={`#${lifecycleFieldIds[fieldName]}`}>
+                              {lifecycleFieldLabels[fieldName]}
+                            </a>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  ) : null}
                   {state.conflict ? (
                     <small>
                       最新修改人：{state.conflict.latestModifiedBy}；时间：
@@ -290,6 +366,7 @@ export function InquiryLifecycleActions({
                     <label>
                       <span>报价金额</span>
                       <input
+                        {...fieldAccessibilityProps(state, "quoteAmount")}
                         inputMode="decimal"
                         max="9999999999999999.99"
                         min="0.01"
@@ -299,19 +376,37 @@ export function InquiryLifecycleActions({
                         step="0.01"
                         type="number"
                       />
+                      <LifecycleFieldError field="quoteAmount" state={state} />
                     </label>
                     <label>
                       <span>币种</span>
-                      <select defaultValue="USD" name="quoteCurrency">
+                      <select
+                        {...fieldAccessibilityProps(state, "quoteCurrency")}
+                        defaultValue="USD"
+                        name="quoteCurrency"
+                      >
                         <option value="USD">USD</option>
                         <option value="EUR">EUR</option>
                         <option value="CNY">CNY</option>
                       </select>
+                      <LifecycleFieldError
+                        field="quoteCurrency"
+                        state={state}
+                      />
                     </label>
                   </div>
                   <label>
                     <span>有效期</span>
-                    <input name="quoteValidUntil" required type="date" />
+                    <input
+                      {...fieldAccessibilityProps(state, "quoteValidUntil")}
+                      name="quoteValidUntil"
+                      required
+                      type="date"
+                    />
+                    <LifecycleFieldError
+                      field="quoteValidUntil"
+                      state={state}
+                    />
                   </label>
                 </>
               ) : null}
@@ -319,7 +414,12 @@ export function InquiryLifecycleActions({
               {operation === "correction" ? (
                 <label>
                   <span>需要更正的记录</span>
-                  <select defaultValue="" name="correctionOfId" required>
+                  <select
+                    {...fieldAccessibilityProps(state, "correctionOfId")}
+                    defaultValue=""
+                    name="correctionOfId"
+                    required
+                  >
                     <option disabled value="">
                       选择一条既有记录
                     </option>
@@ -329,11 +429,15 @@ export function InquiryLifecycleActions({
                       </option>
                     ))}
                   </select>
+                  <LifecycleFieldError field="correctionOfId" state={state} />
                 </label>
               ) : null}
 
               {operation === "close" ? (
-                <fieldset className="inquiry-close-results">
+                <fieldset
+                  {...fieldAccessibilityProps(state, "closeResult")}
+                  className="inquiry-close-results"
+                >
                   <legend>关闭结果</legend>
                   <label>
                     <input
@@ -362,6 +466,7 @@ export function InquiryLifecycleActions({
                     />
                     无效
                   </label>
+                  <LifecycleFieldError field="closeResult" state={state} />
                 </fieldset>
               ) : null}
 
@@ -371,18 +476,21 @@ export function InquiryLifecycleActions({
                     {operation === "close" ? "关闭说明" : "重开说明"}（选填）
                   </span>
                   <textarea
+                    {...fieldAccessibilityProps(state, "reason")}
                     maxLength={1_000}
                     minLength={2}
                     name="reason"
                     placeholder="记录本次状态变更的业务原因"
                     rows={5}
                   />
+                  <LifecycleFieldError field="reason" state={state} />
                 </label>
               ) : (
                 <>
                   <label>
                     <span>摘要</span>
                     <textarea
+                      {...fieldAccessibilityProps(state, "summary")}
                       maxLength={2_000}
                       minLength={2}
                       name="summary"
@@ -390,10 +498,16 @@ export function InquiryLifecycleActions({
                       required
                       rows={5}
                     />
+                    <LifecycleFieldError field="summary" state={state} />
                   </label>
                   <label>
                     <span>下一步日期（选填）</span>
-                    <input name="nextStepDate" type="date" />
+                    <input
+                      {...fieldAccessibilityProps(state, "nextStepDate")}
+                      name="nextStepDate"
+                      type="date"
+                    />
+                    <LifecycleFieldError field="nextStepDate" state={state} />
                   </label>
                 </>
               )}

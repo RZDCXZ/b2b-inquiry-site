@@ -159,6 +159,12 @@ describe("联系、报价与关闭生命周期", () => {
       }),
     ]);
     expect(audits[0]?.summary).not.toContain("工作邮箱");
+    await prisma.notificationOutboxRecord.deleteMany({
+      where: { inquiry: { referenceNumber } },
+    });
+    await expect(
+      prisma.inquiry.delete({ where: { referenceNumber } }),
+    ).rejects.toThrow(/RESTRICT|constraint/u);
   });
 
   it("当前负责人追加首次报价时保存定点金额、币种和有效期并推进到已报价", async () => {
@@ -169,6 +175,14 @@ describe("联系、报价与关闭生命周期", () => {
     await appendInquiryFollowUp({
       actor,
       expectedVersion: 2,
+      prisma,
+      referenceNumber,
+      summary: "已先完成首次联系。",
+      type: "contact",
+    });
+    await appendInquiryFollowUp({
+      actor,
+      expectedVersion: 3,
       now: occurredAt,
       prisma,
       quoteAmount: "2880.00",
@@ -183,32 +197,41 @@ describe("联系、报价与关闭生命周期", () => {
       prisma.inquiry.findUniqueOrThrow({ where: { referenceNumber } }),
     ).resolves.toMatchObject({
       status: "quoted",
-      version: 3,
+      version: 4,
     });
-    const [quote] = await prisma.inquiryFollowUp.findMany({
-      where: { inquiry: { referenceNumber } },
+    const quote = await prisma.inquiryFollowUp.findFirst({
+      where: { inquiry: { referenceNumber }, type: "quote" },
     });
     expect(quote).toMatchObject({
       actorUserId: actor.id,
       quoteCurrency: "USD",
       quoteValidUntil,
       statusAfter: "quoted",
-      statusBefore: "assigned",
+      statusBefore: "in_progress",
       type: "quote",
     });
     expect(quote?.quoteAmount?.toFixed(2)).toBe("2880.00");
-    const [audit] = await prisma.auditLog.findMany({
+    const audit = await prisma.auditLog.findFirst({
       where: { event: "INQUIRY_FOLLOW_UP_ADDED" },
+      orderBy: { createdAt: "desc" },
     });
-    expect(audit?.summary).toBe("追加报价记录；状态从已分配推进到已报价。");
+    expect(audit?.summary).toBe("追加报价记录；状态从跟进中推进到已报价。");
     expect(audit?.summary).not.toContain("2880");
   });
 
   it("内部备注通过新更正记录纠错且已保存历史不可更新或删除", async () => {
     const { actor } = await createAssignedInquiry();
-    const note = await appendInquiryFollowUp({
+    await appendInquiryFollowUp({
       actor,
       expectedVersion: 2,
+      prisma,
+      referenceNumber,
+      summary: "已先完成首次联系。",
+      type: "contact",
+    });
+    const note = await appendInquiryFollowUp({
+      actor,
+      expectedVersion: 3,
       prisma,
       referenceNumber,
       summary: "采购者希望使用蓝色外箱。",
@@ -218,7 +241,7 @@ describe("联系、报价与关闭生命周期", () => {
     await appendInquiryFollowUp({
       actor,
       correctionOfId: note.followUp.id,
-      expectedVersion: 3,
+      expectedVersion: 4,
       prisma,
       referenceNumber,
       summary: "更正：采购者希望使用深海军蓝外箱，而不是亮蓝色。",
@@ -227,18 +250,21 @@ describe("联系、报价与关闭生命周期", () => {
 
     const records = await prisma.inquiryFollowUp.findMany({
       orderBy: { toVersion: "asc" },
-      where: { inquiry: { referenceNumber } },
+      where: {
+        inquiry: { referenceNumber },
+        type: { in: ["internal_note", "correction"] },
+      },
     });
     expect(records).toEqual([
       expect.objectContaining({
         correctionOfId: null,
-        statusAfter: "assigned",
+        statusAfter: "in_progress",
         summary: "采购者希望使用蓝色外箱。",
         type: "internal_note",
       }),
       expect.objectContaining({
         correctionOfId: note.followUp.id,
-        statusAfter: "assigned",
+        statusAfter: "in_progress",
         summary: "更正：采购者希望使用深海军蓝外箱，而不是亮蓝色。",
         type: "correction",
       }),
@@ -252,6 +278,12 @@ describe("联系、报价与关闭生命周期", () => {
     await expect(
       prisma.inquiryFollowUp.delete({ where: { id: note.followUp.id } }),
     ).rejects.toThrow(/immutable/u);
+    await prisma.notificationOutboxRecord.deleteMany({
+      where: { inquiry: { referenceNumber } },
+    });
+    await expect(
+      prisma.inquiry.delete({ where: { referenceNumber } }),
+    ).rejects.toThrow(/RESTRICT|constraint/u);
   });
 
   it("当前负责人带结果关闭后只有管理员可重开且全部历史保留", async () => {

@@ -19,6 +19,7 @@ import { InquiryLifecycleActions } from "@/src/components/admin/inquiry-lifecycl
 import { InquiryStatus } from "@/src/components/admin/inquiry-status";
 import type { AdminActor } from "@/src/modules/identity-access/public/actor";
 import { APP_ROLES } from "@/src/modules/identity-access/public/permissions";
+import { INQUIRY_STATUS_LABELS_ZH_CN } from "@/src/modules/inquiry-operations/public/inquiry-lifecycle";
 
 type InquiryDetailView = Awaited<ReturnType<typeof getInquiryDetailForActor>>;
 
@@ -33,14 +34,6 @@ const followUpLabels = {
   correction: "更正记录",
   internal_note: "内部备注",
   quote: "报价记录",
-} as const;
-
-const statusLabels = {
-  assigned: "已分配",
-  closed: "已关闭",
-  in_progress: "跟进中",
-  pending_assignment: "待分配",
-  quoted: "已报价",
 } as const;
 
 function booleanLabel(value: boolean): string {
@@ -327,9 +320,10 @@ export function InquiryDetail({
             );
             meta = (
               <>
-                {followUp.actor.name} · {statusLabels[followUp.statusBefore]} →{" "}
-                {statusLabels[followUp.statusAfter]} · v{followUp.fromVersion} →
-                v{followUp.toVersion}
+                {followUp.actor.name} ·{" "}
+                {INQUIRY_STATUS_LABELS_ZH_CN[followUp.statusBefore]} →{" "}
+                {INQUIRY_STATUS_LABELS_ZH_CN[followUp.statusAfter]} · v
+                {followUp.fromVersion} → v{followUp.toVersion}
               </>
             );
           } else if (item.kind === "status_change") {
@@ -347,9 +341,10 @@ export function InquiryDetail({
             );
             meta = (
               <>
-                {change.actor.name} · {statusLabels[change.fromStatus]} →{" "}
-                {statusLabels[change.toStatus]} · v{change.fromVersion} → v
-                {change.toVersion}
+                {change.actor.name} ·{" "}
+                {INQUIRY_STATUS_LABELS_ZH_CN[change.fromStatus]} →{" "}
+                {INQUIRY_STATUS_LABELS_ZH_CN[change.toStatus]} · v
+                {change.fromVersion} → v{change.toVersion}
               </>
             );
           } else {

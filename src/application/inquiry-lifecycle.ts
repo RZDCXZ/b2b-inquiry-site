@@ -6,6 +6,7 @@ import {
 import type { AdminActor } from "@/src/modules/identity-access/public/actor";
 import { APP_ROLES } from "@/src/modules/identity-access/public/permissions";
 import {
+  INQUIRY_STATUS_LABELS_ZH_CN,
   transitionInquiryStatus,
   type InquiryStatus,
 } from "@/src/modules/inquiry-operations/public/inquiry-lifecycle";
@@ -54,14 +55,6 @@ async function getConflict(
   };
 }
 
-const statusLabels: Record<InquiryStatus, string> = {
-  assigned: "已分配",
-  closed: "已关闭",
-  in_progress: "跟进中",
-  pending_assignment: "待分配",
-  quoted: "已报价",
-};
-
 function followUpAuditSummary(
   type: "contact" | "correction" | "internal_note" | "quote",
   before: InquiryStatus,
@@ -75,8 +68,8 @@ function followUpAuditSummary(
   } as const;
   const transition =
     before === after
-      ? `状态保持${statusLabels[after]}`
-      : `状态从${statusLabels[before]}推进到${statusLabels[after]}`;
+      ? `状态保持${INQUIRY_STATUS_LABELS_ZH_CN[after]}`
+      : `状态从${INQUIRY_STATUS_LABELS_ZH_CN[before]}推进到${INQUIRY_STATUS_LABELS_ZH_CN[after]}`;
 
   return `追加${typeLabels[type]}；${transition}。`;
 }
@@ -396,7 +389,7 @@ export async function closeInquiry({
           actorUserId: actor.id,
           event: "INQUIRY_CLOSED",
           outcome: "SUCCESS",
-          summary: `询盘从${statusLabels[inquiry.status]}关闭；关闭结果为${closeResultLabels[closeResult]}。`,
+          summary: `询盘从${INQUIRY_STATUS_LABELS_ZH_CN[inquiry.status]}关闭；关闭结果为${closeResultLabels[closeResult]}。`,
           targetId: inquiry.id,
           targetType: "INQUIRY",
         },

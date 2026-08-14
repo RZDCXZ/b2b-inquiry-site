@@ -1,12 +1,7 @@
-import type { InquiryStatus as InquiryStatusValue } from "@/src/modules/inquiry-operations/public/inquiry-lifecycle";
-
-const statusLabels: Record<InquiryStatusValue, string> = {
-  assigned: "已分配",
-  closed: "已关闭",
-  in_progress: "跟进中",
-  pending_assignment: "待分配",
-  quoted: "已报价",
-};
+import {
+  INQUIRY_STATUS_LABELS_ZH_CN,
+  type InquiryStatus as InquiryStatusValue,
+} from "@/src/modules/inquiry-operations/public/inquiry-lifecycle";
 
 export function InquiryStatus({ status }: { status: InquiryStatusValue }) {
   const tone =
@@ -14,7 +9,7 @@ export function InquiryStatus({ status }: { status: InquiryStatusValue }) {
 
   return (
     <span className={`inquiry-status is-${tone}`}>
-      <i /> {statusLabels[status]}
+      <i /> {INQUIRY_STATUS_LABELS_ZH_CN[status]}
     </span>
   );
 }

@@ -1448,6 +1448,35 @@ select {
   margin: 3px 0;
 }
 
+.admin-error-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin: 7px 0 0;
+  padding-left: 16px;
+}
+
+.admin-error-links a {
+  color: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.admin-field-error {
+  display: block;
+  margin-top: 5px;
+  color: var(--danger);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.admin-assignment-form [aria-invalid="true"] {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 1px var(--danger);
+}
+
 .admin-outbox-boundary {
   display: flex;
   gap: 12px;
@@ -1576,6 +1605,10 @@ select {
 .inquiry-close-results input[type="radio"] {
   width: auto;
   min-height: 0;
+}
+
+.inquiry-close-results[aria-invalid="true"] label {
+  border-color: var(--danger);
 }
 
 @media (max-width: 820px) {

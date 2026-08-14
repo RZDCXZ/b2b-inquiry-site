@@ -92,10 +92,34 @@ test("当前负责人联系、报价、关闭后管理员重新打开并保留�
   const salesPage = await login(salesContext, sales);
   await salesPage.goto(detailPath);
 
+  await expect(
+    salesPage.getByRole("button", { name: "追加报价记录" }),
+  ).toHaveCount(0);
+  await expect(salesPage.getByRole("button", { name: "关闭询盘" })).toHaveCount(
+    0,
+  );
   await salesPage.getByRole("button", { name: "追加联系记录" }).click();
   const contactDialog = salesPage.getByRole("dialog", {
     name: "追加联系记录",
   });
+  await contactDialog
+    .locator("form")
+    .evaluate((form: HTMLFormElement) => (form.noValidate = true));
+  await contactDialog.getByRole("button", { name: "追加联系记录" }).click();
+  const validationSummary = contactDialog.locator(
+    ".admin-action-message.is-error",
+  );
+  await expect(validationSummary).toBeFocused();
+  await expect(
+    validationSummary.getByRole("link", { name: "摘要" }),
+  ).toHaveAttribute("href", "#lifecycle-summary");
+  await expect(
+    contactDialog.getByText("请填写 2–2000 字的摘要。"),
+  ).toBeVisible();
+  await expect(contactDialog.locator("#lifecycle-summary")).toHaveAttribute(
+    "aria-invalid",
+    "true",
+  );
   await contactDialog
     .getByLabel("摘要")
     .fill("通过工作邮箱确认了车型与预计采购量。");

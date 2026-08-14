@@ -13,10 +13,6 @@ describe("询盘状态机", () => {
     },
     assigned: {
       add_contact: "in_progress",
-      add_correction: "assigned",
-      add_internal_note: "assigned",
-      add_quote: "quoted",
-      close: "closed",
       reassign: "assigned",
     },
     in_progress: {

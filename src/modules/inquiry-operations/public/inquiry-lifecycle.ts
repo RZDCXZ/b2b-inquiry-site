@@ -8,6 +8,14 @@ export const INQUIRY_STATUSES = [
 
 export type InquiryStatus = (typeof INQUIRY_STATUSES)[number];
 
+export const INQUIRY_STATUS_LABELS_ZH_CN: Record<InquiryStatus, string> = {
+  assigned: "已分配",
+  closed: "已关闭",
+  in_progress: "跟进中",
+  pending_assignment: "待分配",
+  quoted: "已报价",
+};
+
 export const INQUIRY_LIFECYCLE_OPERATIONS = [
   "assign",
   "reassign",
@@ -28,10 +36,6 @@ const transitions: Record<
 > = {
   assigned: {
     add_contact: "in_progress",
-    add_correction: "assigned",
-    add_internal_note: "assigned",
-    add_quote: "quoted",
-    close: "closed",
     reassign: "assigned",
   },
   closed: { reopen: "assigned" },

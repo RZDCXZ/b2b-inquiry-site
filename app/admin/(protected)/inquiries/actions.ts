@@ -178,9 +178,45 @@ export type InquiryLifecycleActionState = {
     latestModifiedBy: string;
     latestVersion: number;
   };
+  fieldErrors?: Partial<Record<InquiryLifecycleFieldName, string>>;
   message: string;
   status: "error" | "idle" | "success";
 };
+
+const lifecycleFieldErrorMessages = {
+  closeResult: "请选择成交、未成交或无效。",
+  correctionOfId: "请选择需要更正的既有记录。",
+  nextStepDate: "请选择有效的下一步日期。",
+  quoteAmount: "请输入大于 0 且最多两位小数的报价金额。",
+  quoteCurrency: "请选择 USD、EUR 或 CNY。",
+  quoteValidUntil: "请选择有效的报价有效期。",
+  reason: "说明需为 2–1000 字，或留空。",
+  summary: "请填写 2–2000 字的摘要。",
+} as const;
+
+export type InquiryLifecycleFieldName =
+  keyof typeof lifecycleFieldErrorMessages;
+
+function lifecycleFieldErrors(
+  error: z.ZodError,
+): Partial<Record<InquiryLifecycleFieldName, string>> {
+  const fieldErrors: Partial<Record<InquiryLifecycleFieldName, string>> = {};
+
+  for (const issue of error.issues) {
+    const field = issue.path[0];
+
+    if (
+      typeof field === "string" &&
+      Object.hasOwn(lifecycleFieldErrorMessages, field) &&
+      !Object.hasOwn(fieldErrors, field)
+    ) {
+      const fieldName = field as InquiryLifecycleFieldName;
+      fieldErrors[fieldName] = lifecycleFieldErrorMessages[fieldName];
+    }
+  }
+
+  return fieldErrors;
+}
 
 export async function mutateInquiryLifecycleAction(
   _previousState: InquiryLifecycleActionState,
@@ -210,8 +246,15 @@ export async function mutateInquiryLifecycleAction(
   });
 
   if (!parsed.success) {
+    const fieldErrors = lifecycleFieldErrors(parsed.error);
+    const errorCount = Object.keys(fieldErrors).length;
+
     return {
-      message: "请检查必填内容、日期和报价金额后重试。",
+      fieldErrors,
+      message:
+        errorCount > 0
+          ? `请修正 ${errorCount} 个字段后重试。`
+          : "操作请求已失效，请刷新页面后重试。",
       status: "error",
     };
   }
