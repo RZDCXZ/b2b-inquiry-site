@@ -13,6 +13,7 @@ import { PublicHeader } from "@/src/components/public/public-header";
 import { productImageSource } from "@/src/components/product-image-source";
 import { getCatalogCopy } from "@/src/modules/content-publishing/public/catalog-copy";
 import { getHomeCopy } from "@/src/modules/content-publishing/public/home-copy";
+import { isPublicNavigationVisible } from "@/src/modules/content-publishing/public/public-navigation";
 import type { PublicLocale } from "@/src/modules/site-config/public/locales";
 
 type DisplayedProductNumberLookup = Exclude<
@@ -167,9 +168,14 @@ export function ProductNumberLookupPage({
                 >
                   {catalogCopy.lookupSearchByVehicle}
                 </Link>
-                <Link className="primary-button" href={`/${locale}/inquiry`}>
-                  {catalogCopy.lookupGeneralInquiry}
-                </Link>
+                {isPublicNavigationVisible(
+                  shell.visibleNavigationAnchors,
+                  "contact",
+                ) ? (
+                  <Link className="primary-button" href={`/${locale}/inquiry`}>
+                    {catalogCopy.lookupGeneralInquiry}
+                  </Link>
+                ) : null}
               </div>
             </div>
           )}

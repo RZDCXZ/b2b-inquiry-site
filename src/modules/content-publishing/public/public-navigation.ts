@@ -19,3 +19,10 @@ export function publicNavigationHref(
   const route = PUBLIC_ROUTE_BY_NAVIGATION_ANCHOR[anchor] ?? "";
   return `/${locale}/${route}`.replace(/\/$/u, "");
 }
+
+export function isPublicNavigationVisible(
+  visibleNavigationAnchors: readonly string[],
+  anchor: string,
+): boolean {
+  return visibleNavigationAnchors.includes(anchor);
+}

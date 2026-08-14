@@ -16,6 +16,7 @@ import { RestrictedRichText } from "@/src/components/public/restricted-rich-text
 import { productImageSource } from "@/src/components/product-image-source";
 import { getCatalogCopy } from "@/src/modules/content-publishing/public/catalog-copy";
 import { getHomeCopy } from "@/src/modules/content-publishing/public/home-copy";
+import { isPublicNavigationVisible } from "@/src/modules/content-publishing/public/public-navigation";
 import { productSpecificationPdfPath } from "@/src/modules/catalog/public/product-identity";
 import type { PublicLocale } from "@/src/modules/site-config/public/locales";
 
@@ -149,13 +150,18 @@ export function ProductDetailPage({
               {catalogCopy.demoDataNotice}
             </aside>
             <div className="product-detail-actions">
-              <Link
-                className="primary-button"
-                href={`/${locale}/inquiry?product=${encodeURIComponent(product.partNumber)}`}
-              >
-                {catalogCopy.detailInquiry}
-                <ArrowRight aria-hidden="true" size={18} />
-              </Link>
+              {isPublicNavigationVisible(
+                shell.visibleNavigationAnchors,
+                "contact",
+              ) ? (
+                <Link
+                  className="primary-button"
+                  href={`/${locale}/inquiry?product=${encodeURIComponent(product.partNumber)}`}
+                >
+                  {catalogCopy.detailInquiry}
+                  <ArrowRight aria-hidden="true" size={18} />
+                </Link>
+              ) : null}
               <Link
                 className="secondary-button"
                 download

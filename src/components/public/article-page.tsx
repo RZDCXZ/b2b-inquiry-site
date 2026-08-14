@@ -6,6 +6,7 @@ import { PublicFooter } from "@/src/components/public/public-footer";
 import { PublicHeader } from "@/src/components/public/public-header";
 import { RestrictedRichText } from "@/src/components/public/restricted-rich-text";
 import { getHomeCopy } from "@/src/modules/content-publishing/public/home-copy";
+import { isPublicNavigationVisible } from "@/src/modules/content-publishing/public/public-navigation";
 import type { PublicLocale } from "@/src/modules/site-config/public/locales";
 
 export type ArticlePageContent = {
@@ -39,6 +40,14 @@ export function ArticlePage({
       `/${article.otherLanguage.locale}/resources/${article.otherLanguage.slug}`;
   }
   Object.assign(languageHrefs, providedLanguageHrefs);
+  const contactVisible = isPublicNavigationVisible(
+    shell.visibleNavigationAnchors,
+    "contact",
+  );
+  const resourcesVisible = isPublicNavigationVisible(
+    shell.visibleNavigationAnchors,
+    "resources",
+  );
   const unavailableLanguages:
     Partial<Record<PublicLocale, string>> | undefined = article.otherLanguage
     .available
@@ -64,8 +73,18 @@ export function ArticlePage({
       />
       <main className="article-page">
         <header>
-          <Link href={`/${locale}/resources`}>
-            {locale === "en" ? "Technical resources" : "技术资源"}
+          <Link
+            href={
+              resourcesVisible ? `/${locale}/resources` : `/${locale}/products`
+            }
+          >
+            {resourcesVisible
+              ? locale === "en"
+                ? "Technical resources"
+                : "技术资源"
+              : locale === "en"
+                ? "Products"
+                : "产品中心"}
           </Link>
           <p className="eyebrow">
             {locale === "en" ? "TECHNICAL NOTE" : "技术文章"}
@@ -83,28 +102,30 @@ export function ArticlePage({
           className="article-rich-text restricted-rich-text"
           source={article.body}
         />
-        <section className="article-inquiry-action">
-          <div>
-            <p className="eyebrow">
-              {locale === "en"
-                ? "NEED A SPECIFICATION CHECK?"
-                : "需要核对规格？"}
-            </p>
-            <h2>
-              {locale === "en"
-                ? "Keep the technical context attached."
-                : "提交询盘时保留技术上下文。"}
-            </h2>
-            <p>
-              {locale === "en"
-                ? "Send a concise request and our local demo workflow will capture it for follow-up."
-                : "提交简洁需求，本地演示工作流会捕获询盘以供后续处理。"}
-            </p>
-          </div>
-          <Link className="primary-button" href={`/${locale}/inquiry`}>
-            {locale === "en" ? "Send a general inquiry" : "提交通用询盘"}
-          </Link>
-        </section>
+        {contactVisible ? (
+          <section className="article-inquiry-action">
+            <div>
+              <p className="eyebrow">
+                {locale === "en"
+                  ? "NEED A SPECIFICATION CHECK?"
+                  : "需要核对规格？"}
+              </p>
+              <h2>
+                {locale === "en"
+                  ? "Keep the technical context attached."
+                  : "提交询盘时保留技术上下文。"}
+              </h2>
+              <p>
+                {locale === "en"
+                  ? "Send a concise request and our local demo workflow will capture it for follow-up."
+                  : "提交简洁需求，本地演示工作流会捕获询盘以供后续处理。"}
+              </p>
+            </div>
+            <Link className="primary-button" href={`/${locale}/inquiry`}>
+              {locale === "en" ? "Send a general inquiry" : "提交通用询盘"}
+            </Link>
+          </section>
+        ) : null}
         <aside className="core-demo-boundary">
           <Info aria-hidden="true" weight="fill" />
           <p>{copy.demoNotice}</p>

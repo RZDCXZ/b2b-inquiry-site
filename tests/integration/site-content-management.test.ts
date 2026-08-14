@@ -189,6 +189,39 @@ describe("核心页面、文章与站点设置", () => {
       locale: "en",
       prisma,
     });
+    const archived = await getArticleDraft({
+      actor: contentEditor,
+      articleId: article.id,
+      locale: "en",
+      prisma,
+    });
+    const editedArchived = await saveArticleDraft({
+      actor: contentEditor,
+      articleId: article.id,
+      expectedDraftVersion: archived.version,
+      input: {
+        body: archived.body,
+        excerpt: `${archived.excerpt} Archived draft edit.`,
+        seoDescription: archived.seoDescription,
+        seoTitle: archived.seoTitle,
+        slug: archived.slug,
+        title: archived.title,
+      },
+      locale: "en",
+      prisma,
+    });
+    await expect(
+      publishArticleDraft({
+        actor: contentEditor,
+        articleId: article.id,
+        expectedDraftVersion: editedArchived.version,
+        locale: "en",
+        prisma,
+      }),
+    ).rejects.toMatchObject({
+      code: "PUBLISH_VALIDATION_FAILED",
+      fieldErrors: [expect.objectContaining({ field: "status" })],
+    });
     await expect(
       getPublishedArticle({ locale: "en", prisma, slug: english.slug }),
     ).resolves.toBeNull();
@@ -221,6 +254,26 @@ describe("核心页面、文章与站点设置", () => {
         articleId: contender.id,
         locale: "en",
         prisma,
+      });
+      await expect(
+        saveArticleDraft({
+          actor: contentEditor,
+          articleId: contender.id,
+          expectedDraftVersion: contenderDraft.version,
+          input: {
+            body: contenderDraft.body,
+            excerpt: contenderDraft.excerpt,
+            seoDescription: contenderDraft.seoDescription,
+            seoTitle: contenderDraft.seoTitle,
+            slug: ownerDraft.slug,
+            title: contenderDraft.title,
+          },
+          locale: "en",
+          prisma,
+        }),
+      ).rejects.toMatchObject({
+        code: "INVALID_CONTENT",
+        fieldErrors: [expect.objectContaining({ field: "slug" })],
       });
       const renamedOwner = await saveArticleDraft({
         actor: contentEditor,
@@ -282,6 +335,79 @@ describe("核心页面、文章与站点设置", () => {
         getPublishedArticle({ locale: "en", prisma, slug: ownerDraft.slug }),
       ).resolves.toMatchObject({ articleId: routeOwner.id });
       expect(renamedOwner.slug).not.toBe(ownerDraft.slug);
+    } finally {
+      await replaceSiteContent(prisma);
+    }
+  });
+
+  it("恢复文章历史版本时把草稿地址冲突映射到具体字段", async () => {
+    const [routeOwner, contender] = await Promise.all([
+      prisma.article.findUniqueOrThrow({
+        where: { topicKey: "commercial-vehicle-fitment-basics" },
+      }),
+      prisma.article.findUniqueOrThrow({
+        where: { topicKey: "metric-and-imperial-filter-dimensions" },
+      }),
+    ]);
+    try {
+      const [ownerDraft, contenderDraft] = await Promise.all([
+        getArticleDraft({
+          actor: contentEditor,
+          articleId: routeOwner.id,
+          locale: "en",
+          prisma,
+        }),
+        getArticleDraft({
+          actor: contentEditor,
+          articleId: contender.id,
+          locale: "en",
+          prisma,
+        }),
+      ]);
+      const movedContender = await saveArticleDraft({
+        actor: contentEditor,
+        articleId: contender.id,
+        expectedDraftVersion: contenderDraft.version,
+        input: {
+          body: contenderDraft.body,
+          excerpt: contenderDraft.excerpt,
+          seoDescription: contenderDraft.seoDescription,
+          seoTitle: contenderDraft.seoTitle,
+          slug: "metric-and-imperial-filter-dimensions-draft",
+          title: contenderDraft.title,
+        },
+        locale: "en",
+        prisma,
+      });
+      await saveArticleDraft({
+        actor: contentEditor,
+        articleId: routeOwner.id,
+        expectedDraftVersion: ownerDraft.version,
+        input: {
+          body: ownerDraft.body,
+          excerpt: ownerDraft.excerpt,
+          seoDescription: ownerDraft.seoDescription,
+          seoTitle: ownerDraft.seoTitle,
+          slug: contenderDraft.slug,
+          title: ownerDraft.title,
+        },
+        locale: "en",
+        prisma,
+      });
+
+      await expect(
+        restoreArticlePublication({
+          actor: contentEditor,
+          articleId: contender.id,
+          expectedDraftVersion: movedContender.version,
+          locale: "en",
+          prisma,
+          publicationId: contenderDraft.currentPublicationId!,
+        }),
+      ).rejects.toMatchObject({
+        code: "INVALID_CONTENT",
+        fieldErrors: [expect.objectContaining({ field: "slug" })],
+      });
     } finally {
       await replaceSiteContent(prisma);
     }

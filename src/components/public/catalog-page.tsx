@@ -12,6 +12,7 @@ import { PublicHeader } from "@/src/components/public/public-header";
 import { productImageSource } from "@/src/components/product-image-source";
 import { getCatalogCopy } from "@/src/modules/content-publishing/public/catalog-copy";
 import { getHomeCopy } from "@/src/modules/content-publishing/public/home-copy";
+import { isPublicNavigationVisible } from "@/src/modules/content-publishing/public/public-navigation";
 import type { PublicLocale } from "@/src/modules/site-config/public/locales";
 import {
   findSelectedVehicleFitment,
@@ -353,12 +354,17 @@ export function CatalogPage({
                   >
                     {catalogCopy.resultSearchByNumber}
                   </Link>
-                  <Link
-                    className="secondary-button"
-                    href={`/${locale}/inquiry`}
-                  >
-                    {catalogCopy.resultGeneralInquiry}
-                  </Link>
+                  {isPublicNavigationVisible(
+                    shell.visibleNavigationAnchors,
+                    "contact",
+                  ) ? (
+                    <Link
+                      className="secondary-button"
+                      href={`/${locale}/inquiry`}
+                    >
+                      {catalogCopy.resultGeneralInquiry}
+                    </Link>
+                  ) : null}
                 </div>
               </div>
             )}

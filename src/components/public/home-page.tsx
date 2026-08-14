@@ -15,6 +15,7 @@ import { PublicFooter } from "@/src/components/public/public-footer";
 import { PublicHeader } from "@/src/components/public/public-header";
 import { ProductFinder } from "@/src/components/public/product-finder";
 import { getHomeCopy } from "@/src/modules/content-publishing/public/home-copy";
+import { isPublicNavigationVisible } from "@/src/modules/content-publishing/public/public-navigation";
 import type { PublicLocale } from "@/src/modules/site-config/public/locales";
 import type { LocalizedVehicleFitmentOption } from "@/src/modules/catalog/public/fitments";
 import type { CorePageTranslation } from "@/src/modules/content-publishing/public/core-page-contracts";
@@ -151,15 +152,20 @@ export function HomePage({
             </Link>
           </div>
         </section>
-        <section className="home-resource-band">
-          <p className="eyebrow">{copy.nav[3].label}</p>
-          <h2>{sections.get("resources")?.heading}</h2>
-          <p>{sections.get("resources")?.body}</p>
-          <Link className="secondary-button" href={`/${locale}/resources`}>
-            {copy.nav[3].label}
-            <ArrowRight aria-hidden="true" size={18} />
-          </Link>
-        </section>
+        {isPublicNavigationVisible(
+          shell.visibleNavigationAnchors,
+          "resources",
+        ) ? (
+          <section className="home-resource-band">
+            <p className="eyebrow">{copy.nav[3].label}</p>
+            <h2>{sections.get("resources")?.heading}</h2>
+            <p>{sections.get("resources")?.body}</p>
+            <Link className="secondary-button" href={`/${locale}/resources`}>
+              {copy.nav[3].label}
+              <ArrowRight aria-hidden="true" size={18} />
+            </Link>
+          </section>
+        ) : null}
       </main>
       <PublicFooter
         companyName={copy.companyName}

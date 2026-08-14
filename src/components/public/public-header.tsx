@@ -2,7 +2,10 @@ import Link from "next/link";
 
 import { MobileNavigation } from "@/src/components/public/mobile-navigation";
 import type { PublicLocale } from "@/src/modules/site-config/public/locales";
-import { publicNavigationHref } from "@/src/modules/content-publishing/public/public-navigation";
+import {
+  isPublicNavigationVisible,
+  publicNavigationHref,
+} from "@/src/modules/content-publishing/public/public-navigation";
 
 type PublicHeaderProps = {
   activeNavigationAnchor?: string;
@@ -34,9 +37,10 @@ export function PublicHeader({
   unavailableLanguages,
   visibleNavigationAnchors,
 }: PublicHeaderProps) {
-  const visibleAnchors = new Set(visibleNavigationAnchors);
   const items = navigation
-    .filter((item) => visibleAnchors.has(item.anchor))
+    .filter((item) =>
+      isPublicNavigationVisible(visibleNavigationAnchors, item.anchor),
+    )
     .map((item) => ({
       active: item.anchor === activeNavigationAnchor,
       label: item.label,

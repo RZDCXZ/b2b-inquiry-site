@@ -1,7 +1,10 @@
 import Link from "next/link";
 
 import type { PublicSiteShellData } from "@/src/application/public-site-shell";
-import { publicNavigationHref } from "@/src/modules/content-publishing/public/public-navigation";
+import {
+  isPublicNavigationVisible,
+  publicNavigationHref,
+} from "@/src/modules/content-publishing/public/public-navigation";
 import type { PublicLocale } from "@/src/modules/site-config/public/locales";
 
 type PublicFooterProps = {
@@ -47,7 +50,9 @@ export function PublicFooter({
       <section>
         <h2>{exploreHeading}</h2>
         {navigation
-          .filter((item) => visibleNavigationAnchors.includes(item.anchor))
+          .filter((item) =>
+            isPublicNavigationVisible(visibleNavigationAnchors, item.anchor),
+          )
           .slice(0, 4)
           .map((item) => (
             <Link

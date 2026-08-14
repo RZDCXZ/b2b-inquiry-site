@@ -49,6 +49,40 @@ export class SiteContentError extends Error {
   }
 }
 
+export function isArticleSlugUniqueConstraintError(error: unknown): boolean {
+  if (
+    typeof error !== "object" ||
+    error === null ||
+    !("code" in error) ||
+    error.code !== "P2002"
+  ) {
+    return false;
+  }
+  try {
+    const metadata = JSON.stringify(
+      "meta" in error && error.meta !== undefined ? error.meta : {},
+    );
+    return (
+      metadata.includes('"slug"') ||
+      metadata.includes("currentPublishedSlug") ||
+      metadata.includes("current_published_slug")
+    );
+  } catch {
+    return false;
+  }
+}
+
+function articleSlugUnavailableError(
+  code: "INVALID_CONTENT" | "PUBLISH_VALIDATION_FAILED",
+): SiteContentError {
+  return new SiteContentError(code, [
+    {
+      field: "slug",
+      message: "该地址已由同语言的另一篇文章草稿或公开文章使用。",
+    },
+  ]);
+}
+
 function database(prisma?: ApplicationDatabase): ApplicationDatabase {
   return prisma ?? getApplicationPrisma();
 }
@@ -717,56 +751,63 @@ export async function saveArticleDraft({
   const parsed = parseArticleDraftInput(input);
   const localeValue = dbLocale(locale);
   const prisma = database(providedPrisma);
-  return prisma.$transaction(async (transaction) => {
-    const existing = await findArticleDraft(
-      transaction,
-      articleId,
-      localeValue,
-    );
-    if (!existing) throw new SiteContentError("NOT_FOUND");
-    if (existing.version !== expectedDraftVersion) {
-      throw new SiteContentError("CONFLICT", [], articleConflict(existing));
-    }
-    const updated = await transaction.articleDraft.updateMany({
-      data: {
-        ...parsed,
-        lastModifiedByUserId: actor.id,
-        restoredFromPublicationId: null,
-        version: { increment: 1 },
-      },
-      where: {
-        articleId,
-        locale: localeValue,
-        version: expectedDraftVersion,
-      },
-    });
-    if (updated.count !== 1) {
-      const latest = await findArticleDraft(
+  try {
+    return await prisma.$transaction(async (transaction) => {
+      const existing = await findArticleDraft(
         transaction,
         articleId,
         localeValue,
       );
-      throw new SiteContentError(
-        "CONFLICT",
-        [],
-        latest ? articleConflict(latest) : undefined,
-      );
-    }
-    await transaction.auditLog.create({
-      data: {
-        actorRole: actor.role,
-        actorUserId: actor.id,
-        event: "ARTICLE_DRAFT_SAVED",
-        outcome: "SUCCESS",
-        summary: `${parsed.title || existing.article.topicKey}草稿已保存。`,
-        targetId: articleId,
-        targetType: "ARTICLE",
-      },
+      if (!existing) throw new SiteContentError("NOT_FOUND");
+      if (existing.version !== expectedDraftVersion) {
+        throw new SiteContentError("CONFLICT", [], articleConflict(existing));
+      }
+      const updated = await transaction.articleDraft.updateMany({
+        data: {
+          ...parsed,
+          lastModifiedByUserId: actor.id,
+          restoredFromPublicationId: null,
+          version: { increment: 1 },
+        },
+        where: {
+          articleId,
+          locale: localeValue,
+          version: expectedDraftVersion,
+        },
+      });
+      if (updated.count !== 1) {
+        const latest = await findArticleDraft(
+          transaction,
+          articleId,
+          localeValue,
+        );
+        throw new SiteContentError(
+          "CONFLICT",
+          [],
+          latest ? articleConflict(latest) : undefined,
+        );
+      }
+      await transaction.auditLog.create({
+        data: {
+          actorRole: actor.role,
+          actorUserId: actor.id,
+          event: "ARTICLE_DRAFT_SAVED",
+          outcome: "SUCCESS",
+          summary: `${parsed.title || existing.article.topicKey}草稿已保存。`,
+          targetId: articleId,
+          targetType: "ARTICLE",
+        },
+      });
+      const saved = await findArticleDraft(transaction, articleId, localeValue);
+      if (!saved) throw new SiteContentError("NOT_FOUND");
+      return toArticleDraft(saved);
     });
-    const saved = await findArticleDraft(transaction, articleId, localeValue);
-    if (!saved) throw new SiteContentError("NOT_FOUND");
-    return toArticleDraft(saved);
-  });
+  } catch (error) {
+    if (isArticleSlugUniqueConstraintError(error)) {
+      throw articleSlugUnavailableError("INVALID_CONTENT");
+    }
+    throw error;
+  }
 }
 
 function articlePublicationErrors(record: {
@@ -839,6 +880,14 @@ export async function publishArticleDraft({
       if (errors.length > 0) {
         throw new SiteContentError("PUBLISH_VALIDATION_FAILED", errors);
       }
+      if (draft.status === "archived") {
+        throw new SiteContentError("PUBLISH_VALIDATION_FAILED", [
+          {
+            field: "status",
+            message: "归档文章必须先恢复一个已发布历史版本，才能重新发布。",
+          },
+        ]);
+      }
       if (draft.lastPublishedVersion === draft.version) {
         throw new SiteContentError("NOTHING_TO_PUBLISH");
       }
@@ -851,9 +900,7 @@ export async function publishArticleDraft({
         },
       });
       if (existingRouteOwner) {
-        throw new SiteContentError("PUBLISH_VALIDATION_FAILED", [
-          { field: "slug", message: "该地址仍由另一篇公开文章使用。" },
-        ]);
+        throw articleSlugUnavailableError("PUBLISH_VALIDATION_FAILED");
       }
       const claim = await transaction.articleDraft.updateMany({
         data: { lastPublishedVersion: draft.version },
@@ -928,19 +975,8 @@ export async function publishArticleDraft({
       return { publicationId: publication.id, version: publication.version };
     });
   } catch (error) {
-    const prismaError = error as {
-      code?: unknown;
-      meta?: { target?: unknown };
-    };
-    const uniqueTarget = JSON.stringify(prismaError.meta?.target);
-    if (
-      prismaError.code === "P2002" &&
-      (uniqueTarget.includes("currentPublishedSlug") ||
-        uniqueTarget.includes("current_published_slug"))
-    ) {
-      throw new SiteContentError("PUBLISH_VALIDATION_FAILED", [
-        { field: "slug", message: "该地址仍由另一篇公开文章使用。" },
-      ]);
+    if (isArticleSlugUniqueConstraintError(error)) {
+      throw articleSlugUnavailableError("PUBLISH_VALIDATION_FAILED");
     }
     throw error;
   }
@@ -964,67 +1000,74 @@ export async function restoreArticlePublication({
   assertContentManager(actor);
   const localeValue = dbLocale(locale);
   const prisma = database(providedPrisma);
-  return prisma.$transaction(async (transaction) => {
-    const [draft, publication] = await Promise.all([
-      findArticleDraft(transaction, articleId, localeValue),
-      transaction.articlePublication.findFirst({
-        where: { articleId, id: publicationId, locale: localeValue },
-      }),
-    ]);
-    if (!draft || !publication) throw new SiteContentError("NOT_FOUND");
-    if (draft.version !== expectedDraftVersion) {
-      throw new SiteContentError("CONFLICT", [], articleConflict(draft));
-    }
-    const updated = await transaction.articleDraft.updateMany({
-      data: {
-        body: publication.body,
-        excerpt: publication.excerpt,
-        lastModifiedByUserId: actor.id,
-        restoredFromPublicationId: publication.id,
-        seoDescription: publication.seoDescription,
-        seoTitle: publication.seoTitle,
-        slug: publication.slug,
-        status: publication.status,
-        title: publication.title,
-        version: { increment: 1 },
-      },
-      where: {
-        articleId,
-        locale: localeValue,
-        version: expectedDraftVersion,
-      },
-    });
-    if (updated.count !== 1) {
-      const latest = await findArticleDraft(
+  try {
+    return await prisma.$transaction(async (transaction) => {
+      const [draft, publication] = await Promise.all([
+        findArticleDraft(transaction, articleId, localeValue),
+        transaction.articlePublication.findFirst({
+          where: { articleId, id: publicationId, locale: localeValue },
+        }),
+      ]);
+      if (!draft || !publication) throw new SiteContentError("NOT_FOUND");
+      if (draft.version !== expectedDraftVersion) {
+        throw new SiteContentError("CONFLICT", [], articleConflict(draft));
+      }
+      const updated = await transaction.articleDraft.updateMany({
+        data: {
+          body: publication.body,
+          excerpt: publication.excerpt,
+          lastModifiedByUserId: actor.id,
+          restoredFromPublicationId: publication.id,
+          seoDescription: publication.seoDescription,
+          seoTitle: publication.seoTitle,
+          slug: publication.slug,
+          status: publication.status,
+          title: publication.title,
+          version: { increment: 1 },
+        },
+        where: {
+          articleId,
+          locale: localeValue,
+          version: expectedDraftVersion,
+        },
+      });
+      if (updated.count !== 1) {
+        const latest = await findArticleDraft(
+          transaction,
+          articleId,
+          localeValue,
+        );
+        throw new SiteContentError(
+          "CONFLICT",
+          [],
+          latest ? articleConflict(latest) : undefined,
+        );
+      }
+      await transaction.auditLog.create({
+        data: {
+          actorRole: actor.role,
+          actorUserId: actor.id,
+          event: "ARTICLE_PUBLICATION_RESTORED",
+          outcome: "SUCCESS",
+          summary: `${publication.title}历史版本 v${publication.version} 已恢复为新草稿。`,
+          targetId: articleId,
+          targetType: "ARTICLE",
+        },
+      });
+      const restored = await findArticleDraft(
         transaction,
         articleId,
         localeValue,
       );
-      throw new SiteContentError(
-        "CONFLICT",
-        [],
-        latest ? articleConflict(latest) : undefined,
-      );
-    }
-    await transaction.auditLog.create({
-      data: {
-        actorRole: actor.role,
-        actorUserId: actor.id,
-        event: "ARTICLE_PUBLICATION_RESTORED",
-        outcome: "SUCCESS",
-        summary: `${publication.title}历史版本 v${publication.version} 已恢复为新草稿。`,
-        targetId: articleId,
-        targetType: "ARTICLE",
-      },
+      if (!restored) throw new SiteContentError("NOT_FOUND");
+      return toArticleDraft(restored);
     });
-    const restored = await findArticleDraft(
-      transaction,
-      articleId,
-      localeValue,
-    );
-    if (!restored) throw new SiteContentError("NOT_FOUND");
-    return toArticleDraft(restored);
-  });
+  } catch (error) {
+    if (isArticleSlugUniqueConstraintError(error)) {
+      throw articleSlugUnavailableError("INVALID_CONTENT");
+    }
+    throw error;
+  }
 }
 
 export async function archiveArticle({

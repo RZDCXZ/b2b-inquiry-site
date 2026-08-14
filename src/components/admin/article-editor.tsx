@@ -5,6 +5,7 @@ import {
   ArrowCounterClockwise,
   Eye,
   FloppyDisk,
+  Warning,
 } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useActionState } from "react";
@@ -147,7 +148,9 @@ export function ArticleEditor({
             <button
               className="admin-primary-button"
               disabled={
-                publishing || draft.lastPublishedVersion === currentVersion
+                publishing ||
+                draft.status === "archived" ||
+                draft.lastPublishedVersion === currentVersion
               }
             >
               {publishing ? "发布中…" : "发布当前语言"}
@@ -177,6 +180,14 @@ export function ArticleEditor({
       </div>
       <Feedback state={publishState} />
       <Feedback state={archiveState} />
+      {draft.status === "archived" ? (
+        <aside className="content-boundary-warning" id="status">
+          <Warning weight="fill" />
+          <p>
+            当前语言版本已归档。请先从发布历史恢复一个“已发布”版本，再预览并重新发布。
+          </p>
+        </aside>
+      ) : null}
       <form action={saveAction} className="article-editor admin-section">
         {identity}
         <div className="article-editor-fields">
