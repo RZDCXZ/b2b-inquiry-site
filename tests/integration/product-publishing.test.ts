@@ -752,6 +752,218 @@ describe("产品草稿发布", () => {
     }
   });
 
+  it("两个产品并发保存相反替代边时最多一个成功", async () => {
+    const [first, second] = await Promise.all([
+      getProductDraft({
+        actor: contentEditor,
+        partNumber: "TQ-FL-4827",
+        prisma,
+      }),
+      getProductDraft({
+        actor: administrator,
+        partNumber: "TQ-FL-4720",
+        prisma,
+      }),
+    ]);
+
+    try {
+      await prisma.productDraft.update({
+        data: { replacementProductId: null },
+        where: { productId: second.productId },
+      });
+      const results = await Promise.allSettled([
+        saveProductDraft({
+          actor: contentEditor,
+          expectedDraftVersion: first.version,
+          input: editableInput(first, {
+            replacementPartNumber: second.partNumber,
+            status: "discontinued",
+          }),
+          partNumber: first.partNumber,
+          prisma,
+        }),
+        saveProductDraft({
+          actor: administrator,
+          expectedDraftVersion: second.version,
+          input: editableInput(second, {
+            replacementPartNumber: first.partNumber,
+            status: "discontinued",
+          }),
+          partNumber: second.partNumber,
+          prisma,
+        }),
+      ]);
+
+      expect(
+        results.filter(({ status }) => status === "fulfilled"),
+      ).toHaveLength(1);
+      expect(
+        results.filter(({ status }) => status === "rejected"),
+      ).toHaveLength(1);
+      expect(
+        (
+          results.find(
+            ({ status }) => status === "rejected",
+          ) as PromiseRejectedResult
+        ).reason,
+      ).toMatchObject({
+        code: "INVALID_DRAFT",
+        fieldErrors: expect.arrayContaining([
+          expect.objectContaining({
+            field: "replacementPartNumber",
+            reason: "REPLACEMENT_CYCLE",
+          }),
+        ]),
+      });
+    } finally {
+      await prisma.$transaction(async (transaction) => {
+        for (const draft of [first, second]) {
+          await transaction.productDraft.update({
+            data: {
+              lastModifiedByUserId: draft.lastModifiedByUserId,
+              lastPublishedVersion: draft.lastPublishedVersion,
+              replacementProductId: draft.replacementProductId,
+              restoredFromPublicationId: draft.restoredFromPublicationId,
+              status: draft.status,
+              updatedAt: draft.updatedAt,
+              version: draft.version,
+            },
+            where: { productId: draft.productId },
+          });
+        }
+        await transaction.auditLog.deleteMany({
+          where: {
+            event: "PRODUCT_DRAFT_SAVED",
+            targetId: { in: [first.productId, second.productId] },
+          },
+        });
+      });
+    }
+  });
+
+  it("两个产品并发发布相反替代边时最多一个成为公开版本", async () => {
+    const [first, second] = await Promise.all([
+      getProductDraft({
+        actor: contentEditor,
+        partNumber: "TQ-FL-4827",
+        prisma,
+      }),
+      getProductDraft({
+        actor: administrator,
+        partNumber: "TQ-OF-1038",
+        prisma,
+      }),
+    ]);
+    const createdPublicationIds: string[] = [];
+
+    try {
+      await prisma.$transaction([
+        prisma.productDraft.update({
+          data: {
+            replacementProductId: second.productId,
+            status: "discontinued",
+            version: first.version + 1,
+          },
+          where: { productId: first.productId },
+        }),
+        prisma.productDraft.update({
+          data: {
+            replacementProductId: first.productId,
+            status: "discontinued",
+            version: second.version + 1,
+          },
+          where: { productId: second.productId },
+        }),
+      ]);
+      const results = await Promise.allSettled([
+        publishProductDraft({
+          actor: contentEditor,
+          expectedDraftVersion: first.version + 1,
+          partNumber: first.partNumber,
+          prisma,
+        }),
+        publishProductDraft({
+          actor: administrator,
+          expectedDraftVersion: second.version + 1,
+          partNumber: second.partNumber,
+          prisma,
+        }),
+      ]);
+
+      createdPublicationIds.push(
+        ...results.flatMap((result) =>
+          result.status === "fulfilled" ? [result.value.publicationId] : [],
+        ),
+      );
+      expect(
+        results.filter(({ status }) => status === "fulfilled"),
+      ).toHaveLength(1);
+      expect(
+        results.filter(({ status }) => status === "rejected"),
+      ).toHaveLength(1);
+      expect(
+        (
+          results.find(
+            ({ status }) => status === "rejected",
+          ) as PromiseRejectedResult
+        ).reason,
+      ).toMatchObject({
+        code: "INVALID_DRAFT",
+        fieldErrors: expect.arrayContaining([
+          expect.objectContaining({
+            field: "replacementPartNumber",
+            reason: "REPLACEMENT_CYCLE",
+          }),
+        ]),
+      });
+    } finally {
+      await prisma.$transaction(async (transaction) => {
+        await transaction.$executeRaw`
+          SELECT set_config(
+            'torquelis.allow_product_publication_mutation',
+            'on',
+            true
+          )
+        `;
+        for (const draft of [first, second]) {
+          await transaction.product.update({
+            data: {
+              categoryId: draft.categoryId,
+              currentPublicationId: draft.currentPublicationId,
+              imagePath: draft.imagePath,
+              replacementProductId: draft.replacementProductId,
+              status: draft.productStatus,
+            },
+            where: { id: draft.productId },
+          });
+        }
+        await transaction.productPublication.deleteMany({
+          where: { id: { in: createdPublicationIds } },
+        });
+        for (const draft of [first, second]) {
+          await transaction.productDraft.update({
+            data: {
+              lastModifiedByUserId: draft.lastModifiedByUserId,
+              lastPublishedVersion: draft.lastPublishedVersion,
+              replacementProductId: draft.replacementProductId,
+              restoredFromPublicationId: draft.restoredFromPublicationId,
+              status: draft.status,
+              updatedAt: draft.updatedAt,
+              version: draft.version,
+            },
+            where: { productId: draft.productId },
+          });
+        }
+        await transaction.auditLog.deleteMany({
+          where: {
+            event: "PRODUCT_PUBLISHED",
+            targetId: { in: [first.productId, second.productId] },
+          },
+        });
+      });
+    }
+  });
+
   it("两个窗口同时保存时旧草稿版本被拒绝并返回最新修改人和时间", async () => {
     const original = await getProductDraft({
       actor: contentEditor,

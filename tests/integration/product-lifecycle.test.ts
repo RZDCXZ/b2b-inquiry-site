@@ -112,4 +112,57 @@ describe("标准替换件生命周期", () => {
       }),
     ).rejects.toMatchObject({ code: "REPLACEMENT_CYCLE" });
   });
+
+  it("生命周期适配层不会把无关规格错误误报为替代产品错误", async () => {
+    const product = await prisma.product.findUniqueOrThrow({
+      include: {
+        draft: {
+          include: {
+            specificationValues: {
+              where: { dataType: "decimal" },
+            },
+          },
+        },
+      },
+      where: { normalizedPartNumber: "TQAF2106" },
+    });
+    const specification = product.draft?.specificationValues[0];
+    expect(specification).toBeDefined();
+
+    try {
+      await prisma.productDraftSpecificationValue.update({
+        data: { decimalValue: 999_999 },
+        where: {
+          productId_attributeId: {
+            attributeId: specification!.attributeId,
+            productId: product.id,
+          },
+        },
+      });
+      await expect(
+        setProductLifecycle({
+          actor: contentEditor,
+          expectedDraftVersion: product.draft?.version ?? 1,
+          partNumber: product.partNumber,
+          prisma,
+          status: "published",
+        }),
+      ).rejects.toMatchObject({
+        code: "INVALID_DRAFT",
+        fieldErrors: expect.arrayContaining([
+          expect.objectContaining({ field: "specifications" }),
+        ]),
+      });
+    } finally {
+      await prisma.productDraftSpecificationValue.update({
+        data: { decimalValue: specification!.decimalValue },
+        where: {
+          productId_attributeId: {
+            attributeId: specification!.attributeId,
+            productId: product.id,
+          },
+        },
+      });
+    }
+  });
 });

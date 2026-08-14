@@ -20,6 +20,12 @@ import type { PublicLocale } from "@/src/modules/site-config/public/locales";
 export type ProductPublishingFieldError = {
   field: string;
   message: string;
+  reason?:
+    | "REPLACEMENT_CYCLE"
+    | "REPLACEMENT_NOT_FOUND"
+    | "REPLACEMENT_NOT_PUBLIC"
+    | "REPLACEMENT_SELF_REFERENCE"
+    | "REPLACEMENT_STATUS_INVALID";
 };
 
 export type ProductDraftConflict = {
@@ -186,6 +192,7 @@ async function resolveReplacementProduct(
       {
         field: "replacementPartNumber",
         message: "只有已停产产品可以设置替代产品。",
+        reason: "REPLACEMENT_STATUS_INVALID",
       },
     ]);
   }
@@ -205,8 +212,17 @@ async function resolveReplacementProduct(
     },
   });
 
+  if (!replacement) {
+    throw new ProductPublishingError("INVALID_DRAFT", [
+      {
+        field: "replacementPartNumber",
+        message: "替代产品不存在。",
+        reason: "REPLACEMENT_NOT_FOUND",
+      },
+    ]);
+  }
+
   if (
-    !replacement ||
     replacement.currentPublication?.status === "draft" ||
     !replacement.currentPublication
   ) {
@@ -214,13 +230,18 @@ async function resolveReplacementProduct(
       {
         field: "replacementPartNumber",
         message: "替代产品必须已有公开版本。",
+        reason: "REPLACEMENT_NOT_PUBLIC",
       },
     ]);
   }
 
   if (replacement.id === productId) {
     throw new ProductPublishingError("INVALID_DRAFT", [
-      { field: "replacementPartNumber", message: "产品不能替代自身。" },
+      {
+        field: "replacementPartNumber",
+        message: "产品不能替代自身。",
+        reason: "REPLACEMENT_SELF_REFERENCE",
+      },
     ]);
   }
 
@@ -257,7 +278,11 @@ async function resolveReplacementProduct(
   while (candidateId) {
     if (candidateId === productId || visited.has(candidateId)) {
       throw new ProductPublishingError("INVALID_DRAFT", [
-        { field: "replacementPartNumber", message: "替代关系不能形成循环。" },
+        {
+          field: "replacementPartNumber",
+          message: "替代关系不能形成循环。",
+          reason: "REPLACEMENT_CYCLE",
+        },
       ]);
     }
     visited.add(candidateId);
@@ -265,6 +290,13 @@ async function resolveReplacementProduct(
   }
 
   return replacement;
+}
+
+async function lockProductReplacementGraph(
+  prisma: Pick<ApplicationDatabase, "$executeRaw">,
+): Promise<void> {
+  // One transaction at a time may validate and change replacement graph edges.
+  await prisma.$executeRaw`SELECT pg_advisory_xact_lock(13, 8)`;
 }
 
 type PersistedSpecificationSnapshot = Omit<
@@ -401,7 +433,6 @@ export async function getProductDraft({
               },
             },
           },
-          _count: { select: { fitments: true } },
           lastModifiedBy: { select: { id: true, name: true } },
           references: {
             orderBy: [{ brand: "asc" }, { referenceNumber: "asc" }],
@@ -714,6 +745,7 @@ export async function saveProductDraft({
           { field: "specifications", message: "规格值未通过分类规则校验。" },
         ]);
       });
+      await lockProductReplacementGraph(transaction);
       const replacement = await resolveReplacementProduct(transaction, {
         productId: product.id,
         replacementPartNumber: input.replacementPartNumber,
@@ -1127,6 +1159,7 @@ export async function publishProductDraft({
         );
       }
 
+      await lockProductReplacementGraph(transaction);
       await resolveReplacementProduct(transaction, {
         graph: "published",
         productId: product.id,

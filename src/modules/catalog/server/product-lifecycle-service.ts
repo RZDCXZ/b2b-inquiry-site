@@ -103,16 +103,18 @@ export async function setProductLifecycle({
       error instanceof ProductPublishingError &&
       error.code === "INVALID_DRAFT"
     ) {
-      const message =
-        error.fieldErrors[0]?.message ?? "Invalid lifecycle change.";
-      const code = message.includes("自身")
-        ? "REPLACEMENT_SELF_REFERENCE"
-        : message.includes("循环")
-          ? "REPLACEMENT_CYCLE"
-          : message.includes("只有已停产")
-            ? "REPLACEMENT_STATUS_INVALID"
-            : "REPLACEMENT_NOT_PUBLIC";
-      throw new ProductLifecycleError(code, message);
+      const replacementErrors = error.fieldErrors.filter(
+        ({ field }) => field === "replacementPartNumber",
+      );
+      if (
+        replacementErrors.length === error.fieldErrors.length &&
+        replacementErrors[0]?.reason
+      ) {
+        throw new ProductLifecycleError(
+          replacementErrors[0].reason,
+          replacementErrors[0].message,
+        );
+      }
     }
     throw error;
   }
