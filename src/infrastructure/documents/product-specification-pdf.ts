@@ -284,13 +284,16 @@ async function embedDocumentFonts(
   pdf: PDFDocument,
   input: ProductSpecificationPdfInput,
 ): Promise<DocumentFonts> {
+  return embedFontsForText(pdf, collectDocumentText(input));
+}
+
+async function embedFontsForText(
+  pdf: PDFDocument,
+  text: readonly string[],
+): Promise<DocumentFonts> {
   const latin = await pdf.embedFont(await loadLatinFont(), { subset: true });
   const cjkCharacters = [
-    ...new Set(
-      collectDocumentText(input)
-        .flatMap((text) => Array.from(text))
-        .filter(usesCjkFont),
-    ),
+    ...new Set(text.flatMap((text) => Array.from(text)).filter(usesCjkFont)),
   ];
   const segmentByCharacter = new Map(
     cjkCharacters.map((character) => [
@@ -319,6 +322,45 @@ async function embedDocumentFonts(
     ),
     latin,
   };
+}
+
+export async function watermarkUploadedProductSpecificationPdf({
+  bytes,
+  locale,
+}: {
+  bytes: Uint8Array;
+  locale: PublicLocale;
+}): Promise<Uint8Array> {
+  const copy = documentCopy[locale];
+  const pdf = await PDFDocument.load(bytes);
+  pdf.registerFontkit(fontkit);
+  const pages = pdf.getPages();
+  if (pages.length === 0) {
+    throw new Error("Uploaded product document has no pages.");
+  }
+  const fonts = await embedFontsForText(pdf, Object.values(copy));
+
+  pdf.setAuthor("Torquelis Filters / 拓擎利滤清");
+  pdf.setCreator("Torquelis local demo");
+  pdf.setKeywords([locale, "fictional demo", "not for purchasing"]);
+  pdf.setModificationDate(DOCUMENT_DATE);
+  pdf.setProducer("Torquelis local demo");
+  pdf.setSubject(copy.footer);
+
+  for (const page of pages) {
+    drawWatermarkAndFooter({ fonts, locale, page });
+  }
+
+  return pdf.save({ useObjectStreams: false });
+}
+
+export async function validateUploadedProductSpecificationPdf(
+  bytes: Uint8Array,
+): Promise<void> {
+  const pdf = await PDFDocument.load(bytes);
+  if (pdf.getPages().length === 0) {
+    throw new Error("Uploaded product document has no pages.");
+  }
 }
 
 function drawSection({

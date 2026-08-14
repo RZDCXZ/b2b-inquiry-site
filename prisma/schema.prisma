@@ -35,6 +35,16 @@ enum ProductStatus {
   discontinued
 }
 
+enum AssetKind {
+  image
+  document
+}
+
+enum AssetSource {
+  generated
+  uploaded
+}
+
 enum InquiryDisposition {
   accepted
   quarantined
@@ -94,6 +104,7 @@ model User {
   notificationOutboxRecords NotificationOutboxRecord[]
   modifiedProductDrafts     ProductDraft[]             @relation("ProductDraftLastModifier")
   productPublications       ProductPublication[]       @relation("ProductPublicationPublisher")
+  createdAssets             Asset[]                    @relation("AssetCreator")
 
   @@map("user")
 }
@@ -343,6 +354,8 @@ model ProductDraft {
   lastPublishedVersion      Int?                             @map("last_published_version")
   categoryId                String                           @map("category_id")
   imagePath                 String                           @map("image_path")
+  imageAssetId              String?                          @map("image_asset_id")
+  documentAssetId           String?                          @map("document_asset_id")
   imageAltEn                String                           @map("image_alt_en")
   imageAltZhCn              String                           @map("image_alt_zh_cn")
   nameEn                    String                           @map("name_en")
@@ -369,6 +382,8 @@ model ProductDraft {
   replacementProduct        Product?                         @relation("ProductDraftReplacement", fields: [replacementProductId], references: [id], onDelete: Restrict)
   restoredFromPublication   ProductPublication?              @relation("ProductDraftRestorationSource", fields: [restoredFromPublicationId], references: [id], onDelete: SetNull)
   lastModifiedBy            User?                            @relation("ProductDraftLastModifier", fields: [lastModifiedByUserId], references: [id], onDelete: SetNull)
+  imageAsset                Asset?                           @relation("ProductDraftImageAsset", fields: [imageAssetId], references: [id], onDelete: Restrict)
+  documentAsset             Asset?                           @relation("ProductDraftDocumentAsset", fields: [documentAssetId], references: [id], onDelete: Restrict)
   specificationValues       ProductDraftSpecificationValue[]
   references                ProductDraftReference[]
   fitments                  ProductDraftFitment[]
@@ -376,6 +391,8 @@ model ProductDraft {
   @@index([categoryId])
   @@index([replacementProductId])
   @@index([lastModifiedByUserId])
+  @@index([imageAssetId])
+  @@index([documentAssetId])
   @@map("product_draft")
 }
 
@@ -438,6 +455,8 @@ model ProductPublication {
   sourceDraftVersion        Int?                        @map("source_draft_version")
   categoryId                String?                     @map("category_id")
   imagePath                 String                      @default("/assets/filter-family.png") @map("image_path")
+  imageAssetId              String?                     @map("image_asset_id")
+  documentAssetId           String?                     @map("document_asset_id")
   imageAltEn                String                      @default("Product image") @map("image_alt_en")
   imageAltZhCn              String                      @default("产品图片") @map("image_alt_zh_cn")
   nameEn                    String                      @map("name_en")
@@ -467,6 +486,8 @@ model ProductPublication {
   restoredPublications      ProductPublication[]        @relation("ProductPublicationRestoration")
   restoredDrafts            ProductDraft[]              @relation("ProductDraftRestorationSource")
   publishedBy               User?                       @relation("ProductPublicationPublisher", fields: [publishedByUserId], references: [id], onDelete: Restrict)
+  imageAsset                Asset?                      @relation("ProductPublicationImageAsset", fields: [imageAssetId], references: [id], onDelete: Restrict)
+  documentAsset             Asset?                      @relation("ProductPublicationDocumentAsset", fields: [documentAssetId], references: [id], onDelete: Restrict)
   currentFor                Product?                    @relation("CurrentProductPublication")
   specificationValues       ProductSpecificationValue[]
   references                ProductReference[]
@@ -477,7 +498,34 @@ model ProductPublication {
   @@index([categoryId])
   @@index([replacementProductId])
   @@index([publishedByUserId])
+  @@index([imageAssetId])
+  @@index([documentAssetId])
   @@map("product_publication")
+}
+
+model Asset {
+  id                          String               @id @default(uuid())
+  kind                        AssetKind
+  source                      AssetSource          @default(uploaded)
+  originalFilename            String               @map("original_filename")
+  storageFilename             String               @unique @map("storage_filename")
+  publicPath                  String               @unique @map("public_path")
+  mimeType                    String               @map("mime_type")
+  byteSize                    Int                  @map("byte_size")
+  imageAltEn                  String?              @map("image_alt_en")
+  imageAltZhCn                String?              @map("image_alt_zh_cn")
+  createdByUserId             String?              @map("created_by_user_id")
+  createdAt                   DateTime             @default(now()) @map("created_at")
+  createdBy                   User?                @relation("AssetCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  draftImageProducts          ProductDraft[]       @relation("ProductDraftImageAsset")
+  draftDocumentProducts       ProductDraft[]       @relation("ProductDraftDocumentAsset")
+  publicationImageProducts    ProductPublication[] @relation("ProductPublicationImageAsset")
+  publicationDocumentProducts ProductPublication[] @relation("ProductPublicationDocumentAsset")
+
+  @@index([kind, createdAt])
+  @@index([source])
+  @@index([createdByUserId])
+  @@map("asset")
 }
 
 model ProductFitment {

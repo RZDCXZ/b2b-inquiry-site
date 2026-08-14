@@ -1,16 +1,14 @@
 import { ArrowRight, Info } from "@phosphor-icons/react/dist/ssr";
-import type { StaticImageData } from "next/image";
 import Image from "next/image";
 import Link from "next/link";
 
-import filterFamily from "@/product-ui/public/assets/filter-family.png";
-import fuelFilter from "@/product-ui/public/assets/fuel-filter-product.png";
 import type {
   PublishedCatalogProduct,
   SpecificationSearchProduct,
 } from "@/src/application/public-catalog";
 import { PublicFooter } from "@/src/components/public/public-footer";
 import { PublicHeader } from "@/src/components/public/public-header";
+import { productImageSource } from "@/src/components/product-image-source";
 import { getCatalogCopy } from "@/src/modules/content-publishing/public/catalog-copy";
 import { getHomeCopy } from "@/src/modules/content-publishing/public/home-copy";
 import type { PublicLocale } from "@/src/modules/site-config/public/locales";
@@ -35,11 +33,6 @@ import {
   getSpecificationUnitLabel,
   type UnitSystem,
 } from "@/src/modules/catalog/public/specifications";
-
-const productImages: Record<string, StaticImageData> = {
-  "/assets/filter-family.png": filterFamily,
-  "/assets/fuel-filter-product.png": fuelFilter,
-};
 
 type CatalogPageProps = {
   categories: LocalizedProductCategory[];
@@ -307,7 +300,7 @@ export function CatalogPage({
                           fill
                           loading={index === 0 ? "eager" : "lazy"}
                           sizes="(max-width: 820px) 100vw, 30vw"
-                          src={productImages[product.imagePath] ?? filterFamily}
+                          src={productImageSource(product.imagePath)}
                         />
                       </figure>
                       <div>

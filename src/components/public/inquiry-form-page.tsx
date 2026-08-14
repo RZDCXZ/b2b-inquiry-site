@@ -4,25 +4,18 @@ import {
   PaperPlaneTilt,
   Warning,
 } from "@phosphor-icons/react/dist/ssr";
-import type { StaticImageData } from "next/image";
 import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-import filterFamily from "@/product-ui/public/assets/filter-family.png";
-import fuelFilter from "@/product-ui/public/assets/fuel-filter-product.png";
 import type { PublishedProductDetail } from "@/src/application/public-catalog";
 import { PublicFooter } from "@/src/components/public/public-footer";
 import { PublicHeader } from "@/src/components/public/public-header";
+import { productImageSource } from "@/src/components/product-image-source";
 import { getHomeCopy } from "@/src/modules/content-publishing/public/home-copy";
 import { getInquiryCopy } from "@/src/modules/content-publishing/public/inquiry-copy";
 import type { PublicInquiryFieldName } from "@/src/modules/inquiry-operations/public/inquiry-submission";
 import type { PublicLocale } from "@/src/modules/site-config/public/locales";
-
-const productImages: Record<string, StaticImageData> = {
-  "/assets/filter-family.png": filterFamily,
-  "/assets/fuel-filter-product.png": fuelFilter,
-};
 
 const inquiryFieldMaximumLengths: Partial<
   Record<PublicInquiryFieldName, number>
@@ -185,7 +178,7 @@ export function InquiryFormPage({
                   alt={`${product.name} ${product.partNumber}`}
                   fill
                   sizes="(max-width: 820px) 120px, 320px"
-                  src={productImages[product.imagePath] ?? filterFamily}
+                  src={productImageSource(product.imagePath)}
                 />
               </figure>
               <h2>{product.partNumber}</h2>

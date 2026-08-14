@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 
+import { listAssets } from "@/src/application/asset-management";
 import {
   getProductDraft,
   ProductPublishingError,
@@ -41,6 +42,7 @@ export default async function ProductEditorPage({
   }
 
   const draft = result.draft;
+  const imageAssets = await listAssets({ actor, kind: "image" });
   const valueByAttributeId = new Map(
     draft.specificationValues.map((value) => [value.attributeId, value]),
   );
@@ -54,7 +56,23 @@ export default async function ProductEditorPage({
     fitmentSummaryZhCn: draft.fitmentSummaryZhCn,
     imageAltEn: draft.imageAltEn,
     imageAltZhCn: draft.imageAltZhCn,
+    imageAssetId: draft.imageAssetId,
+    imageAssets: imageAssets.map((asset) => ({
+      id: asset.id,
+      imageAltEn: asset.imageAltEn ?? "",
+      imageAltZhCn: asset.imageAltZhCn ?? "",
+      originalFilename: asset.originalFilename,
+      source: asset.source,
+    })),
     imagePath: draft.imagePath,
+    document: draft.documentAsset
+      ? {
+          byteSize: draft.documentAsset.byteSize,
+          createdAt: draft.documentAsset.createdAt.toISOString(),
+          id: draft.documentAsset.id,
+          originalFilename: draft.documentAsset.originalFilename,
+        }
+      : null,
     lastModifiedAt: draft.updatedAt.toISOString(),
     lastModifiedBy: draft.lastModifiedBy?.name ?? "系统",
     lastPublishedVersion: draft.lastPublishedVersion,

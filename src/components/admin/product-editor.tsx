@@ -4,7 +4,9 @@ import {
   ArrowCounterClockwise,
   ArrowSquareOut,
   CheckCircle,
+  FilePdf,
   FloppyDisk,
+  ImageSquare,
   Trash,
   Warning,
   XCircle,
@@ -16,6 +18,7 @@ import { useActionState, useEffect, useId, useRef, useState } from "react";
 import {
   deleteProductDraftAction,
   publishProductDraftAction,
+  replaceProductDocumentAction,
   restoreProductPublicationAction,
   saveProductDraftAction,
   type ProductMutationState,
@@ -46,6 +49,7 @@ const productFieldLabels: Record<string, string> = {
   fitmentSummaryZhCn: "简体中文 / 适配摘要",
   imageAltEn: "English / 图片替代文本",
   imageAltZhCn: "简体中文 / 图片替代文本",
+  imageAssetId: "图片与资料 / 产品图片",
   imagePath: "图片与资料 / 产品图片路径",
   nameEn: "English / 产品名称",
   nameZhCn: "简体中文 / 产品名称",
@@ -72,7 +76,21 @@ export type ProductEditorDraftView = {
   fitmentSummaryZhCn: string;
   imageAltEn: string;
   imageAltZhCn: string;
+  imageAssetId: string | null;
+  imageAssets: Array<{
+    id: string;
+    imageAltEn: string;
+    imageAltZhCn: string;
+    originalFilename: string;
+    source: "generated" | "uploaded";
+  }>;
   imagePath: string;
+  document: {
+    byteSize: number;
+    createdAt: string;
+    id: string;
+    originalFilename: string;
+  } | null;
   lastModifiedAt: string;
   lastModifiedBy: string;
   lastPublishedVersion: number | null;
@@ -588,6 +606,60 @@ function SpecificationFields({ draft }: { draft: ProductEditorDraftView }) {
   );
 }
 
+function ProductDocumentReplacement({
+  draft,
+}: {
+  draft: ProductEditorDraftView;
+}) {
+  const [state, action, pending] = useActionState(
+    replaceProductDocumentAction,
+    initialProductMutationState,
+  );
+
+  return (
+    <section
+      className="admin-section product-document-replacement"
+      id="product-section-document"
+    >
+      <div>
+        <p>图片与资料 / PDF</p>
+        <h2>产品规格资料</h2>
+        <span>
+          {draft.document
+            ? `当前草稿：${draft.document.originalFilename} · ${(draft.document.byteSize / 1024).toFixed(1)} KiB`
+            : "当前草稿使用系统生成的双语规格 PDF。"}
+        </span>
+        <small>
+          替换会创建新素材记录并只更新草稿；当前公开版本和历史版本不会被覆盖。
+          请上传包含中英文正文的同一份双语资料，两个语言入口会分别叠加对应语言的演示声明。
+        </small>
+      </div>
+      <form action={action}>
+        <input
+          name="expectedDraftVersion"
+          type="hidden"
+          value={draft.version}
+        />
+        <input name="partNumber" type="hidden" value={draft.partNumber} />
+        <label>
+          <span>选择新的中英双语 PDF 资料（最大 10 MiB）</span>
+          <input
+            accept="application/pdf,.pdf"
+            name="file"
+            required
+            type="file"
+          />
+        </label>
+        <button className="admin-secondary-button" disabled={pending}>
+          <FilePdf aria-hidden="true" />
+          {pending ? "校验并替换中…" : "创建新资料并更新草稿"}
+        </button>
+      </form>
+      <MutationFeedback state={state} />
+    </section>
+  );
+}
+
 export function ProductEditor({ draft }: { draft: ProductEditorDraftView }) {
   const [language, setLanguage] = useState<"en" | "zh">("zh");
   const [state, action, pending] = useActionState(
@@ -652,6 +724,7 @@ export function ProductEditor({ draft }: { draft: ProductEditorDraftView }) {
           {[
             ["基础身份", "#product-section-1"],
             ["双语内容与 SEO", "#product-section-2"],
+            ["图片与资料", "#product-section-3"],
             ["分类规格", "#product-section-4"],
             ["参考号", "#product-section-5"],
             ["发布校验", "#product-publish-check"],
@@ -693,14 +766,6 @@ export function ProductEditor({ draft }: { draft: ProductEditorDraftView }) {
                   name="replacementPartNumber"
                 />
               </label>
-              <label className="is-wide">
-                <span>产品图片路径</span>
-                <input
-                  defaultValue={draft.imagePath}
-                  id="imagePath"
-                  name="imagePath"
-                />
-              </label>
             </div>
           </section>
 
@@ -728,6 +793,41 @@ export function ProductEditor({ draft }: { draft: ProductEditorDraftView }) {
             </div>
             <div hidden={language !== "en"}>
               <LanguageFields draft={draft} english />
+            </div>
+          </section>
+
+          <section id="product-section-3">
+            <header>
+              <p>03 / 图片与资料</p>
+              <h2>双语产品图片</h2>
+            </header>
+            <input name="imagePath" type="hidden" value={draft.imagePath} />
+            <div className="product-field-grid">
+              <label className="is-wide">
+                <span>图片素材</span>
+                <select
+                  defaultValue={draft.imageAssetId ?? ""}
+                  id="imageAssetId"
+                  name="imageAssetId"
+                >
+                  {!draft.imageAssetId ? (
+                    <option value="">保留现有安全图片</option>
+                  ) : null}
+                  {draft.imageAssets.map((asset) => (
+                    <option key={asset.id} value={asset.id}>
+                      {asset.originalFilename} ·{" "}
+                      {asset.source === "generated" ? "标准生成" : "本地上传"}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <div className="product-asset-note">
+              <ImageSquare aria-hidden="true" />
+              <span>
+                上传图片的中英文替代文本由素材记录提供；保存草稿时会一起关联。
+              </span>
+              <Link href="/admin/assets">打开素材管理</Link>
             </div>
           </section>
 
@@ -801,6 +901,10 @@ export function ProductEditor({ draft }: { draft: ProductEditorDraftView }) {
           </p>
         </aside>
       </form>
+
+      <ProductDocumentReplacement
+        draft={{ ...draft, version: currentVersion }}
+      />
 
       <section className="admin-section product-version-history">
         <header>

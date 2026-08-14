@@ -98,6 +98,10 @@ async function writePublishedProductContent(
   transaction: Prisma.TransactionClient,
 ): Promise<void> {
   for (const product of publicProductPublications) {
+    const imageAssetId =
+      product.imagePath === "/assets/fuel-filter-product.png"
+        ? "asset-generated-fuel-filter-product"
+        : "asset-generated-filter-family";
     await transaction.productPublication.createMany({
       data: {
         ...product,
@@ -107,6 +111,7 @@ async function writePublishedProductContent(
         fitmentSummaryZhCn: "适用于指定商用车型。",
         imageAltEn: `${product.nameEn} product image`,
         imageAltZhCn: `${product.nameZhCn}产品图片`,
+        imageAssetId,
         seoDescriptionEn: product.summaryEn,
         seoDescriptionZhCn: product.summaryZhCn,
         seoTitleEn: `${product.nameEn} | Torquelis Filters`,

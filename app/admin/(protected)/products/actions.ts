@@ -4,6 +4,10 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import {
+  AssetManagementError,
+  replaceProductDraftDocument,
+} from "@/src/application/asset-management";
+import {
   deleteNeverPublishedProductDraft,
   ProductPublishingError,
   publishProductDraft,
@@ -39,6 +43,7 @@ const saveSchema = identitySchema.extend({
   fitmentSummaryZhCn: z.string().max(2_000),
   imageAltEn: z.string().max(300),
   imageAltZhCn: z.string().max(300),
+  imageAssetId: z.string().max(100),
   imagePath: z.string().trim().max(500),
   nameEn: z.string().max(200),
   nameZhCn: z.string().max(200),
@@ -179,6 +184,7 @@ export async function saveProductDraftAction(
     fitmentSummaryZhCn: formData.get("fitmentSummaryZhCn"),
     imageAltEn: formData.get("imageAltEn"),
     imageAltZhCn: formData.get("imageAltZhCn"),
+    imageAssetId: formData.get("imageAssetId"),
     imagePath: formData.get("imagePath"),
     nameEn: formData.get("nameEn"),
     nameZhCn: formData.get("nameZhCn"),
@@ -212,6 +218,7 @@ export async function saveProductDraftAction(
       expectedDraftVersion,
       input: {
         ...input,
+        imageAssetId: input.imageAssetId.trim() || null,
         references: parseReferences(references),
         replacementPartNumber: input.replacementPartNumber.trim() || null,
         specifications: parseSpecifications(formData),
@@ -228,6 +235,69 @@ export async function saveProductDraftAction(
       version: saved.version,
     };
   } catch (error) {
+    return errorState(error);
+  }
+}
+
+const assetValidationMessages: Record<string, string> = {
+  DOCUMENT_INVALID: "PDF 文件结构无效或不包含可读取页面。",
+  EMPTY_FILE: "PDF 文件不能为空。",
+  EXTENSION_MISMATCH: "资料扩展名必须是 .pdf。",
+  FILE_TOO_LARGE: "PDF 资料不能超过 10 MiB。",
+  MIME_MISMATCH: "声明 MIME 与 PDF 文件签名不一致。",
+  SIGNATURE_MISMATCH: "文件没有有效的 PDF 签名。",
+  UNSUPPORTED_MEDIA_TYPE: "产品资料只接受 PDF。",
+};
+
+export async function replaceProductDocumentAction(
+  _previousState: ProductMutationState,
+  formData: FormData,
+): Promise<ProductMutationState> {
+  const parsed = identitySchema.safeParse({
+    expectedDraftVersion: formData.get("expectedDraftVersion"),
+    partNumber: formData.get("partNumber"),
+  });
+  const file = formData.get("file");
+  if (!parsed.success || !(file instanceof File)) {
+    return { message: "请选择 PDF 资料后重试。", status: "error" };
+  }
+
+  try {
+    const actor = await authorizedActor();
+    const result = await replaceProductDraftDocument({
+      actor,
+      expectedDraftVersion: parsed.data.expectedDraftVersion,
+      file: {
+        bytes: new Uint8Array(await file.arrayBuffer()),
+        declaredMimeType: file.type,
+        originalFilename: file.name,
+      },
+      partNumber: parsed.data.partNumber,
+    });
+    const productPath =
+      "/admin/products/" + encodeURIComponent(parsed.data.partNumber);
+    revalidatePath(productPath);
+    revalidatePath(productPath + "/preview/en");
+    revalidatePath(productPath + "/preview/zh-cn");
+    return {
+      message: `已创建新资料素材 ${result.asset.originalFilename} 并更新草稿；当前公开版本未改变。`,
+      status: "success",
+      version: result.draftVersion,
+    };
+  } catch (error) {
+    if (error instanceof AssetManagementError) {
+      return {
+        message:
+          (error.validationCode &&
+            assetValidationMessages[error.validationCode]) ||
+          (error.code === "CONFLICT"
+            ? "草稿已由其他窗口更新，请刷新后重试。"
+            : error.code === "FORBIDDEN"
+              ? "你没有替换产品资料的权限。"
+              : "资料替换未完成，请重试。"),
+        status: "error",
+      };
+    }
     return errorState(error);
   }
 }

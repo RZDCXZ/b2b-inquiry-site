@@ -17,6 +17,7 @@ import { seedSpecificationDemoData } from "@/src/modules/catalog/server/specific
 import { replaceVehicleFitmentDemoData } from "@/src/modules/catalog/server/fitment-demo-data";
 import { seedPublishedProductContent } from "@/src/modules/content-publishing/server/product-demo-content";
 import { seedProductDraftDemoData } from "@/src/modules/content-publishing/server/product-draft-demo-data";
+import { resetDemoAssetRecords } from "@/src/modules/content-publishing/server/asset-demo-data";
 import { replacePresetAccounts } from "@/src/modules/identity-access/server/preset-accounts";
 import { readPresetCredentials } from "@/src/modules/identity-access/server/preset-credentials";
 import { replaceInquiryAndNotificationData } from "@/src/application/inquiry-demo-reset";
@@ -37,6 +38,7 @@ try {
   await replaceDemoData(prisma);
   await replaceInquiryAndNotificationData(prisma);
   await replaceCatalogIdentities(prisma);
+  await resetDemoAssetRecords(prisma);
   await seedPublishedProductContent(prisma);
   await seedCatalogProductLifecycleDemoData(prisma);
   await seedProductReferenceDemoData(prisma);

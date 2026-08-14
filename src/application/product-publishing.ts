@@ -103,6 +103,7 @@ export type ProductDraftInput = {
   fitmentSummaryZhCn: string;
   imageAltEn: string;
   imageAltZhCn: string;
+  imageAssetId?: string | null;
   imagePath: string;
   nameEn: string;
   nameZhCn: string;
@@ -433,6 +434,14 @@ export async function getProductDraft({
               },
             },
           },
+          documentAsset: {
+            select: {
+              byteSize: true,
+              createdAt: true,
+              id: true,
+              originalFilename: true,
+            },
+          },
           lastModifiedBy: { select: { id: true, name: true } },
           references: {
             orderBy: [{ brand: "asc" }, { referenceNumber: "asc" }],
@@ -599,6 +608,9 @@ export async function getProductDraftPreview({
           category: { select: { nameEn: true, nameZhCn: true } },
           descriptionEn: true,
           descriptionZhCn: true,
+          documentAsset: {
+            select: { id: true, originalFilename: true },
+          },
           fitmentSummaryEn: true,
           fitmentSummaryZhCn: true,
           fitments: {
@@ -646,6 +658,7 @@ export async function getProductDraftPreview({
   return {
     category: english ? draft.category.nameEn : draft.category.nameZhCn,
     description: english ? draft.descriptionEn : draft.descriptionZhCn,
+    document: draft.documentAsset,
     fitments: draft.fitments.map((fitment) => ({
       engine: fitment.engine.code,
       make: fitment.engine.vehicleModel.make.name,
@@ -751,6 +764,17 @@ export async function saveProductDraft({
         replacementPartNumber: input.replacementPartNumber,
         status: input.status,
       });
+      const imageAsset =
+        input.imageAssetId === undefined || input.imageAssetId === null
+          ? null
+          : await transaction.asset.findFirst({
+              where: { id: input.imageAssetId, kind: "image" },
+            });
+      if (input.imageAssetId && !imageAsset) {
+        throw new ProductPublishingError("INVALID_DRAFT", [
+          { field: "imageAssetId", message: "所选图片素材不存在。" },
+        ]);
+      }
 
       const update = await transaction.productDraft.updateMany({
         data: {
@@ -759,9 +783,11 @@ export async function saveProductDraft({
           descriptionZhCn: input.descriptionZhCn.trim(),
           fitmentSummaryEn: input.fitmentSummaryEn.trim(),
           fitmentSummaryZhCn: input.fitmentSummaryZhCn.trim(),
-          imageAltEn: input.imageAltEn.trim(),
-          imageAltZhCn: input.imageAltZhCn.trim(),
-          imagePath: input.imagePath.trim(),
+          imageAltEn: imageAsset?.imageAltEn ?? input.imageAltEn.trim(),
+          imageAltZhCn: imageAsset?.imageAltZhCn ?? input.imageAltZhCn.trim(),
+          imageAssetId:
+            input.imageAssetId === undefined ? undefined : input.imageAssetId,
+          imagePath: imageAsset?.publicPath ?? input.imagePath.trim(),
           lastModifiedByUserId: actor.id,
           nameEn: input.nameEn.trim(),
           nameZhCn: input.nameZhCn.trim(),
@@ -897,7 +923,9 @@ export async function restoreProductPublication({
           fitmentSummaryZhCn: publication.fitmentSummaryZhCn,
           imageAltEn: publication.imageAltEn,
           imageAltZhCn: publication.imageAltZhCn,
+          imageAssetId: publication.imageAssetId,
           imagePath: publication.imagePath,
+          documentAssetId: publication.documentAssetId,
           lastModifiedByUserId: actor.id,
           nameEn: publication.nameEn,
           nameZhCn: publication.nameZhCn,
@@ -1136,6 +1164,39 @@ export async function publishProductDraft({
         });
       }
 
+      if (draft.imageAssetId) {
+        const imageAsset = await transaction.asset.findUnique({
+          select: {
+            imageAltEn: true,
+            imageAltZhCn: true,
+            kind: true,
+          },
+          where: { id: draft.imageAssetId },
+        });
+        if (
+          imageAsset?.kind !== "image" ||
+          !imageAsset.imageAltEn?.trim() ||
+          !imageAsset.imageAltZhCn?.trim()
+        ) {
+          fieldErrors.push({
+            field: "imageAssetId",
+            message: "图片素材必须存在并包含中英文替代文本。",
+          });
+        }
+      }
+      if (draft.documentAssetId) {
+        const documentAsset = await transaction.asset.findUnique({
+          select: { kind: true },
+          where: { id: draft.documentAssetId },
+        });
+        if (documentAsset?.kind !== "document") {
+          fieldErrors.push({
+            field: "documentAssetId",
+            message: "产品资料必须引用有效的 PDF 素材。",
+          });
+        }
+      }
+
       let validatedSpecifications: SpecificationSnapshotValue[] = [];
       try {
         validatedSpecifications =
@@ -1212,7 +1273,9 @@ export async function publishProductDraft({
           id: publicationId,
           imageAltEn: draft.imageAltEn,
           imageAltZhCn: draft.imageAltZhCn,
+          imageAssetId: draft.imageAssetId,
           imagePath: draft.imagePath,
+          documentAssetId: draft.documentAssetId,
           nameEn: draft.nameEn,
           nameZhCn: draft.nameZhCn,
           productId: product.id,

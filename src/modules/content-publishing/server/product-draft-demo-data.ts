@@ -45,7 +45,9 @@ export async function seedProductDraftDemoData(
             fitmentSummaryZhCn: publication.fitmentSummaryZhCn,
             imageAltEn: publication.imageAltEn,
             imageAltZhCn: publication.imageAltZhCn,
+            imageAssetId: publication.imageAssetId,
             imagePath: publication.imagePath,
+            documentAssetId: publication.documentAssetId,
             lastPublishedVersion: 1,
             nameEn: publication.nameEn,
             nameZhCn: publication.nameZhCn,
@@ -68,7 +70,12 @@ export async function seedProductDraftDemoData(
             fitmentSummaryZhCn: "",
             imageAltEn: "",
             imageAltZhCn: "",
+            imageAssetId:
+              product.imagePath === "/assets/fuel-filter-product.png"
+                ? "asset-generated-fuel-filter-product"
+                : "asset-generated-filter-family",
             imagePath: product.imagePath,
+            documentAssetId: null,
             lastPublishedVersion: null,
             nameEn: "",
             nameZhCn: "",

@@ -1,17 +1,13 @@
-import Image, { type StaticImageData } from "next/image";
+import { DownloadSimple } from "@phosphor-icons/react/dist/ssr";
+import Image from "next/image";
+import Link from "next/link";
 
-import filterFamily from "@/product-ui/public/assets/filter-family.png";
-import fuelFilter from "@/product-ui/public/assets/fuel-filter-product.png";
 import type { getProductDraftPreview } from "@/src/application/product-publishing";
+import { productImageSource } from "@/src/components/product-image-source";
 
 type ProductDraftPreviewView = Awaited<
   ReturnType<typeof getProductDraftPreview>
 >;
-
-const productImages: Record<string, StaticImageData> = {
-  "/assets/filter-family.png": filterFamily,
-  "/assets/fuel-filter-product.png": fuelFilter,
-};
 
 export function ProductDraftPreview({
   preview,
@@ -44,7 +40,7 @@ export function ProductDraftPreview({
               alt={preview.imageAlt}
               fill
               sizes="(max-width: 900px) 100vw, 45vw"
-              src={productImages[preview.imagePath] ?? filterFamily}
+              src={productImageSource(preview.imagePath)}
             />
           </figure>
           <section>
@@ -103,6 +99,32 @@ export function ProductDraftPreview({
               </span>
             ))}
           </article>
+        </section>
+        <section className="product-preview-document">
+          <div>
+            <p>{chinese ? "草稿产品资料" : "Draft product document"}</p>
+            <h2>
+              {preview.document?.originalFilename ??
+                (chinese ? "自动生成规格 PDF" : "Generated specification PDF")}
+            </h2>
+            <span>
+              {preview.document
+                ? chinese
+                  ? "当前草稿使用替换资料；公开版本要等重新发布后才会变化。"
+                  : "The draft uses the replacement document; the public version changes only after publishing."
+                : chinese
+                  ? "当前草稿继续使用演示数据生成资料。"
+                  : "The draft continues to use the generated demo document."}
+            </span>
+          </div>
+          <Link
+            className="admin-secondary-button"
+            download
+            href={`/admin/products/${encodeURIComponent(preview.partNumber)}/preview/${preview.locale}/specification.pdf`}
+          >
+            <DownloadSimple aria-hidden="true" />
+            {chinese ? "下载草稿资料" : "Download draft document"}
+          </Link>
         </section>
       </article>
     </div>

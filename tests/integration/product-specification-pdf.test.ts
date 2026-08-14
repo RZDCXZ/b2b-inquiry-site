@@ -1,8 +1,12 @@
 import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
+import { PDFDocument, StandardFonts } from "pdf-lib";
 import { describe, expect, it } from "vitest";
 
 import { GET } from "@/app/[locale]/products/[partNumber]/[slug]/specification.pdf/route";
-import { renderProductSpecificationPdf } from "@/src/infrastructure/documents/product-specification-pdf";
+import {
+  renderProductSpecificationPdf,
+  watermarkUploadedProductSpecificationPdf,
+} from "@/src/infrastructure/documents/product-specification-pdf";
 import { listPublishedProducts } from "@/src/application/public-catalog";
 
 async function extractPdfText(bytes: Uint8Array): Promise<string> {
@@ -53,6 +57,28 @@ async function downloadSpecificationPdf({
 }
 
 describe("带演示水印的双语规格 PDF", () => {
+  it.each([
+    ["en", "FICTIONAL DEMO", "not for selection or purchasing"],
+    ["zh-cn", "虚构演示", "不可用于选型或采购"],
+  ] as const)(
+    "为上传的 %s 替换资料持续叠加对应语言演示声明",
+    async (locale, watermark, disclaimer) => {
+      const source = await PDFDocument.create();
+      const font = await source.embedFont(StandardFonts.Helvetica);
+      source.addPage().drawText("CUSTOM PRODUCT DOCUMENT", { font });
+
+      const bytes = await watermarkUploadedProductSpecificationPdf({
+        bytes: await source.save(),
+        locale,
+      });
+      const text = await extractPdfText(bytes);
+
+      expect(text).toContain("CUSTOM PRODUCT DOCUMENT");
+      expect(text).toContain(watermark);
+      expect(text).toContain(disclaimer);
+    },
+  );
+
   it("英文下载响应包含当前公开产品的规格、参考号、适配摘要和演示声明", async () => {
     const response = await downloadSpecificationPdf({
       locale: "en",

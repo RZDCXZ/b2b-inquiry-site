@@ -10,6 +10,7 @@ import Link from "next/link";
 
 import type { getInquiryDetailForActor } from "@/src/application/admin-inquiries";
 import { AdminPageHeader } from "@/src/components/admin/admin-page";
+import { productImageSource } from "@/src/components/product-image-source";
 import {
   formatAdminDate,
   formatAdminTime,
@@ -199,7 +200,7 @@ export function InquiryDetail({
               <Image
                 alt={detail.product.partNumber}
                 height={92}
-                src={detail.product.imagePath}
+                src={productImageSource(detail.product.imagePath)}
                 width={112}
               />
               <div>
