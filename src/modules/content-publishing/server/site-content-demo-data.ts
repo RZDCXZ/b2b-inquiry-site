@@ -422,6 +422,7 @@ async function writeContentData(transaction: Prisma.TransactionClient) {
           ...translation,
           articleId: fixture.id,
           currentPublicationId: publication.id,
+          currentPublishedSlug: translation.slug,
           lastPublishedVersion: 1,
           version: 1,
         },
@@ -451,6 +452,7 @@ export async function replaceSiteContent(prisma: PrismaClient): Promise<void> {
     await transaction.articleDraft.updateMany({
       data: {
         currentPublicationId: null,
+        currentPublishedSlug: null,
         restoredFromPublicationId: null,
       },
     });

@@ -1,15 +1,16 @@
 import type { PublicLocale } from "@/src/modules/site-config/public/locales";
+import { CORE_PAGE_DEFINITIONS } from "@/src/modules/content-publishing/public/core-page-contracts";
 
 export const PUBLIC_ROUTE_BY_NAVIGATION_ANCHOR: Readonly<
   Record<string, string>
-> = {
-  about: "about",
-  contact: "inquiry",
-  "private-label": "private-label",
-  products: "products",
-  quality: "quality",
-  resources: "resources",
-};
+> = Object.fromEntries([
+  ["products", "products"],
+  ...Object.values(CORE_PAGE_DEFINITIONS).flatMap((definition) =>
+    definition.navigationAnchor
+      ? [[definition.navigationAnchor, definition.route.replace(/^\//u, "")]]
+      : [],
+  ),
+]);
 
 export function publicNavigationHref(
   locale: PublicLocale,

@@ -199,6 +199,119 @@ describe("核心页面、文章与站点设置", () => {
     ).resolves.toBeGreaterThanOrEqual(2);
   });
 
+  it("草稿改名不会释放仍在公开使用的文章地址", async () => {
+    const [routeOwner, contender] = await Promise.all([
+      prisma.article.findUniqueOrThrow({
+        where: { topicKey: "commercial-vehicle-fitment-basics" },
+      }),
+      prisma.article.findUniqueOrThrow({
+        where: { topicKey: "metric-and-imperial-filter-dimensions" },
+      }),
+    ]);
+
+    try {
+      const ownerDraft = await getArticleDraft({
+        actor: contentEditor,
+        articleId: routeOwner.id,
+        locale: "en",
+        prisma,
+      });
+      const contenderDraft = await getArticleDraft({
+        actor: contentEditor,
+        articleId: contender.id,
+        locale: "en",
+        prisma,
+      });
+      const renamedOwner = await saveArticleDraft({
+        actor: contentEditor,
+        articleId: routeOwner.id,
+        expectedDraftVersion: ownerDraft.version,
+        input: {
+          body: ownerDraft.body,
+          excerpt: ownerDraft.excerpt,
+          seoDescription: ownerDraft.seoDescription,
+          seoTitle: ownerDraft.seoTitle,
+          slug: "commercial-vehicle-fitment-basics-updated",
+          title: ownerDraft.title,
+        },
+        locale: "en",
+        prisma,
+      });
+      const contenderUsingPublicSlug = await saveArticleDraft({
+        actor: contentEditor,
+        articleId: contender.id,
+        expectedDraftVersion: contenderDraft.version,
+        input: {
+          body: contenderDraft.body,
+          excerpt: contenderDraft.excerpt,
+          seoDescription: contenderDraft.seoDescription,
+          seoTitle: contenderDraft.seoTitle,
+          slug: ownerDraft.slug,
+          title: contenderDraft.title,
+        },
+        locale: "en",
+        prisma,
+      });
+
+      await expect(
+        prisma.articleDraft.update({
+          data: { currentPublishedSlug: ownerDraft.slug },
+          where: {
+            articleId_locale: { articleId: contender.id, locale: "en" },
+          },
+        }),
+      ).rejects.toMatchObject({ code: "P2002" });
+      await expect(
+        publishArticleDraft({
+          actor: contentEditor,
+          articleId: contender.id,
+          expectedDraftVersion: contenderUsingPublicSlug.version,
+          locale: "en",
+          prisma,
+        }),
+      ).rejects.toMatchObject({
+        code: "PUBLISH_VALIDATION_FAILED",
+        fieldErrors: [
+          expect.objectContaining({
+            field: "slug",
+            message: expect.stringContaining("公开文章"),
+          }),
+        ],
+      });
+      await expect(
+        getPublishedArticle({ locale: "en", prisma, slug: ownerDraft.slug }),
+      ).resolves.toMatchObject({ articleId: routeOwner.id });
+      expect(renamedOwner.slug).not.toBe(ownerDraft.slug);
+    } finally {
+      await replaceSiteContent(prisma);
+    }
+  });
+
+  it("首页作为稳定入口不能归档", async () => {
+    try {
+      const home = await getCorePageDraft({
+        actor: contentEditor,
+        key: "home",
+        prisma,
+      });
+      await expect(
+        archiveCorePage({
+          actor: contentEditor,
+          expectedDraftVersion: home.version,
+          key: "home",
+          prisma,
+        }),
+      ).rejects.toMatchObject({
+        code: "PUBLISH_VALIDATION_FAILED",
+      });
+      await expect(
+        getPublishedCorePage({ key: "home", locale: "en", prisma }),
+      ).resolves.not.toBeNull();
+    } finally {
+      await replaceSiteContent(prisma);
+    }
+  });
+
   it("只有管理员可修改有限站点设置，并拒绝过期版本保存", async () => {
     const settings = await getEditableSiteConfiguration({
       actor: administrator,

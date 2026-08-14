@@ -25,13 +25,17 @@ export type CorePageTranslation = {
 export const CORE_PAGE_DEFINITIONS: Record<
   CorePageKey,
   {
+    canArchive: boolean;
     label: string;
+    navigationAnchor: string | null;
     route: string;
     sections: ReadonlyArray<{ id: string; label: string }>;
   }
 > = {
   about: {
+    canArchive: true,
     label: "关于我们",
+    navigationAnchor: "about",
     route: "/about",
     sections: [
       { id: "manufacturer_profile", label: "演示企业定位" },
@@ -39,7 +43,9 @@ export const CORE_PAGE_DEFINITIONS: Record<
     ],
   },
   contact: {
+    canArchive: true,
     label: "联系页",
+    navigationAnchor: "contact",
     route: "/inquiry",
     sections: [
       { id: "inquiry_guidance", label: "询盘说明" },
@@ -47,7 +53,9 @@ export const CORE_PAGE_DEFINITIONS: Record<
     ],
   },
   home: {
+    canArchive: false,
     label: "首页",
+    navigationAnchor: null,
     route: "",
     sections: [
       { id: "finder_intro", label: "产品查找" },
@@ -57,7 +65,9 @@ export const CORE_PAGE_DEFINITIONS: Record<
     ],
   },
   manufacturing_quality: {
+    canArchive: true,
     label: "制造与品控",
+    navigationAnchor: "quality",
     route: "/quality",
     sections: [
       { id: "process_control", label: "过程控制" },
@@ -66,7 +76,9 @@ export const CORE_PAGE_DEFINITIONS: Record<
     ],
   },
   private_label: {
+    canArchive: true,
     label: "贴牌服务",
+    navigationAnchor: "private-label",
     route: "/private-label",
     sections: [
       { id: "approach", label: "合作方式" },
@@ -75,7 +87,9 @@ export const CORE_PAGE_DEFINITIONS: Record<
     ],
   },
   technical_resources: {
+    canArchive: true,
     label: "技术资源",
+    navigationAnchor: "resources",
     route: "/resources",
     sections: [
       { id: "editorial_scope", label: "编辑范围" },

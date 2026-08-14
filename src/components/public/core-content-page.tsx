@@ -15,6 +15,7 @@ import type { PublicLocale } from "@/src/modules/site-config/public/locales";
 
 type ArticleCard = {
   excerpt: string;
+  locale: PublicLocale;
   publishedAt: Date;
   slug: string;
   title: string;
@@ -81,6 +82,9 @@ export function CoreContentPage({
             <div>
               {articles.map((article) => (
                 <article key={article.slug}>
+                  <span className="article-language">
+                    {article.locale === "en" ? "English" : "简体中文"}
+                  </span>
                   <time>
                     <CalendarBlank aria-hidden="true" />
                     {article.publishedAt.toLocaleDateString(

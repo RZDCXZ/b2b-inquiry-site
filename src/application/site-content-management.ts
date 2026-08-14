@@ -448,6 +448,11 @@ export async function archiveCorePage({
   prisma?: ApplicationDatabase;
 }) {
   assertContentManager(actor);
+  if (!CORE_PAGE_DEFINITIONS[key].canArchive) {
+    throw new SiteContentError("PUBLISH_VALIDATION_FAILED", [
+      { field: "key", message: "首页是稳定前台入口，不能归档。" },
+    ]);
+  }
   const prisma = database(providedPrisma);
   return prisma.$transaction(async (transaction) => {
     const draft = await findCorePageDraft(transaction, key);
@@ -823,87 +828,122 @@ export async function publishArticleDraft({
   assertContentManager(actor);
   const localeValue = dbLocale(locale);
   const prisma = database(providedPrisma);
-  return prisma.$transaction(async (transaction) => {
-    const draft = await findArticleDraft(transaction, articleId, localeValue);
-    if (!draft) throw new SiteContentError("NOT_FOUND");
-    if (draft.version !== expectedDraftVersion) {
-      throw new SiteContentError("CONFLICT", [], articleConflict(draft));
-    }
-    const errors = articlePublicationErrors(draft);
-    if (errors.length > 0) {
-      throw new SiteContentError("PUBLISH_VALIDATION_FAILED", errors);
-    }
-    if (draft.lastPublishedVersion === draft.version) {
-      throw new SiteContentError("NOTHING_TO_PUBLISH");
-    }
-    const claim = await transaction.articleDraft.updateMany({
-      data: { lastPublishedVersion: draft.version },
-      where: {
-        articleId,
-        locale: localeValue,
-        version: expectedDraftVersion,
-        OR: [
-          { lastPublishedVersion: null },
-          { lastPublishedVersion: { not: draft.version } },
-        ],
-      },
-    });
-    if (claim.count !== 1) {
-      const latest = await findArticleDraft(
-        transaction,
-        articleId,
-        localeValue,
-      );
-      if (latest && latest.version !== expectedDraftVersion) {
-        throw new SiteContentError("CONFLICT", [], articleConflict(latest));
+  try {
+    return await prisma.$transaction(async (transaction) => {
+      const draft = await findArticleDraft(transaction, articleId, localeValue);
+      if (!draft) throw new SiteContentError("NOT_FOUND");
+      if (draft.version !== expectedDraftVersion) {
+        throw new SiteContentError("CONFLICT", [], articleConflict(draft));
       }
-      throw new SiteContentError("NOTHING_TO_PUBLISH");
-    }
-
-    const now = new Date();
-    const publication = await transaction.articlePublication.create({
-      data: {
-        articleId,
-        body: draft.body,
-        excerpt: draft.excerpt,
-        locale: localeValue,
-        publishedAt: now,
-        publishedByUserId: actor.id,
-        restoredFromPublicationId: draft.restoredFromPublicationId,
-        seoDescription: draft.seoDescription,
-        seoTitle: draft.seoTitle,
-        slug: draft.slug,
-        sourceDraftVersion: draft.version,
-        status: draft.status,
-        title: draft.title,
-        version: await nextArticlePublicationVersion(
+      const errors = articlePublicationErrors(draft);
+      if (errors.length > 0) {
+        throw new SiteContentError("PUBLISH_VALIDATION_FAILED", errors);
+      }
+      if (draft.lastPublishedVersion === draft.version) {
+        throw new SiteContentError("NOTHING_TO_PUBLISH");
+      }
+      const existingRouteOwner = await transaction.articleDraft.findFirst({
+        select: { articleId: true },
+        where: {
+          articleId: { not: articleId },
+          currentPublishedSlug: draft.slug,
+          locale: localeValue,
+        },
+      });
+      if (existingRouteOwner) {
+        throw new SiteContentError("PUBLISH_VALIDATION_FAILED", [
+          { field: "slug", message: "该地址仍由另一篇公开文章使用。" },
+        ]);
+      }
+      const claim = await transaction.articleDraft.updateMany({
+        data: { lastPublishedVersion: draft.version },
+        where: {
+          articleId,
+          locale: localeValue,
+          version: expectedDraftVersion,
+          OR: [
+            { lastPublishedVersion: null },
+            { lastPublishedVersion: { not: draft.version } },
+          ],
+        },
+      });
+      if (claim.count !== 1) {
+        const latest = await findArticleDraft(
           transaction,
           articleId,
           localeValue,
-        ),
-      },
+        );
+        if (latest && latest.version !== expectedDraftVersion) {
+          throw new SiteContentError("CONFLICT", [], articleConflict(latest));
+        }
+        throw new SiteContentError("NOTHING_TO_PUBLISH");
+      }
+
+      const now = new Date();
+      const publication = await transaction.articlePublication.create({
+        data: {
+          articleId,
+          body: draft.body,
+          excerpt: draft.excerpt,
+          locale: localeValue,
+          publishedAt: now,
+          publishedByUserId: actor.id,
+          restoredFromPublicationId: draft.restoredFromPublicationId,
+          seoDescription: draft.seoDescription,
+          seoTitle: draft.seoTitle,
+          slug: draft.slug,
+          sourceDraftVersion: draft.version,
+          status: draft.status,
+          title: draft.title,
+          version: await nextArticlePublicationVersion(
+            transaction,
+            articleId,
+            localeValue,
+          ),
+        },
+      });
+      await transaction.articleDraft.update({
+        data: {
+          currentPublicationId: publication.id,
+          currentPublishedSlug:
+            publication.status === "published" ? publication.slug : null,
+        },
+        where: { articleId_locale: { articleId, locale: localeValue } },
+      });
+      await transaction.articlePublication.update({
+        data: { sealedAt: now },
+        where: { id: publication.id },
+      });
+      await transaction.auditLog.create({
+        data: {
+          actorRole: actor.role,
+          actorUserId: actor.id,
+          event: "ARTICLE_PUBLISHED",
+          outcome: "SUCCESS",
+          summary: `${draft.title}形成${locale === "en" ? "英文" : "中文"}不可变发布版本 v${publication.version}。`,
+          targetId: articleId,
+          targetType: "ARTICLE",
+        },
+      });
+      return { publicationId: publication.id, version: publication.version };
     });
-    await transaction.articleDraft.update({
-      data: { currentPublicationId: publication.id },
-      where: { articleId_locale: { articleId, locale: localeValue } },
-    });
-    await transaction.articlePublication.update({
-      data: { sealedAt: now },
-      where: { id: publication.id },
-    });
-    await transaction.auditLog.create({
-      data: {
-        actorRole: actor.role,
-        actorUserId: actor.id,
-        event: "ARTICLE_PUBLISHED",
-        outcome: "SUCCESS",
-        summary: `${draft.title}形成${locale === "en" ? "英文" : "中文"}不可变发布版本 v${publication.version}。`,
-        targetId: articleId,
-        targetType: "ARTICLE",
-      },
-    });
-    return { publicationId: publication.id, version: publication.version };
-  });
+  } catch (error) {
+    const prismaError = error as {
+      code?: unknown;
+      meta?: { target?: unknown };
+    };
+    const uniqueTarget = JSON.stringify(prismaError.meta?.target);
+    if (
+      prismaError.code === "P2002" &&
+      (uniqueTarget.includes("currentPublishedSlug") ||
+        uniqueTarget.includes("current_published_slug"))
+    ) {
+      throw new SiteContentError("PUBLISH_VALIDATION_FAILED", [
+        { field: "slug", message: "该地址仍由另一篇公开文章使用。" },
+      ]);
+    }
+    throw error;
+  }
 }
 
 export async function restoreArticlePublication({
@@ -1012,6 +1052,7 @@ export async function archiveArticle({
     const nextDraftVersion = draft.version + 1;
     const updated = await transaction.articleDraft.updateMany({
       data: {
+        currentPublishedSlug: null,
         lastModifiedByUserId: actor.id,
         lastPublishedVersion: nextDraftVersion,
         restoredFromPublicationId: null,
@@ -1137,10 +1178,9 @@ export async function getPublishedArticle({
   prisma?: ApplicationDatabase;
   slug: string;
 }) {
-  const publication = await database(
-    providedPrisma,
-  ).articlePublication.findFirst({
+  const draft = await database(providedPrisma).articleDraft.findUnique({
     include: {
+      currentPublication: true,
       article: {
         include: {
           drafts: {
@@ -1150,15 +1190,16 @@ export async function getPublishedArticle({
       },
     },
     where: {
-      currentFor: { isNot: null },
-      locale: dbLocale(locale),
-      slug,
-      status: "published",
+      locale_currentPublishedSlug: {
+        currentPublishedSlug: slug,
+        locale: dbLocale(locale),
+      },
     },
   });
-  if (!publication) return null;
+  const publication = draft?.currentPublication;
+  if (!publication || publication.status !== "published") return null;
   const otherLocale: PublicLocale = locale === "en" ? "zh-cn" : "en";
-  const otherDraft = publication.article.drafts.find(
+  const otherDraft = draft.article.drafts.find(
     (draft) => draft.locale === dbLocale(otherLocale),
   );
   const otherPublication =

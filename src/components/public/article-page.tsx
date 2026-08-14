@@ -83,6 +83,28 @@ export function ArticlePage({
           className="article-rich-text restricted-rich-text"
           source={article.body}
         />
+        <section className="article-inquiry-action">
+          <div>
+            <p className="eyebrow">
+              {locale === "en"
+                ? "NEED A SPECIFICATION CHECK?"
+                : "需要核对规格？"}
+            </p>
+            <h2>
+              {locale === "en"
+                ? "Keep the technical context attached."
+                : "提交询盘时保留技术上下文。"}
+            </h2>
+            <p>
+              {locale === "en"
+                ? "Send a concise request and our local demo workflow will capture it for follow-up."
+                : "提交简洁需求，本地演示工作流会捕获询盘以供后续处理。"}
+            </p>
+          </div>
+          <Link className="primary-button" href={`/${locale}/inquiry`}>
+            {locale === "en" ? "Send a general inquiry" : "提交通用询盘"}
+          </Link>
+        </section>
         <aside className="core-demo-boundary">
           <Info aria-hidden="true" weight="fill" />
           <p>{copy.demoNotice}</p>

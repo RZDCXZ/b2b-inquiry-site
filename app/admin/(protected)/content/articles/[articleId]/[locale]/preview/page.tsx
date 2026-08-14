@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 
 import {
   getArticleDraft,
@@ -63,7 +64,20 @@ export default async function ArticleDraftPreviewRoute({
     `/admin/content/articles/${encodeURIComponent(articleId)}/${targetLocale}/preview`;
 
   return (
-    <ContentDraftPreview locale={previewLocale} version={result.draft.version}>
+    <ContentDraftPreview
+      actions={
+        <>
+          <Link href={previewPath("en")}>English 草稿预览</Link>
+          {otherDraft || previewLocale === "zh-cn" ? (
+            <Link href={previewPath("zh-cn")}>简中草稿预览</Link>
+          ) : (
+            <span aria-disabled="true">简中暂无草稿</span>
+          )}
+        </>
+      }
+      locale={previewLocale}
+      version={result.draft.version}
+    >
       <ArticlePage
         article={{
           body: result.draft.body,

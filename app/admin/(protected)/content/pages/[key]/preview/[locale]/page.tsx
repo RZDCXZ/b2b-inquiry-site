@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 
 import { listPublishedVehicleFitmentOptions } from "@/src/application/public-catalog";
 import {
@@ -14,6 +15,7 @@ import { HomePage } from "@/src/components/public/home-page";
 import { InquiryFormPage } from "@/src/components/public/inquiry-form-page";
 import {
   CORE_PAGE_KEYS,
+  CORE_PAGE_DEFINITIONS,
   type CorePageKey,
 } from "@/src/modules/content-publishing/public/core-page-contracts";
 import { PERMISSIONS } from "@/src/modules/identity-access/public/permissions";
@@ -22,15 +24,6 @@ import {
   isPublicLocale,
   type PublicLocale,
 } from "@/src/modules/site-config/public/locales";
-
-const navigationAnchorByKey: Record<CorePageKey, string> = {
-  about: "about",
-  contact: "contact",
-  home: "",
-  manufacturing_quality: "quality",
-  private_label: "private-label",
-  technical_resources: "resources",
-};
 
 export default async function CorePageDraftPreviewRoute({
   params,
@@ -98,7 +91,9 @@ export default async function CorePageDraftPreviewRoute({
         : [];
     preview = (
       <CoreContentPage
-        activeNavigationAnchor={navigationAnchorByKey[pageKey]}
+        activeNavigationAnchor={
+          CORE_PAGE_DEFINITIONS[pageKey].navigationAnchor ?? ""
+        }
         articles={articles}
         content={content}
         locale={previewLocale}
@@ -108,7 +103,20 @@ export default async function CorePageDraftPreviewRoute({
   }
 
   return (
-    <ContentDraftPreview locale={previewLocale} version={result.draft.version}>
+    <ContentDraftPreview
+      actions={
+        <>
+          <Link href={`/admin/content/pages/${pageKey}/preview/en`}>
+            English 草稿预览
+          </Link>
+          <Link href={`/admin/content/pages/${pageKey}/preview/zh-cn`}>
+            简中草稿预览
+          </Link>
+        </>
+      }
+      locale={previewLocale}
+      version={result.draft.version}
+    >
       {preview}
     </ContentDraftPreview>
   );

@@ -305,6 +305,7 @@ model ArticleDraft {
   version                   Int                      @default(1)
   lastPublishedVersion      Int?                     @map("last_published_version")
   currentPublicationId      String?                  @unique @map("current_publication_id")
+  currentPublishedSlug      String?                  @map("current_published_slug")
   title                     String
   slug                      String
   excerpt                   String
@@ -322,6 +323,7 @@ model ArticleDraft {
 
   @@id([articleId, locale])
   @@unique([locale, slug])
+  @@unique([locale, currentPublishedSlug])
   @@unique([articleId, locale, currentPublicationId])
   @@index([restoredFromPublicationId])
   @@index([lastModifiedByUserId])

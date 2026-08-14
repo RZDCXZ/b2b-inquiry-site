@@ -17,7 +17,11 @@ import {
   saveCorePageAction,
   type ContentMutationState,
 } from "@/app/admin/(protected)/content/actions";
-import type { CorePageTranslation } from "@/src/modules/content-publishing/public/core-page-contracts";
+import {
+  CORE_PAGE_DEFINITIONS,
+  type CorePageKey,
+  type CorePageTranslation,
+} from "@/src/modules/content-publishing/public/core-page-contracts";
 import { MutationFeedback } from "@/src/components/admin/mutation-feedback";
 
 const initialState: ContentMutationState = { message: "", status: "idle" };
@@ -150,7 +154,7 @@ export function CorePageEditor({
   draft: {
     contentEn: CorePageTranslation;
     contentZhCn: CorePageTranslation;
-    key: string;
+    key: CorePageKey;
     label: string;
     lastModifiedAt: string;
     lastModifiedBy: string;
@@ -231,31 +235,37 @@ export function CorePageEditor({
               {publishing ? "发布中…" : "同时发布中英文"}
             </button>
           </form>
-          <form
-            action={archiveAction}
-            onSubmit={(event) => {
-              if (
-                !window.confirm(
-                  "归档后两种语言的前台页面都会隐藏，历史仍保留。继续吗？",
+          {CORE_PAGE_DEFINITIONS[draft.key].canArchive ? (
+            <form
+              action={archiveAction}
+              onSubmit={(event) => {
+                if (
+                  !window.confirm(
+                    "归档后两种语言的前台页面都会隐藏，历史仍保留。继续吗？",
+                  )
                 )
-              )
-                event.preventDefault();
-            }}
-          >
-            <input
-              name="expectedDraftVersion"
-              type="hidden"
-              value={currentVersion}
-            />
-            <input name="key" type="hidden" value={draft.key} />
-            <button
-              className="admin-danger-button"
-              disabled={archiving || draft.status === "archived"}
+                  event.preventDefault();
+              }}
             >
-              <Archive />
-              归档页面
-            </button>
-          </form>
+              <input
+                name="expectedDraftVersion"
+                type="hidden"
+                value={currentVersion}
+              />
+              <input name="key" type="hidden" value={draft.key} />
+              <button
+                className="admin-danger-button"
+                disabled={archiving || draft.status === "archived"}
+              >
+                <Archive />
+                归档页面
+              </button>
+            </form>
+          ) : (
+            <span className="content-required-page-note">
+              首页是稳定入口，不能归档。
+            </span>
+          )}
         </div>
       </div>
       <Feedback state={publishState} />

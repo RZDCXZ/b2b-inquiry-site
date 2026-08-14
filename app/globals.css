@@ -5750,6 +5750,17 @@ a.product-admin-row:hover {
   font-size: 10px;
 }
 
+.article-language {
+  align-self: flex-start;
+  border: 1px solid var(--line);
+  padding: 5px 8px;
+  color: var(--navy-700);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .article-index h3 {
   margin: 30px 0 12px;
   color: var(--navy-900);
@@ -5841,6 +5852,37 @@ a.product-admin-row:hover {
 
 .restricted-rich-text > :first-child {
   margin-top: 0;
+}
+
+.article-inquiry-action {
+  max-width: 780px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 28px;
+  margin-top: 64px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--orange);
+  padding: 30px;
+  background: white;
+}
+
+.article-inquiry-action h2 {
+  margin: 10px 0;
+  color: var(--navy-900);
+  font-size: 25px;
+}
+
+.article-inquiry-action div > p:last-child {
+  max-width: 540px;
+  margin: 0;
+  color: var(--graphite-600);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.article-inquiry-action .primary-button {
+  flex: 0 0 auto;
 }
 
 .restricted-rich-text p,
@@ -6062,6 +6104,31 @@ a.product-admin-row:hover {
 .content-draft-preview > header p {
   margin: 0;
   font-size: 10px;
+}
+
+.content-draft-preview > header nav {
+  display: flex;
+  gap: 8px;
+}
+
+.content-draft-preview > header nav a,
+.content-draft-preview > header nav span {
+  border: 1px solid currentColor;
+  padding: 5px 8px;
+  color: inherit;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.content-draft-preview > header nav span {
+  opacity: 0.55;
+}
+
+.content-required-page-note {
+  max-width: 180px;
+  color: var(--graphite-600);
+  font-size: 10px;
+  line-height: 1.5;
 }
 
 .content-draft-preview > header p {
@@ -6394,6 +6461,15 @@ a.product-admin-row:hover {
   .content-draft-preview > header {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .article-inquiry-action {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .article-inquiry-action .primary-button {
+    align-self: flex-start;
   }
 
   .content-draft-preview > header p {

@@ -32,6 +32,9 @@ test("单语文章明确标记缺失语言，内容编辑与站点设置权限�
       name: "Avoiding cross-reference ambiguity",
     }),
   ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Send a general inquiry" }),
+  ).toHaveAttribute("href", "/en/inquiry");
   const unavailableLanguage = page.locator(
     '.locale-switcher > span[aria-disabled="true"]',
   );
@@ -113,6 +116,11 @@ test("强类型页面完整呈现内容、保持同页语言切换，并提供�
     page.locator('.locale-switcher a[href="/zh-cn/quality"]'),
   ).toBeVisible();
 
+  await page.goto("/en/resources");
+  await expect(
+    page.locator(".article-index article").first().locator(".article-language"),
+  ).toHaveText("English");
+
   const credentials = await readPresetCredentials();
   const editor = credentials.accounts.find(
     ({ role }) => role === "content_editor",
@@ -160,6 +168,16 @@ test("强类型页面完整呈现内容、保持同页语言切换，并提供�
     articlePreview.locator(
       '.locale-switcher a[href="/admin/content/articles/article-fitment-basics/zh-cn/preview"]',
     ),
+  ).toBeVisible();
+  await articlePreview.getByRole("link", { name: "简中草稿预览" }).click();
+  await expect(articlePreview).toHaveURL(
+    /\/admin\/content\/articles\/article-fitment-basics\/zh-cn\/preview$/u,
+  );
+  await expect(
+    articlePreview.getByRole("heading", {
+      level: 1,
+      name: "商用车适配关系基础",
+    }),
   ).toBeVisible();
   await articlePreview.close();
 
