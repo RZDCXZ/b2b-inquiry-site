@@ -133,7 +133,28 @@ test("当前负责人联系、报价、关闭后管理员重新打开并保留�
   ).toBeVisible();
 
   await salesPage.getByRole("button", { name: "追加报价记录" }).click();
-  const quoteDialog = salesPage.getByRole("dialog", { name: "追加报价记录" });
+  let quoteDialog = salesPage.getByRole("dialog", { name: "追加报价记录" });
+  await quoteDialog
+    .locator("form")
+    .evaluate((form: HTMLFormElement) => (form.noValidate = true));
+  await quoteDialog.getByRole("button", { name: "追加报价记录" }).click();
+  await expect(
+    quoteDialog
+      .locator(".admin-action-message.is-error")
+      .getByRole("link", { name: "报价金额" }),
+  ).toHaveAttribute("href", "#lifecycle-quote-amount");
+  await quoteDialog.getByRole("button", { name: "取消" }).click();
+  await salesPage.getByRole("button", { name: "追加联系记录" }).click();
+  const freshContactDialog = salesPage.getByRole("dialog", {
+    name: "追加联系记录",
+  });
+  await expect(freshContactDialog.locator(".admin-action-message")).toHaveCount(
+    0,
+  );
+  await freshContactDialog.getByRole("button", { name: "取消" }).click();
+
+  await salesPage.getByRole("button", { name: "追加报价记录" }).click();
+  quoteDialog = salesPage.getByRole("dialog", { name: "追加报价记录" });
   await quoteDialog.getByLabel("报价金额").fill("2880.00");
   await quoteDialog.getByLabel("币种").selectOption("USD");
   await quoteDialog.getByLabel("有效期").fill("2026-09-15");

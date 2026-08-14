@@ -10,7 +10,14 @@ import {
   X,
 } from "@phosphor-icons/react";
 import type { Icon } from "@phosphor-icons/react";
-import { useActionState, useEffect, useRef, useState } from "react";
+import {
+  type ReactNode,
+  type RefObject,
+  useActionState,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 import {
   mutateInquiryLifecycleAction,
@@ -130,6 +137,37 @@ function LifecycleFieldError({
   ) : null;
 }
 
+function LifecycleActionStateBoundary({
+  children,
+  dialogRef,
+}: {
+  children: (value: {
+    formAction: (formData: FormData) => void;
+    pending: boolean;
+    state: InquiryLifecycleActionState;
+  }) => ReactNode;
+  dialogRef: RefObject<HTMLDialogElement | null>;
+}) {
+  const [state, formAction, pending] = useActionState(
+    mutateInquiryLifecycleAction,
+    initialState,
+  );
+
+  useEffect(() => {
+    if (state.status === "error") {
+      dialogRef.current
+        ?.querySelector<HTMLElement>(".admin-action-message.is-error")
+        ?.focus();
+    }
+
+    if (state.status === "success") {
+      dialogRef.current?.close();
+    }
+  }, [dialogRef, state]);
+
+  return children({ formAction, pending, state });
+}
+
 export function InquiryLifecycleActions({
   actorRole,
   correctableRecords,
@@ -145,13 +183,7 @@ export function InquiryLifecycleActions({
 }) {
   const [operation, setOperation] = useState<LifecycleOperation | null>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
-  const errorSummaryRef = useRef<HTMLDivElement>(null);
-  const formRef = useRef<HTMLFormElement>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
-  const [state, formAction, pending] = useActionState(
-    mutateInquiryLifecycleAction,
-    initialState,
-  );
   const canFollowUp =
     actorRole === APP_ROLES.SALES &&
     (status === "assigned" || status === "in_progress" || status === "quoted");
@@ -167,23 +199,13 @@ export function InquiryLifecycleActions({
 
     if (operation && dialog && !dialog.open) {
       dialog.showModal();
-      formRef.current
-        ?.querySelector<HTMLElement>(
+      dialog
+        .querySelector<HTMLElement>(
           "input:not([type=hidden]), select, textarea",
         )
         ?.focus();
     }
   }, [operation]);
-
-  useEffect(() => {
-    if (operation && state.status === "error") {
-      errorSummaryRef.current?.focus();
-    }
-
-    if (operation && state.status === "success") {
-      dialogRef.current?.close();
-    }
-  }, [operation, state]);
 
   function openDrawer(
     nextOperation: LifecycleOperation,
@@ -287,249 +309,261 @@ export function InquiryLifecycleActions({
         ref={dialogRef}
       >
         {operation && definition ? (
-          <section className="admin-drawer">
-            <header>
-              <div>
-                <p>询盘 {referenceNumber}</p>
-                <h2 id="lifecycle-action-title">{definition.title}</h2>
-                <span>
-                  {definition.description}；保存后历史不可编辑或删除。
-                </span>
-              </div>
-              <button
-                aria-label="关闭操作面板"
-                onClick={closeDrawer}
-                type="button"
-              >
-                <X aria-hidden="true" />
-              </button>
-            </header>
-            {state.message ? (
-              <div
-                className={`admin-action-message is-${state.status}`}
-                ref={state.status === "error" ? errorSummaryRef : undefined}
-                role={state.status === "error" ? "alert" : "status"}
-                tabIndex={state.status === "error" ? -1 : undefined}
-              >
-                <div>
-                  <strong>
-                    {state.conflict ? "保存冲突" : "无法保存本次操作"}
-                  </strong>
-                  <p>{state.message}</p>
-                  {state.fieldErrors &&
-                  Object.keys(state.fieldErrors).length > 0 ? (
-                    <ul className="admin-error-links">
-                      {Object.keys(state.fieldErrors).map((field) => {
-                        const fieldName = field as InquiryLifecycleFieldName;
+          <LifecycleActionStateBoundary dialogRef={dialogRef} key={operation}>
+            {({ formAction, pending, state }) => (
+              <section className="admin-drawer">
+                <header>
+                  <div>
+                    <p>询盘 {referenceNumber}</p>
+                    <h2 id="lifecycle-action-title">{definition.title}</h2>
+                    <span>
+                      {definition.description}；保存后历史不可编辑或删除。
+                    </span>
+                  </div>
+                  <button
+                    aria-label="关闭操作面板"
+                    onClick={closeDrawer}
+                    type="button"
+                  >
+                    <X aria-hidden="true" />
+                  </button>
+                </header>
+                {state.message ? (
+                  <div
+                    className={`admin-action-message is-${state.status}`}
+                    role={state.status === "error" ? "alert" : "status"}
+                    tabIndex={state.status === "error" ? -1 : undefined}
+                  >
+                    <div>
+                      <strong>
+                        {state.conflict ? "保存冲突" : "无法保存本次操作"}
+                      </strong>
+                      <p>{state.message}</p>
+                      {state.fieldErrors &&
+                      Object.keys(state.fieldErrors).length > 0 ? (
+                        <ul className="admin-error-links">
+                          {Object.keys(state.fieldErrors).map((field) => {
+                            const fieldName =
+                              field as InquiryLifecycleFieldName;
 
-                        return (
-                          <li key={fieldName}>
-                            <a href={`#${lifecycleFieldIds[fieldName]}`}>
-                              {lifecycleFieldLabels[fieldName]}
-                            </a>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  ) : null}
-                  {state.conflict ? (
-                    <small>
-                      最新修改人：{state.conflict.latestModifiedBy}；时间：
-                      {new Date(state.conflict.latestModifiedAt).toLocaleString(
-                        "zh-CN",
-                        {
-                          timeZone: "Asia/Shanghai",
-                        },
-                      )}
-                      ；版本：{state.conflict.latestVersion}
-                    </small>
-                  ) : null}
-                </div>
-              </div>
-            ) : null}
-            <form
-              action={formAction}
-              className="admin-assignment-form inquiry-lifecycle-form"
-              ref={formRef}
-            >
-              <input name="expectedVersion" type="hidden" value={version} />
-              <input name="operation" type="hidden" value={operation} />
-              <input
-                name="referenceNumber"
-                type="hidden"
-                value={referenceNumber}
-              />
+                            return (
+                              <li key={fieldName}>
+                                <a href={`#${lifecycleFieldIds[fieldName]}`}>
+                                  {lifecycleFieldLabels[fieldName]}
+                                </a>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      ) : null}
+                      {state.conflict ? (
+                        <small>
+                          最新修改人：{state.conflict.latestModifiedBy}；时间：
+                          {new Date(
+                            state.conflict.latestModifiedAt,
+                          ).toLocaleString("zh-CN", {
+                            timeZone: "Asia/Shanghai",
+                          })}
+                          ；版本：{state.conflict.latestVersion}
+                        </small>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
+                <form
+                  action={formAction}
+                  className="admin-assignment-form inquiry-lifecycle-form"
+                >
+                  <input name="expectedVersion" type="hidden" value={version} />
+                  <input name="operation" type="hidden" value={operation} />
+                  <input
+                    name="referenceNumber"
+                    type="hidden"
+                    value={referenceNumber}
+                  />
 
-              {operation === "quote" ? (
-                <>
-                  <div className="inquiry-form-pair">
+                  {operation === "quote" ? (
+                    <>
+                      <div className="inquiry-form-pair">
+                        <label>
+                          <span>报价金额</span>
+                          <input
+                            {...fieldAccessibilityProps(state, "quoteAmount")}
+                            inputMode="decimal"
+                            max="9999999999999999.99"
+                            min="0.01"
+                            name="quoteAmount"
+                            placeholder="2880.00"
+                            required
+                            step="0.01"
+                            type="number"
+                          />
+                          <LifecycleFieldError
+                            field="quoteAmount"
+                            state={state}
+                          />
+                        </label>
+                        <label>
+                          <span>币种</span>
+                          <select
+                            {...fieldAccessibilityProps(state, "quoteCurrency")}
+                            defaultValue="USD"
+                            name="quoteCurrency"
+                          >
+                            <option value="USD">USD</option>
+                            <option value="EUR">EUR</option>
+                            <option value="CNY">CNY</option>
+                          </select>
+                          <LifecycleFieldError
+                            field="quoteCurrency"
+                            state={state}
+                          />
+                        </label>
+                      </div>
+                      <label>
+                        <span>有效期</span>
+                        <input
+                          {...fieldAccessibilityProps(state, "quoteValidUntil")}
+                          name="quoteValidUntil"
+                          required
+                          type="date"
+                        />
+                        <LifecycleFieldError
+                          field="quoteValidUntil"
+                          state={state}
+                        />
+                      </label>
+                    </>
+                  ) : null}
+
+                  {operation === "correction" ? (
                     <label>
-                      <span>报价金额</span>
-                      <input
-                        {...fieldAccessibilityProps(state, "quoteAmount")}
-                        inputMode="decimal"
-                        max="9999999999999999.99"
-                        min="0.01"
-                        name="quoteAmount"
-                        placeholder="2880.00"
-                        required
-                        step="0.01"
-                        type="number"
-                      />
-                      <LifecycleFieldError field="quoteAmount" state={state} />
-                    </label>
-                    <label>
-                      <span>币种</span>
+                      <span>需要更正的记录</span>
                       <select
-                        {...fieldAccessibilityProps(state, "quoteCurrency")}
-                        defaultValue="USD"
-                        name="quoteCurrency"
+                        {...fieldAccessibilityProps(state, "correctionOfId")}
+                        defaultValue=""
+                        name="correctionOfId"
+                        required
                       >
-                        <option value="USD">USD</option>
-                        <option value="EUR">EUR</option>
-                        <option value="CNY">CNY</option>
+                        <option disabled value="">
+                          选择一条既有记录
+                        </option>
+                        {correctableRecords.map((record) => (
+                          <option key={record.id} value={record.id}>
+                            {record.label}
+                          </option>
+                        ))}
                       </select>
                       <LifecycleFieldError
-                        field="quoteCurrency"
+                        field="correctionOfId"
                         state={state}
                       />
                     </label>
-                  </div>
-                  <label>
-                    <span>有效期</span>
-                    <input
-                      {...fieldAccessibilityProps(state, "quoteValidUntil")}
-                      name="quoteValidUntil"
-                      required
-                      type="date"
-                    />
-                    <LifecycleFieldError
-                      field="quoteValidUntil"
-                      state={state}
-                    />
-                  </label>
-                </>
-              ) : null}
+                  ) : null}
 
-              {operation === "correction" ? (
-                <label>
-                  <span>需要更正的记录</span>
-                  <select
-                    {...fieldAccessibilityProps(state, "correctionOfId")}
-                    defaultValue=""
-                    name="correctionOfId"
-                    required
-                  >
-                    <option disabled value="">
-                      选择一条既有记录
-                    </option>
-                    {correctableRecords.map((record) => (
-                      <option key={record.id} value={record.id}>
-                        {record.label}
-                      </option>
-                    ))}
-                  </select>
-                  <LifecycleFieldError field="correctionOfId" state={state} />
-                </label>
-              ) : null}
+                  {operation === "close" ? (
+                    <fieldset
+                      {...fieldAccessibilityProps(state, "closeResult")}
+                      className="inquiry-close-results"
+                    >
+                      <legend>关闭结果</legend>
+                      <label>
+                        <input
+                          name="closeResult"
+                          required
+                          type="radio"
+                          value="won"
+                        />
+                        成交
+                      </label>
+                      <label>
+                        <input
+                          name="closeResult"
+                          required
+                          type="radio"
+                          value="lost"
+                        />
+                        未成交
+                      </label>
+                      <label>
+                        <input
+                          name="closeResult"
+                          required
+                          type="radio"
+                          value="invalid"
+                        />
+                        无效
+                      </label>
+                      <LifecycleFieldError field="closeResult" state={state} />
+                    </fieldset>
+                  ) : null}
 
-              {operation === "close" ? (
-                <fieldset
-                  {...fieldAccessibilityProps(state, "closeResult")}
-                  className="inquiry-close-results"
-                >
-                  <legend>关闭结果</legend>
-                  <label>
-                    <input
-                      name="closeResult"
-                      required
-                      type="radio"
-                      value="won"
-                    />
-                    成交
-                  </label>
-                  <label>
-                    <input
-                      name="closeResult"
-                      required
-                      type="radio"
-                      value="lost"
-                    />
-                    未成交
-                  </label>
-                  <label>
-                    <input
-                      name="closeResult"
-                      required
-                      type="radio"
-                      value="invalid"
-                    />
-                    无效
-                  </label>
-                  <LifecycleFieldError field="closeResult" state={state} />
-                </fieldset>
-              ) : null}
+                  {operation === "close" || operation === "reopen" ? (
+                    <label>
+                      <span>
+                        {operation === "close" ? "关闭说明" : "重开说明"}
+                        （选填）
+                      </span>
+                      <textarea
+                        {...fieldAccessibilityProps(state, "reason")}
+                        maxLength={1_000}
+                        minLength={2}
+                        name="reason"
+                        placeholder="记录本次状态变更的业务原因"
+                        rows={5}
+                      />
+                      <LifecycleFieldError field="reason" state={state} />
+                    </label>
+                  ) : (
+                    <>
+                      <label>
+                        <span>摘要</span>
+                        <textarea
+                          {...fieldAccessibilityProps(state, "summary")}
+                          maxLength={2_000}
+                          minLength={2}
+                          name="summary"
+                          placeholder="记录已经发生的事实，不要覆盖既有历史"
+                          required
+                          rows={5}
+                        />
+                        <LifecycleFieldError field="summary" state={state} />
+                      </label>
+                      <label>
+                        <span>下一步日期（选填）</span>
+                        <input
+                          {...fieldAccessibilityProps(state, "nextStepDate")}
+                          name="nextStepDate"
+                          type="date"
+                        />
+                        <LifecycleFieldError
+                          field="nextStepDate"
+                          state={state}
+                        />
+                      </label>
+                    </>
+                  )}
 
-              {operation === "close" || operation === "reopen" ? (
-                <label>
-                  <span>
-                    {operation === "close" ? "关闭说明" : "重开说明"}（选填）
-                  </span>
-                  <textarea
-                    {...fieldAccessibilityProps(state, "reason")}
-                    maxLength={1_000}
-                    minLength={2}
-                    name="reason"
-                    placeholder="记录本次状态变更的业务原因"
-                    rows={5}
-                  />
-                  <LifecycleFieldError field="reason" state={state} />
-                </label>
-              ) : (
-                <>
-                  <label>
-                    <span>摘要</span>
-                    <textarea
-                      {...fieldAccessibilityProps(state, "summary")}
-                      maxLength={2_000}
-                      minLength={2}
-                      name="summary"
-                      placeholder="记录已经发生的事实，不要覆盖既有历史"
-                      required
-                      rows={5}
-                    />
-                    <LifecycleFieldError field="summary" state={state} />
-                  </label>
-                  <label>
-                    <span>下一步日期（选填）</span>
-                    <input
-                      {...fieldAccessibilityProps(state, "nextStepDate")}
-                      name="nextStepDate"
-                      type="date"
-                    />
-                    <LifecycleFieldError field="nextStepDate" state={state} />
-                  </label>
-                </>
-              )}
-
-              <footer>
-                <button
-                  className="admin-secondary-button"
-                  onClick={closeDrawer}
-                  type="button"
-                >
-                  取消
-                </button>
-                <button
-                  className="admin-primary-button"
-                  disabled={pending}
-                  type="submit"
-                >
-                  {pending ? "正在保存…" : definition.label}
-                </button>
-              </footer>
-            </form>
-          </section>
+                  <footer>
+                    <button
+                      className="admin-secondary-button"
+                      onClick={closeDrawer}
+                      type="button"
+                    >
+                      取消
+                    </button>
+                    <button
+                      className="admin-primary-button"
+                      disabled={pending}
+                      type="submit"
+                    >
+                      {pending ? "正在保存…" : definition.label}
+                    </button>
+                  </footer>
+                </form>
+              </section>
+            )}
+          </LifecycleActionStateBoundary>
         ) : null}
       </dialog>
     </>
