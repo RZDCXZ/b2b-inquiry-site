@@ -36,7 +36,7 @@ async function createInquiry(page: Page, projectName: string): Promise<string> {
       workEmail: `assignment-${projectName}@example.com`,
     },
     headers: {
-      "x-forwarded-for": `${projectName}:assignment-owner-privacy`,
+      "x-forwarded-for": `${projectName}:${token.slice(0, 12)}:assignment-owner-privacy`,
     },
     maxRedirects: 0,
   });
@@ -103,6 +103,17 @@ test("首次分配、并发冲突、重新分配和内容编辑隐私边界", as
     ),
   ).toBeVisible();
 
+  const assignmentTrigger = administratorPage.getByRole("button", {
+    name: "分配询盘",
+  });
+  await assignmentTrigger.click();
+  await expect(administratorPage.getByLabel("业务人员")).toBeFocused();
+  await administratorPage.keyboard.press("Escape");
+  await expect(
+    administratorPage.getByRole("dialog", { name: "分配当前负责人" }),
+  ).not.toBeVisible();
+  await expect(assignmentTrigger).toBeFocused();
+
   const staleAdministratorPage = await administratorContext.newPage();
   await staleAdministratorPage.goto(detailPath);
   await assignFromDetail(
@@ -123,9 +134,11 @@ test("首次分配、并发冲突、重新分配和内容编辑隐私边界", as
     "旧标签页重复分配",
     "分配询盘",
   );
-  await expect(
-    staleAdministratorPage.getByRole("alert").getByText("分配冲突"),
-  ).toBeVisible();
+  const conflictAlert = staleAdministratorPage
+    .getByRole("dialog", { name: "分配当前负责人" })
+    .getByRole("alert");
+  await expect(conflictAlert.getByText("分配冲突")).toBeVisible();
+  await expect(conflictAlert).toBeFocused();
   await expect(
     staleAdministratorPage.getByText(/最新修改人：陈屿/u),
   ).toBeVisible();

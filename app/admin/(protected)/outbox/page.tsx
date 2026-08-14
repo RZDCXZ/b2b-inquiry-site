@@ -5,20 +5,13 @@ import {
   AdminPageHeader,
   PermissionDenied,
 } from "@/src/components/admin/admin-page";
+import { formatAdminTime } from "@/src/components/admin/admin-time";
 import {
   PERMISSIONS,
   ROLE_LABELS,
 } from "@/src/modules/identity-access/public/permissions";
 import { authorizeAdminPage } from "@/src/modules/identity-access/server/authorization";
 import { listNotificationOutbox } from "@/src/modules/notifications/server/notification-outbox-query";
-
-function formatAdminTime(value: Date): string {
-  return value.toLocaleString("zh-CN", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: "Asia/Shanghai",
-  });
-}
 
 export default async function OutboxPage() {
   const { actor, allowed } = await authorizeAdminPage(

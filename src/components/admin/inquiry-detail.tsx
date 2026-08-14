@@ -10,20 +10,13 @@ import Link from "next/link";
 
 import type { getInquiryDetailForActor } from "@/src/application/admin-inquiries";
 import { AdminPageHeader } from "@/src/components/admin/admin-page";
+import { formatAdminTime } from "@/src/components/admin/admin-time";
 import { InquiryAssignmentForm } from "@/src/components/admin/inquiry-assignment-form";
 import { InquiryStatus } from "@/src/components/admin/inquiry-status";
 import type { AdminActor } from "@/src/modules/identity-access/public/actor";
 import { APP_ROLES } from "@/src/modules/identity-access/public/permissions";
 
 type InquiryDetailView = Awaited<ReturnType<typeof getInquiryDetailForActor>>;
-
-function formatAdminTime(value: Date): string {
-  return value.toLocaleString("zh-CN", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: "Asia/Shanghai",
-  });
-}
 
 function booleanLabel(value: boolean): string {
   return value ? "需要" : "不需要";

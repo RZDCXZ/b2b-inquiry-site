@@ -23,10 +23,30 @@ const roleDashboard = {
       ["审计日志", "查看登录与关键变更", "/admin/audit", LockKey],
     ],
     summaries: [
-      ["待分配询盘", "尚无数据", "当前本地演示没有可统计的询盘"],
-      ["今日到期跟进", "尚无数据", "当前本地演示没有到期任务"],
-      ["已报价待处理", "尚无数据", "当前本地演示没有报价记录"],
-      ["最近导入批次", "尚无数据", "当前本地演示没有导入记录"],
+      {
+        detail: "当前本地演示没有可统计的询盘",
+        kind: "inquiry",
+        label: "待分配询盘",
+        value: "尚无数据",
+      },
+      {
+        detail: "当前本地演示没有到期任务",
+        kind: "static",
+        label: "今日到期跟进",
+        value: "尚无数据",
+      },
+      {
+        detail: "当前本地演示没有报价记录",
+        kind: "static",
+        label: "已报价待处理",
+        value: "尚无数据",
+      },
+      {
+        detail: "当前本地演示没有导入记录",
+        kind: "static",
+        label: "最近导入批次",
+        value: "尚无数据",
+      },
     ],
     title: "需要处理的工作",
   },
@@ -39,9 +59,24 @@ const roleDashboard = {
       ["内容发布", "预览并形成发布版本", "/admin/content", BookOpenText],
     ],
     summaries: [
-      ["询盘脱敏汇总", "尚无数据", "不会显示完整联系方式或留言"],
-      ["内容待办", "尚无数据", "当前本地演示没有内容任务"],
-      ["最近导入", "尚无数据", "当前本地演示没有导入记录"],
+      {
+        detail: "不会显示完整联系方式或留言",
+        kind: "inquiry",
+        label: "询盘脱敏汇总",
+        value: "尚无数据",
+      },
+      {
+        detail: "当前本地演示没有内容任务",
+        kind: "static",
+        label: "内容待办",
+        value: "尚无数据",
+      },
+      {
+        detail: "当前本地演示没有导入记录",
+        kind: "static",
+        label: "最近导入",
+        value: "尚无数据",
+      },
     ],
     title: "内容运营待办",
   },
@@ -53,8 +88,18 @@ const roleDashboard = {
       ["权限说明", "了解当前负责人数据边界", "/admin/access", LockKey],
     ],
     summaries: [
-      ["我的询盘", "尚无数据", "只统计当前分配给你的询盘"],
-      ["我的下一步", "尚无数据", "当前本地演示没有到期任务"],
+      {
+        detail: "只统计当前分配给你的询盘",
+        kind: "inquiry",
+        label: "我的询盘",
+        value: "尚无数据",
+      },
+      {
+        detail: "当前本地演示没有到期任务",
+        kind: "static",
+        label: "我的下一步",
+        value: "尚无数据",
+      },
     ],
     title: "我的询盘与下一步",
   },
@@ -83,11 +128,11 @@ export function Dashboard({
         title={dashboard.title}
       />
       <section className="admin-summary-grid" aria-label="当前角色摘要">
-        {dashboard.summaries.map(([label, value, detail], index) => (
+        {dashboard.summaries.map(({ detail, kind, label, value }) => (
           <article key={label}>
             <span>{label}</span>
-            <strong>{index === 0 ? `${inquiryTotal} 张` : value}</strong>
-            <small>{index === 0 ? inquirySummaryDetail : detail}</small>
+            <strong>{kind === "inquiry" ? `${inquiryTotal} 张` : value}</strong>
+            <small>{kind === "inquiry" ? inquirySummaryDetail : detail}</small>
           </article>
         ))}
       </section>

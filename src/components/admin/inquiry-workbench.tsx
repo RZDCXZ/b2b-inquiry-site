@@ -6,19 +6,12 @@ import {
   AdminPageHeader,
   AdminSection,
 } from "@/src/components/admin/admin-page";
+import { formatAdminTime } from "@/src/components/admin/admin-time";
 import { InquiryStatus } from "@/src/components/admin/inquiry-status";
 import type { AdminActor } from "@/src/modules/identity-access/public/actor";
 import { APP_ROLES } from "@/src/modules/identity-access/public/permissions";
 
 type InquiryList = Awaited<ReturnType<typeof listInquiriesForActor>>;
-
-function formatAdminTime(value: Date): string {
-  return value.toLocaleString("zh-CN", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: "Asia/Shanghai",
-  });
-}
 
 function sourceLabel(sourcePage: string): string {
   return sourcePage.includes("/products/") ? "产品详情" : "通用询盘";

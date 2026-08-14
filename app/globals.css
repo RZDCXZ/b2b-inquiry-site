@@ -1195,12 +1195,25 @@ select {
   font-size: 11px;
 }
 
-.admin-drawer-backdrop {
+.admin-drawer-dialog {
   position: fixed;
   inset: 0;
-  z-index: 60;
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  max-height: none;
+  margin: 0;
+  border: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.admin-drawer-dialog[open] {
   display: flex;
   justify-content: flex-end;
+}
+
+.admin-drawer-dialog::backdrop {
   background: rgb(13 28 40 / 48%);
 }
 
