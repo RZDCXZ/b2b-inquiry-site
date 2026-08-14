@@ -48,6 +48,28 @@ enum InquiryInterfaceLanguage {
 enum InquiryStatus {
   pending_assignment
   assigned
+  in_progress
+  quoted
+  closed
+}
+
+enum InquiryFollowUpType {
+  contact
+  quote
+  internal_note
+  correction
+}
+
+enum InquiryQuoteCurrency {
+  USD
+  EUR
+  CNY
+}
+
+enum InquiryCloseResult {
+  won
+  lost
+  invalid
 }
 
 model User {
@@ -67,6 +89,8 @@ model User {
   inquiryAssignmentsMade    InquiryAssignment[]        @relation("InquiryAssignmentActor")
   inquiryAssignmentsFrom    InquiryAssignment[]        @relation("InquiryAssignmentPreviousOwner")
   inquiryAssignmentsTo      InquiryAssignment[]        @relation("InquiryAssignmentNewOwner")
+  inquiryFollowUps          InquiryFollowUp[]
+  inquiryStatusChanges      InquiryStatusChange[]
   notificationOutboxRecords NotificationOutboxRecord[]
 
   @@map("user")
@@ -384,6 +408,9 @@ model Inquiry {
   sourcePage            String                     @map("source_page")
   interfaceLanguage     InquiryInterfaceLanguage   @map("interface_language")
   submittedAt           DateTime                   @map("submitted_at")
+  nextStepDate          DateTime?                  @db.Date @map("next_step_date")
+  closeResult           InquiryCloseResult?        @map("close_result")
+  closedAt              DateTime?                  @map("closed_at")
   version               Int                        @default(1)
   updatedAt             DateTime                   @default(now()) @updatedAt @map("updated_at")
   submission            InquirySubmission          @relation(fields: [submissionId], references: [id], onDelete: Restrict)
@@ -391,12 +418,63 @@ model Inquiry {
   currentOwner          User?                      @relation("InquiryCurrentOwner", fields: [currentOwnerId], references: [id], onDelete: Restrict)
   lastModifiedBy        User?                      @relation("InquiryLastModifier", fields: [lastModifiedByUserId], references: [id], onDelete: Restrict)
   assignmentHistory     InquiryAssignment[]
+  followUps             InquiryFollowUp[]
+  statusChanges         InquiryStatusChange[]
   notifications         NotificationOutboxRecord[]
 
   @@index([status, submittedAt])
   @@index([productId])
   @@index([currentOwnerId, status, submittedAt])
   @@map("inquiry")
+}
+
+model InquiryFollowUp {
+  id              String               @id @default(uuid())
+  inquiryId       String               @map("inquiry_id")
+  actorUserId     String               @map("actor_user_id")
+  type            InquiryFollowUpType
+  summary         String
+  occurredAt      DateTime             @map("occurred_at")
+  createdAt       DateTime             @default(now()) @map("created_at")
+  nextStepDate    DateTime?            @db.Date @map("next_step_date")
+  quoteAmount     Decimal?             @db.Decimal(18, 2) @map("quote_amount")
+  quoteCurrency   InquiryQuoteCurrency? @map("quote_currency")
+  quoteValidUntil DateTime?            @db.Date @map("quote_valid_until")
+  correctionOfId  String?              @map("correction_of_id")
+  statusBefore    InquiryStatus        @map("status_before")
+  statusAfter     InquiryStatus        @map("status_after")
+  fromVersion     Int                  @map("from_version")
+  toVersion       Int                  @map("to_version")
+  inquiry         Inquiry              @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
+  actor           User                 @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
+  correctionOf    InquiryFollowUp?     @relation("InquiryFollowUpCorrections", fields: [correctionOfId, inquiryId], references: [id, inquiryId], onDelete: Restrict)
+  corrections     InquiryFollowUp[]    @relation("InquiryFollowUpCorrections")
+
+  @@unique([id, inquiryId])
+  @@unique([inquiryId, toVersion])
+  @@index([inquiryId, occurredAt])
+  @@index([actorUserId])
+  @@map("inquiry_follow_up")
+}
+
+model InquiryStatusChange {
+  id          String              @id @default(uuid())
+  inquiryId   String              @map("inquiry_id")
+  actorUserId String              @map("actor_user_id")
+  fromStatus  InquiryStatus       @map("from_status")
+  toStatus    InquiryStatus       @map("to_status")
+  closeResult InquiryCloseResult? @map("close_result")
+  reason      String?
+  occurredAt  DateTime            @map("occurred_at")
+  fromVersion Int                 @map("from_version")
+  toVersion   Int                 @map("to_version")
+  inquiry     Inquiry             @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
+  actor       User                @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@unique([inquiryId, toVersion])
+  @@index([inquiryId, occurredAt])
+  @@index([actorUserId])
+  @@map("inquiry_status_change")
 }
 
 model InquiryAssignment {

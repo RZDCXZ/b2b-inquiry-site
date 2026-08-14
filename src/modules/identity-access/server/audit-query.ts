@@ -13,6 +13,15 @@ export type AuditLogView = {
   target: string;
 };
 
+const auditActionLabels: Record<string, string> = {
+  INQUIRY_ASSIGNED: "分配询盘",
+  INQUIRY_CLOSED: "关闭询盘",
+  INQUIRY_FOLLOW_UP_ADDED: "追加跟进记录",
+  INQUIRY_REASSIGNED: "重新分配询盘",
+  INQUIRY_REOPENED: "重新打开询盘",
+  LOGIN: "后台登录",
+};
+
 export async function listRecentAuditLogs(
   take: number,
 ): Promise<AuditLogView[]> {
@@ -29,14 +38,7 @@ export async function listRecentAuditLogs(
     const succeeded = record.outcome === "SUCCESS";
 
     return {
-      action:
-        record.event === "LOGIN"
-          ? "后台登录"
-          : record.event === "INQUIRY_ASSIGNED"
-            ? "分配询盘"
-            : record.event === "INQUIRY_REASSIGNED"
-              ? "重新分配询盘"
-              : record.event,
+      action: auditActionLabels[record.event] ?? record.event,
       id: record.id,
       occurredAt: record.createdAt,
       operator: record.actor?.name ?? "未识别账号",

@@ -5,6 +5,7 @@ import {
 } from "@/src/infrastructure/database/prisma";
 import type { AdminActor } from "@/src/modules/identity-access/public/actor";
 import { APP_ROLES } from "@/src/modules/identity-access/public/permissions";
+import { transitionInquiryStatus } from "@/src/modules/inquiry-operations/public/inquiry-lifecycle";
 
 export type InquiryAssignmentConflict = {
   latestModifiedAt: Date;
@@ -19,6 +20,7 @@ export class InquiryAssignmentError extends Error {
       | "FORBIDDEN"
       | "INVALID_OWNER"
       | "INVALID_REASON"
+      | "INVALID_STATUS"
       | "NOT_FOUND"
       | "OWNER_UNCHANGED",
     readonly conflict?: InquiryAssignmentConflict,
@@ -48,6 +50,13 @@ const inquiryDetailInclude = {
     orderBy: [{ assignedAt: "desc" }, { id: "desc" }],
   },
   currentOwner: { select: { id: true, name: true } },
+  followUps: {
+    include: {
+      actor: { select: { id: true, name: true } },
+      correctionOf: { select: { id: true, type: true } },
+    },
+    orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
+  },
   lastModifiedBy: { select: { id: true, name: true } },
   product: {
     select: {
@@ -62,6 +71,10 @@ const inquiryDetailInclude = {
       imagePath: true,
       partNumber: true,
     },
+  },
+  statusChanges: {
+    include: { actor: { select: { id: true, name: true } } },
+    orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
   },
 } satisfies Prisma.InquiryInclude;
 
@@ -121,6 +134,7 @@ export async function listInquiriesForActor({
       countryRegion: true,
       currentOwner: { select: { id: true, name: true } },
       interfaceLanguage: true,
+      nextStepDate: true,
       product: { select: { partNumber: true } },
       referenceNumber: true,
       sourcePage: true,
@@ -233,6 +247,7 @@ export async function assignInquiry({
           currentOwnerId: true,
           id: true,
           referenceNumber: true,
+          status: true,
           version: true,
         },
         where: { referenceNumber },
@@ -262,11 +277,20 @@ export async function assignInquiry({
       throw new InquiryAssignmentError("OWNER_UNCHANGED");
     }
 
+    const transition = transitionInquiryStatus(
+      inquiry.status,
+      inquiry.currentOwnerId ? "reassign" : "assign",
+    );
+
+    if (!transition.allowed) {
+      throw new InquiryAssignmentError("INVALID_STATUS");
+    }
+
     const update = await transaction.inquiry.updateMany({
       data: {
         currentOwnerId: newOwner.id,
         lastModifiedByUserId: actor.id,
-        status: "assigned",
+        status: transition.status,
         updatedAt: now,
         version: { increment: 1 },
       },

@@ -6,7 +6,10 @@ import {
   AdminPageHeader,
   AdminSection,
 } from "@/src/components/admin/admin-page";
-import { formatAdminTime } from "@/src/components/admin/admin-time";
+import {
+  formatAdminDate,
+  formatAdminTime,
+} from "@/src/components/admin/admin-time";
 import { InquiryStatus } from "@/src/components/admin/inquiry-status";
 import type { AdminActor } from "@/src/modules/identity-access/public/actor";
 import { APP_ROLES } from "@/src/modules/identity-access/public/permissions";
@@ -74,6 +77,7 @@ export function InquiryWorkbench({
                   <th>状态</th>
                   <th>当前负责人</th>
                   <th>来源</th>
+                  <th>下一步</th>
                   <th>提交时间</th>
                   <th aria-label="打开详情" />
                 </tr>
@@ -99,6 +103,11 @@ export function InquiryWorkbench({
                       </td>
                       <td>{inquiry.currentOwner?.name ?? "—"}</td>
                       <td>{sourceLabel(inquiry.sourcePage)}</td>
+                      <td>
+                        {inquiry.nextStepDate
+                          ? formatAdminDate(inquiry.nextStepDate)
+                          : "—"}
+                      </td>
                       <td>{formatAdminTime(inquiry.submittedAt)}</td>
                       <td>
                         <Link

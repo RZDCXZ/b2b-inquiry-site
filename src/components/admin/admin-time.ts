@@ -5,3 +5,10 @@ export function formatAdminTime(value: Date): string {
     timeZone: "Asia/Shanghai",
   });
 }
+
+export function formatAdminDate(value: Date): string {
+  return value.toLocaleDateString("zh-CN", {
+    dateStyle: "medium",
+    timeZone: "Asia/Shanghai",
+  });
+}

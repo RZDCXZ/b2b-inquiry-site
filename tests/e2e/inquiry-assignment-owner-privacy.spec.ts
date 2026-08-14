@@ -17,36 +17,46 @@ async function login(
 }
 
 async function createInquiry(page: Page, projectName: string): Promise<string> {
-  await page.goto("/en/inquiry");
-  const token = await page.locator('input[name="token"]').inputValue();
-  await page.waitForTimeout(3_100);
-  const response = await page.request.post("/api/inquiries", {
-    form: {
-      company: `Assignment ${projectName}`,
-      contactName: "Maya Assignment",
-      countryRegion: "Singapore",
-      expectedQuantity: "240 pieces quarterly",
-      honeypot: "",
-      locale: "en",
-      message: "Private owner-only assignment browser fixture.",
-      phoneOrWhatsapp: "+65 6000 4827",
-      privacyConsent: "on",
-      targetMarket: "Southeast Asia",
-      token,
-      workEmail: `assignment-${projectName}@example.com`,
-    },
-    headers: {
-      "x-forwarded-for": `${projectName}:${token.slice(0, 12)}:assignment-owner-privacy`,
-    },
-    maxRedirects: 0,
-  });
+  let lastLocation = "missing Location header";
 
-  expect(response.status()).toBe(303);
-  const location = response.headers().location;
-  expect(location).toBeTruthy();
-  const referenceNumber = new URL(location!).searchParams.get("reference");
-  expect(referenceNumber).toMatch(/^TQI(?:-[A-Z2-9]{4}){4}$/u);
-  return referenceNumber!;
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    await page.goto("/en/inquiry");
+    const token = await page.locator('input[name="token"]').inputValue();
+    await page.waitForTimeout(3_100);
+    const response = await page.request.post("/api/inquiries", {
+      form: {
+        company: `Assignment ${projectName}`,
+        contactName: "Maya Assignment",
+        countryRegion: "Singapore",
+        expectedQuantity: "240 pieces quarterly",
+        honeypot: "",
+        locale: "en",
+        message: "Private owner-only assignment browser fixture.",
+        phoneOrWhatsapp: "+65 6000 4827",
+        privacyConsent: "on",
+        targetMarket: "Southeast Asia",
+        token,
+        workEmail: `assignment-${projectName}@example.com`,
+      },
+      headers: {
+        "x-forwarded-for": `${projectName}:${attempt}:${token.slice(0, 12)}:assignment-owner-privacy`,
+      },
+      maxRedirects: 0,
+    });
+
+    expect(response.status()).toBe(303);
+    lastLocation = response.headers().location ?? lastLocation;
+    const referenceNumber = new URL(lastLocation, page.url()).searchParams.get(
+      "reference",
+    );
+
+    if (referenceNumber) {
+      expect(referenceNumber).toMatch(/^TQI(?:-[A-Z2-9]{4}){4}$/u);
+      return referenceNumber;
+    }
+  }
+
+  throw new Error(`无法创建分配测试询盘；最后重定向：${lastLocation}`);
 }
 
 async function assignFromDetail(
