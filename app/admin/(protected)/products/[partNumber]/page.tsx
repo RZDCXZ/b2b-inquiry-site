@@ -41,11 +41,8 @@ export default async function ProductEditorPage({
   }
 
   const draft = result.draft;
-  const definitionById = new Map(
-    draft.category.specificationAttributes.map((definition) => [
-      definition.id,
-      definition,
-    ]),
+  const valueByAttributeId = new Map(
+    draft.specificationValues.map((value) => [value.attributeId, value]),
   );
   const view: ProductEditorDraftView = {
     categoryId: draft.categoryId,
@@ -85,22 +82,23 @@ export default async function ProductEditorPage({
     seoTitleZhCn: draft.seoTitleZhCn,
     slugEn: draft.slugEn,
     slugZhCn: draft.slugZhCn,
-    specifications: draft.specificationValues.map((value) => {
-      const definition = definitionById.get(value.attributeId);
+    specifications: draft.category.specificationAttributes.map((definition) => {
+      const value = valueByAttributeId.get(definition.id);
       return {
-        baseUnit: value.baseUnit,
-        booleanValue: value.booleanValue,
-        code: value.attributeCode,
-        dataType: value.dataType,
-        decimalValue: value.decimalValue?.toNumber() ?? null,
-        enumerationValue: value.enumerationValue,
-        label: value.nameZhCn,
-        options:
-          definition?.options.map((option) => ({
-            code: option.code,
-            label: option.labelZhCn,
-          })) ?? [],
-        textValue: value.textValue,
+        baseUnit: definition.baseUnit,
+        booleanValue: value?.booleanValue ?? null,
+        code: definition.code,
+        complete: !definition.required || value !== undefined,
+        dataType: definition.dataType,
+        decimalValue: value?.decimalValue?.toNumber() ?? null,
+        enumerationValue: value?.enumerationValue ?? null,
+        label: definition.nameZhCn,
+        options: definition.options.map((option) => ({
+          code: option.code,
+          label: option.labelZhCn,
+        })),
+        required: definition.required,
+        textValue: value?.textValue ?? null,
       };
     }),
     status: draft.status === "discontinued" ? "discontinued" : "published",

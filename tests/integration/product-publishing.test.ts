@@ -20,6 +20,11 @@ const contentEditor: AdminActor = {
   name: "王晴",
   role: "content_editor",
 };
+const administrator: AdminActor = {
+  id: "demo-user-administrator",
+  name: "陈屿",
+  role: "administrator",
+};
 
 function editableInput(
   draft: Awaited<ReturnType<typeof getProductDraft>>,
@@ -78,19 +83,31 @@ describe("产品草稿发布", () => {
       prisma,
     });
 
-    await expect(
-      publishProductDraft({
-        actor: contentEditor,
-        expectedDraftVersion: draft.version,
-        partNumber: "TQ-DF-9000",
-        prisma,
-      }),
-    ).rejects.toMatchObject({
-      code: "PUBLISH_VALIDATION_FAILED",
-      fieldErrors: expect.arrayContaining([
-        expect.objectContaining({ field: "nameZhCn" }),
-      ]),
-    });
+    try {
+      await prisma.productDraft.update({
+        data: { imagePath: "" },
+        where: { productId: draft.productId },
+      });
+      await expect(
+        publishProductDraft({
+          actor: contentEditor,
+          expectedDraftVersion: draft.version,
+          partNumber: "TQ-DF-9000",
+          prisma,
+        }),
+      ).rejects.toMatchObject({
+        code: "PUBLISH_VALIDATION_FAILED",
+        fieldErrors: expect.arrayContaining([
+          expect.objectContaining({ field: "imagePath" }),
+          expect.objectContaining({ field: "nameZhCn" }),
+        ]),
+      });
+    } finally {
+      await prisma.productDraft.update({
+        data: { imagePath: draft.imagePath },
+        where: { productId: draft.productId },
+      });
+    }
   });
 
   it("保存完整草稿后首次发布才改变前台公开表示", async () => {
@@ -168,6 +185,38 @@ describe("产品草稿发布", () => {
         }),
       ).resolves.toBeNull();
 
+      await prisma.productDraftSpecificationValue.update({
+        data: { decimalValue: 999_999 },
+        where: {
+          productId_attributeId: {
+            attributeId: "specification-fuel-outer_diameter",
+            productId: original.productId,
+          },
+        },
+      });
+      await expect(
+        publishProductDraft({
+          actor: contentEditor,
+          expectedDraftVersion: saved.version,
+          partNumber: "TQ-DF-9000",
+          prisma,
+        }),
+      ).rejects.toMatchObject({
+        code: "PUBLISH_VALIDATION_FAILED",
+        fieldErrors: expect.arrayContaining([
+          expect.objectContaining({ field: "specifications" }),
+        ]),
+      });
+      await prisma.productDraftSpecificationValue.update({
+        data: { decimalValue: 98 },
+        where: {
+          productId_attributeId: {
+            attributeId: "specification-fuel-outer_diameter",
+            productId: original.productId,
+          },
+        },
+      });
+
       const published = await publishProductDraft({
         actor: contentEditor,
         expectedDraftVersion: saved.version,
@@ -200,12 +249,38 @@ describe("产品草稿发布", () => {
         fitmentSummaryEn: "Selected Northline commercial vehicles.",
         references: [{ brand: "Novera", referenceNumber: "NDF-9000" }],
         seoTitleEn: "Draft Fuel Filter | Torquelis Filters",
+        sealedAt: new Date("2026-08-14T08:05:00.000Z"),
         sourceDraftVersion: saved.version,
         specificationValues: expect.arrayContaining([
           expect.objectContaining({ attributeCode: "outer_diameter" }),
         ]),
         version: 1,
       });
+      await expect(
+        prisma.productPublication.update({
+          data: { summaryEn: "A sealed version must reject this update." },
+          where: { id: publicationId },
+        }),
+      ).rejects.toThrow();
+      await expect(
+        prisma.productReference.create({
+          data: {
+            brand: "Blocked",
+            id: "reference-sealed-insert-blocked",
+            publicationId,
+            referenceNumber: "BLOCKED-1",
+          },
+        }),
+      ).rejects.toThrow();
+      await expect(
+        prisma.productReference.deleteMany({ where: { publicationId } }),
+      ).rejects.toThrow();
+      await expect(
+        prisma.productReference.updateMany({
+          data: { brand: "Blocked" },
+          where: { publicationId },
+        }),
+      ).rejects.toThrow();
       await expect(
         prisma.auditLog.findFirst({
           orderBy: { createdAt: "desc" },
@@ -217,6 +292,13 @@ describe("产品草稿发布", () => {
       });
     } finally {
       await prisma.$transaction(async (transaction) => {
+        await transaction.$executeRaw`
+          SELECT set_config(
+            'torquelis.allow_product_publication_mutation',
+            'on',
+            true
+          )
+        `;
         await transaction.product.update({
           data: {
             categoryId: original.categoryId,
@@ -324,6 +406,11 @@ describe("产品草稿发布", () => {
           prisma,
         }),
       ).resolves.toMatchObject({ name: "Version Two Fuel Filter" });
+      await expect(
+        prisma.productPublication.delete({
+          where: { id: original.currentPublicationId! },
+        }),
+      ).rejects.toThrow();
 
       const restored = await restoreProductPublication({
         actor: contentEditor,
@@ -379,6 +466,13 @@ describe("产品草稿发布", () => {
       });
     } finally {
       await prisma.$transaction(async (transaction) => {
+        await transaction.$executeRaw`
+          SELECT set_config(
+            'torquelis.allow_product_publication_mutation',
+            'on',
+            true
+          )
+        `;
         await transaction.product.update({
           data: {
             categoryId: original.categoryId,
@@ -477,42 +571,54 @@ describe("产品草稿发布", () => {
     }
   });
 
-  it("旧草稿版本保存被拒绝并返回最新修改人和时间", async () => {
+  it("两个窗口同时保存时旧草稿版本被拒绝并返回最新修改人和时间", async () => {
     const original = await getProductDraft({
       actor: contentEditor,
       partNumber: "TQ-FL-4827",
       prisma,
     });
-    const modifiedAt = new Date("2026-08-14T10:00:00.000Z");
+    const attempts = [
+      {
+        actor: contentEditor,
+        now: new Date("2026-08-14T10:00:00.000Z"),
+        summary: "由内容编辑窗口保存的草稿。",
+      },
+      {
+        actor: administrator,
+        now: new Date("2026-08-14T10:01:00.000Z"),
+        summary: "由管理员窗口保存的草稿。",
+      },
+    ] as const;
 
     try {
-      const latest = await saveProductDraft({
-        actor: contentEditor,
-        expectedDraftVersion: original.version,
-        input: editableInput(original, {
-          summaryZhCn: "由第一个编辑窗口保存的较新草稿。",
-        }),
-        now: modifiedAt,
-        partNumber: original.partNumber,
-        prisma,
-      });
-
-      await expect(
-        saveProductDraft({
-          actor: contentEditor,
-          expectedDraftVersion: original.version,
-          input: editableInput(original, {
-            summaryZhCn: "来自旧编辑窗口、不得覆盖较新内容。",
+      const results = await Promise.allSettled(
+        attempts.map((attempt) =>
+          saveProductDraft({
+            actor: attempt.actor,
+            expectedDraftVersion: original.version,
+            input: editableInput(original, {
+              summaryZhCn: attempt.summary,
+            }),
+            now: attempt.now,
+            partNumber: original.partNumber,
+            prisma,
           }),
-          partNumber: original.partNumber,
-          prisma,
-        }),
-      ).rejects.toMatchObject({
+        ),
+      );
+      const winnerIndex = results.findIndex(
+        (result) => result.status === "fulfilled",
+      );
+      const loser = results.find((result) => result.status === "rejected");
+
+      expect(
+        results.filter(({ status }) => status === "fulfilled"),
+      ).toHaveLength(1);
+      expect((loser as PromiseRejectedResult).reason).toMatchObject({
         code: "CONFLICT",
         conflict: {
-          latestModifiedAt: modifiedAt,
-          latestModifiedBy: contentEditor.name,
-          latestVersion: latest.version,
+          latestModifiedAt: attempts[winnerIndex].now,
+          latestModifiedBy: attempts[winnerIndex].actor.name,
+          latestVersion: original.version + 1,
         },
       });
     } finally {

@@ -5172,3 +5172,43 @@ a.product-admin-row:hover {
     border-bottom: 1px solid var(--line);
   }
 }
+
+.product-confirm-dialog-backdrop {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgb(12 19 16 / 62%);
+}
+
+.product-confirm-dialog-backdrop > div {
+  width: min(100%, 500px);
+  padding: 28px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface);
+  box-shadow: 0 24px 70px rgb(12 19 16 / 28%);
+}
+
+.product-confirm-dialog-backdrop strong {
+  display: block;
+  margin-bottom: 10px;
+  color: var(--navy-900);
+  font-family: "Barlow Condensed", "Noto Sans SC", sans-serif;
+  font-size: 1.25rem;
+}
+
+.product-confirm-dialog-backdrop p {
+  margin: 0;
+  color: var(--graphite-600);
+  line-height: 1.65;
+}
+
+.product-confirm-dialog-backdrop > div > div {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 24px;
+}

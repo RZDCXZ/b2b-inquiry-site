@@ -122,6 +122,14 @@ const productFitments = [
 async function writeVehicleFitmentDemoData(
   transaction: Prisma.TransactionClient,
 ): Promise<void> {
+  await transaction.$executeRaw`
+    SELECT set_config(
+      'torquelis.allow_product_publication_mutation',
+      'on',
+      true
+    )
+  `;
+
   for (const make of vehicleMakes) {
     await transaction.vehicleMake.upsert({
       create: make,

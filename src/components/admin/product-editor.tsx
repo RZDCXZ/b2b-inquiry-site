@@ -30,12 +30,36 @@ type SpecificationEditorValue = {
   baseUnit: string | null;
   booleanValue: boolean | null;
   code: string;
+  complete: boolean;
   dataType: "boolean" | "decimal" | "enumeration" | "text";
   decimalValue: number | null;
   enumerationValue: string | null;
   label: string;
   options: Array<{ code: string; label: string }>;
+  required: boolean;
   textValue: string | null;
+};
+
+const productFieldLabels: Record<string, string> = {
+  descriptionEn: "English / 完整描述",
+  descriptionZhCn: "简体中文 / 完整描述",
+  fitmentSummaryEn: "English / 适配摘要",
+  fitmentSummaryZhCn: "简体中文 / 适配摘要",
+  imageAltEn: "English / 图片替代文本",
+  imageAltZhCn: "简体中文 / 图片替代文本",
+  imagePath: "图片与资料 / 产品图片路径",
+  nameEn: "English / 产品名称",
+  nameZhCn: "简体中文 / 产品名称",
+  references: "参考号",
+  seoDescriptionEn: "English / SEO 描述",
+  seoDescriptionZhCn: "简体中文 / SEO 描述",
+  seoTitleEn: "English / SEO 标题",
+  seoTitleZhCn: "简体中文 / SEO 标题",
+  slugEn: "English / 地址片段",
+  slugZhCn: "简体中文 / 地址片段",
+  specifications: "分类规格",
+  summaryEn: "English / 短描述",
+  summaryZhCn: "简体中文 / 短描述",
 };
 
 export type ProductEditorDraftView = {
@@ -80,7 +104,13 @@ export type ProductEditorDraftView = {
   version: number;
 };
 
-function MutationFeedback({ state }: { state: ProductMutationState }) {
+function MutationFeedback({
+  onFieldNavigate,
+  state,
+}: {
+  onFieldNavigate?: (field: string) => void;
+  state: ProductMutationState;
+}) {
   if (state.status === "idle") {
     return null;
   }
@@ -109,7 +139,11 @@ function MutationFeedback({ state }: { state: ProductMutationState }) {
         {state.fieldErrors && Object.keys(state.fieldErrors).length > 0 ? (
           <ul>
             {Object.entries(state.fieldErrors).map(([field, message]) => (
-              <li key={field}>{message}</li>
+              <li key={field}>
+                <a href={"#" + field} onClick={() => onFieldNavigate?.(field)}>
+                  {productFieldLabels[field] ?? field}：{message}
+                </a>
+              </li>
             ))}
           </ul>
         ) : null}
@@ -118,7 +152,13 @@ function MutationFeedback({ state }: { state: ProductMutationState }) {
   );
 }
 
-function PublishControls({ draft }: { draft: ProductEditorDraftView }) {
+function PublishControls({
+  draft,
+  onFieldNavigate,
+}: {
+  draft: ProductEditorDraftView;
+  onFieldNavigate: (field: string) => void;
+}) {
   const [state, action, pending] = useActionState(
     publishProductDraftAction,
     initialProductMutationState,
@@ -164,7 +204,7 @@ function PublishControls({ draft }: { draft: ProductEditorDraftView }) {
           {pending ? "发布中…" : "发布产品"}
         </button>
       </form>
-      <MutationFeedback state={state} />
+      <MutationFeedback onFieldNavigate={onFieldNavigate} state={state} />
     </div>
   );
 }
@@ -176,6 +216,7 @@ function RestoreVersionButton({
   draft: ProductEditorDraftView;
   publicationId: string;
 }) {
+  const [confirming, setConfirming] = useState(false);
   const [state, action, pending] = useActionState(
     restoreProductPublicationAction,
     initialProductMutationState,
@@ -183,19 +224,53 @@ function RestoreVersionButton({
 
   return (
     <div className="product-version-action">
-      <form action={action}>
-        <input
-          name="expectedDraftVersion"
-          type="hidden"
-          value={draft.version}
-        />
-        <input name="partNumber" type="hidden" value={draft.partNumber} />
-        <input name="publicationId" type="hidden" value={publicationId} />
-        <button className="admin-secondary-button" disabled={pending}>
-          <ArrowCounterClockwise aria-hidden="true" />
-          {pending ? "恢复中…" : "恢复为新草稿"}
-        </button>
-      </form>
+      <button
+        className="admin-secondary-button"
+        disabled={pending}
+        onClick={() => setConfirming(true)}
+        type="button"
+      >
+        <ArrowCounterClockwise aria-hidden="true" /> 恢复为新草稿
+      </button>
+      {confirming ? (
+        <div className="product-confirm-dialog-backdrop">
+          <div aria-modal="true" role="alertdialog">
+            <strong>确认恢复这个发布版本？</strong>
+            <p>
+              当前未发布草稿会被替换；前台公开版本不会改变，仍需重新发布才会生效。
+            </p>
+            <div>
+              <button
+                className="admin-secondary-button"
+                onClick={() => setConfirming(false)}
+                type="button"
+              >
+                取消
+              </button>
+              <form action={action}>
+                <input
+                  name="expectedDraftVersion"
+                  type="hidden"
+                  value={draft.version}
+                />
+                <input
+                  name="partNumber"
+                  type="hidden"
+                  value={draft.partNumber}
+                />
+                <input
+                  name="publicationId"
+                  type="hidden"
+                  value={publicationId}
+                />
+                <button className="admin-primary-button" disabled={pending}>
+                  {pending ? "恢复中…" : "确认恢复为新草稿"}
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      ) : null}
       <MutationFeedback state={state} />
     </div>
   );
@@ -203,6 +278,7 @@ function RestoreVersionButton({
 
 function DeleteDraftButton({ draft }: { draft: ProductEditorDraftView }) {
   const router = useRouter();
+  const [confirming, setConfirming] = useState(false);
   const [state, action, pending] = useActionState(
     deleteProductDraftAction,
     initialProductMutationState,
@@ -215,22 +291,53 @@ function DeleteDraftButton({ draft }: { draft: ProductEditorDraftView }) {
   }, [router, state.status]);
 
   return (
-    <form action={action} className="product-delete-form">
-      <input name="expectedDraftVersion" type="hidden" value={draft.version} />
-      <input name="partNumber" type="hidden" value={draft.partNumber} />
+    <div className="product-delete-form">
       <button
         className="admin-danger-button"
         disabled={pending || draft.publications.length > 0}
-        type="submit"
+        onClick={() => setConfirming(true)}
+        type="button"
       >
         <Trash aria-hidden="true" />
-        {pending ? "删除中…" : "永久删除未发布草稿"}
+        永久删除未发布草稿
       </button>
       {draft.publications.length > 0 ? (
         <small>已有发布历史的产品不能硬删除。</small>
       ) : null}
+      {confirming ? (
+        <div className="product-confirm-dialog-backdrop">
+          <div aria-modal="true" role="alertdialog">
+            <strong>永久删除这个草稿？</strong>
+            <p>此操作不可撤销；服务端会再次确认它没有发布历史或业务引用。</p>
+            <div>
+              <button
+                className="admin-secondary-button"
+                onClick={() => setConfirming(false)}
+                type="button"
+              >
+                取消
+              </button>
+              <form action={action}>
+                <input
+                  name="expectedDraftVersion"
+                  type="hidden"
+                  value={draft.version}
+                />
+                <input
+                  name="partNumber"
+                  type="hidden"
+                  value={draft.partNumber}
+                />
+                <button className="admin-danger-button" disabled={pending}>
+                  {pending ? "删除中…" : "确认永久删除"}
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      ) : null}
       <MutationFeedback state={state} />
-    </form>
+    </div>
   );
 }
 
@@ -250,6 +357,7 @@ function LanguageFields({
         <span>{english ? "Product name" : "产品名称"}</span>
         <input
           defaultValue={english ? draft.nameEn : draft.nameZhCn}
+          id={"name" + suffix}
           name={"name" + suffix}
         />
       </label>
@@ -257,6 +365,7 @@ function LanguageFields({
         <span>{english ? "URL slug" : "本地化地址片段"}</span>
         <input
           defaultValue={english ? draft.slugEn : draft.slugZhCn}
+          id={"slug" + suffix}
           name={"slug" + suffix}
         />
       </label>
@@ -264,6 +373,7 @@ function LanguageFields({
         <span>{english ? "Short description" : "短描述"}</span>
         <textarea
           defaultValue={english ? draft.summaryEn : draft.summaryZhCn}
+          id={"summary" + suffix}
           name={"summary" + suffix}
           rows={3}
         />
@@ -272,6 +382,7 @@ function LanguageFields({
         <span>{english ? "Full description" : "完整描述"}</span>
         <textarea
           defaultValue={english ? draft.descriptionEn : draft.descriptionZhCn}
+          id={"description" + suffix}
           name={"description" + suffix}
           rows={6}
         />
@@ -282,6 +393,7 @@ function LanguageFields({
           defaultValue={
             english ? draft.fitmentSummaryEn : draft.fitmentSummaryZhCn
           }
+          id={"fitmentSummary" + suffix}
           name={"fitmentSummary" + suffix}
           rows={3}
         />
@@ -290,6 +402,7 @@ function LanguageFields({
         <span>{english ? "SEO title" : "SEO 标题"}</span>
         <input
           defaultValue={english ? draft.seoTitleEn : draft.seoTitleZhCn}
+          id={"seoTitle" + suffix}
           name={"seoTitle" + suffix}
         />
       </label>
@@ -297,6 +410,7 @@ function LanguageFields({
         <span>{english ? "Image alt text" : "图片替代文本"}</span>
         <input
           defaultValue={english ? draft.imageAltEn : draft.imageAltZhCn}
+          id={"imageAlt" + suffix}
           name={"imageAlt" + suffix}
         />
       </label>
@@ -306,6 +420,7 @@ function LanguageFields({
           defaultValue={
             english ? draft.seoDescriptionEn : draft.seoDescriptionZhCn
           }
+          id={"seoDescription" + suffix}
           name={"seoDescription" + suffix}
           rows={3}
         />
@@ -327,6 +442,11 @@ function SpecificationFields({ draft }: { draft: ProductEditorDraftView }) {
               type="hidden"
               value={specification.dataType}
             />
+            <input
+              name={"specification:" + specification.code + ":required"}
+              type="hidden"
+              value={String(specification.required)}
+            />
             {specification.baseUnit ? (
               <input
                 name={"specification:" + specification.code + ":unit"}
@@ -337,8 +457,10 @@ function SpecificationFields({ draft }: { draft: ProductEditorDraftView }) {
             {specification.dataType === "enumeration" ? (
               <select
                 defaultValue={specification.enumerationValue ?? ""}
+                id={"specification-" + specification.code}
                 name={name}
               >
+                <option value="">请选择…</option>
                 {specification.options.map((option) => (
                   <option key={option.code} value={option.code}>
                     {option.label}
@@ -347,9 +469,15 @@ function SpecificationFields({ draft }: { draft: ProductEditorDraftView }) {
               </select>
             ) : specification.dataType === "boolean" ? (
               <select
-                defaultValue={String(specification.booleanValue)}
+                defaultValue={
+                  specification.booleanValue === null
+                    ? ""
+                    : String(specification.booleanValue)
+                }
+                id={"specification-" + specification.code}
                 name={name}
               >
+                <option value="">请选择…</option>
                 <option value="true">是</option>
                 <option value="false">否</option>
               </select>
@@ -361,6 +489,7 @@ function SpecificationFields({ draft }: { draft: ProductEditorDraftView }) {
                       ? (specification.decimalValue ?? "")
                       : (specification.textValue ?? "")
                   }
+                  id={"specification-" + specification.code}
                   name={name}
                   step={
                     specification.dataType === "decimal" ? "any" : undefined
@@ -388,6 +517,15 @@ export function ProductEditor({ draft }: { draft: ProductEditorDraftView }) {
     initialProductMutationState,
   );
   const currentVersion = state.version ?? draft.version;
+  const navigateToField = (field: string) => {
+    if (field.endsWith("En")) {
+      setLanguage("en");
+    } else if (field.endsWith("ZhCn")) {
+      setLanguage("zh");
+    }
+
+    window.setTimeout(() => document.getElementById(field)?.focus(), 0);
+  };
   const requiredValues = [
     draft.nameEn,
     draft.nameZhCn,
@@ -403,10 +541,17 @@ export function ProductEditor({ draft }: { draft: ProductEditorDraftView }) {
     draft.fitmentSummaryZhCn,
     draft.imageAltEn,
     draft.imageAltZhCn,
+    draft.slugEn,
+    draft.slugZhCn,
   ];
   const checks = [
     { label: "中英文公开字段", passed: requiredValues.every(Boolean) },
-    { label: "分类规格", passed: draft.specifications.length > 0 },
+    {
+      label: "分类规格",
+      passed:
+        draft.specifications.length > 0 &&
+        draft.specifications.every(({ complete }) => complete),
+    },
     { label: "参考号", passed: draft.references.length > 0 },
     { label: "适配关系与摘要", passed: draft.fitmentCount > 0 },
     { label: "图片与替代文本", passed: Boolean(draft.imagePath) },
@@ -425,7 +570,10 @@ export function ProductEditor({ draft }: { draft: ProductEditorDraftView }) {
               : "尚未发布"}
           </span>
         </div>
-        <PublishControls draft={{ ...draft, version: currentVersion }} />
+        <PublishControls
+          draft={{ ...draft, version: currentVersion }}
+          onFieldNavigate={navigateToField}
+        />
       </div>
 
       <form action={action} className="product-editor-layout">
@@ -438,17 +586,13 @@ export function ProductEditor({ draft }: { draft: ProductEditorDraftView }) {
         <input name="partNumber" type="hidden" value={draft.partNumber} />
         <aside className="product-editor-index">
           {[
-            "基础身份",
-            "中文内容",
-            "英文内容",
-            "分类规格",
-            "参考号",
-            "适配摘要",
-            "图片与资料",
-            "SEO",
-            "发布校验",
-          ].map((item, index) => (
-            <a href={"#product-section-" + (index + 1)} key={item}>
+            ["基础身份", "#product-section-1"],
+            ["双语内容与 SEO", "#product-section-2"],
+            ["分类规格", "#product-section-4"],
+            ["参考号", "#product-section-5"],
+            ["发布校验", "#product-publish-check"],
+          ].map(([item, href], index) => (
+            <a href={href} key={item}>
               <span>{String(index + 1).padStart(2, "0")}</span>
               {item}
             </a>
@@ -486,7 +630,11 @@ export function ProductEditor({ draft }: { draft: ProductEditorDraftView }) {
               </label>
               <label className="is-wide">
                 <span>产品图片路径</span>
-                <input defaultValue={draft.imagePath} name="imagePath" />
+                <input
+                  defaultValue={draft.imagePath}
+                  id="imagePath"
+                  name="imagePath"
+                />
               </label>
             </div>
           </section>
@@ -523,7 +671,9 @@ export function ProductEditor({ draft }: { draft: ProductEditorDraftView }) {
               <p>04 / 分类规格</p>
               <h2>{draft.categoryName}规格属性</h2>
             </header>
-            <SpecificationFields draft={draft} />
+            <div id="specifications">
+              <SpecificationFields draft={draft} />
+            </div>
           </section>
 
           <section id="product-section-5">
@@ -540,13 +690,14 @@ export function ProductEditor({ draft }: { draft: ProductEditorDraftView }) {
                       brand + " | " + referenceNumber,
                   )
                   .join("\n")}
+                id="references"
                 name="references"
                 rows={5}
               />
             </label>
           </section>
 
-          <MutationFeedback state={state} />
+          <MutationFeedback onFieldNavigate={navigateToField} state={state} />
           <footer>
             <span>
               最后保存：{draft.lastModifiedBy} ·{" "}
@@ -561,7 +712,7 @@ export function ProductEditor({ draft }: { draft: ProductEditorDraftView }) {
           </footer>
         </div>
 
-        <aside className="product-publish-check">
+        <aside className="product-publish-check" id="product-publish-check">
           <p>发布资格</p>
           <h2>
             {checks.filter(({ passed }) => passed).length} / {checks.length}{" "}

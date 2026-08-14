@@ -459,6 +459,7 @@ model ProductPublication {
   restoredFromPublicationId String?                     @map("restored_from_publication_id")
   publishedByUserId         String?                     @map("published_by_user_id")
   publishedAt               DateTime                    @default(now()) @map("published_at")
+  sealedAt                  DateTime?                   @map("sealed_at")
   product                   Product                     @relation("ProductPublicationVersions", fields: [productId], references: [id], onDelete: Cascade)
   category                  ProductCategory?            @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   replacementProduct        Product?                    @relation("ProductPublicationReplacement", fields: [replacementProductId], references: [id], onDelete: Restrict)

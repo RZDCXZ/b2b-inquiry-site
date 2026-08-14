@@ -121,6 +121,14 @@ const productSpecificationInputs = [
 async function writeSpecificationDemoData(
   transaction: Prisma.TransactionClient,
 ): Promise<void> {
+  await transaction.$executeRaw`
+    SELECT set_config(
+      'torquelis.allow_product_publication_mutation',
+      'on',
+      true
+    )
+  `;
+
   for (const [category, definitions] of Object.entries(
     INITIAL_SPECIFICATION_DEFINITIONS,
   )) {

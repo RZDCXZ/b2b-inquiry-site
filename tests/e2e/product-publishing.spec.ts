@@ -33,6 +33,19 @@ async function createDraftFixture(suffix: string) {
   const initialNameEn = "Browser Draft " + suffix;
   const initialNameZhCn = "浏览器草稿 " + suffix;
   const slugEn = "browser-draft-" + suffix;
+  const specifications = sourcePublication.specificationValues.map((value) => ({
+    code: value.attributeCode,
+    dataType: value.dataType,
+    label: value.nameZhCn,
+    value:
+      value.dataType === "decimal"
+        ? (value.decimalValue?.toString() ?? "")
+        : value.dataType === "boolean"
+          ? String(value.booleanValue)
+          : value.dataType === "enumeration"
+            ? (value.enumerationValue ?? "")
+            : (value.textValue ?? ""),
+  }));
 
   await prisma.product.create({
     data: {
@@ -81,16 +94,6 @@ async function createDraftFixture(suffix: string) {
       seoTitleZhCn: initialNameZhCn + "｜拓擎利滤清",
       slugEn,
       slugZhCn: "浏览器草稿-" + suffix,
-      specificationValues: {
-        createMany: {
-          data: sourcePublication.specificationValues.map(
-            ({ publicationId, ...value }) => {
-              void publicationId;
-              return value;
-            },
-          ),
-        },
-      },
       status: "published",
       summaryEn: "Draft content is visible only in preview before publishing.",
       summaryZhCn: "发布前只有预览可以看到这份草稿内容。",
@@ -106,6 +109,7 @@ async function createDraftFixture(suffix: string) {
     prisma,
     productId,
     slugEn,
+    specifications,
   };
 }
 
@@ -124,6 +128,26 @@ async function loginAsContentEditor(page: Page) {
 
 async function openEnglishTab(page: Page) {
   await page.getByRole("tab", { name: "English" }).click();
+}
+
+async function fillSpecifications(
+  page: Page,
+  specifications: Awaited<
+    ReturnType<typeof createDraftFixture>
+  >["specifications"],
+) {
+  for (const specification of specifications) {
+    const field = page.locator("#specification-" + specification.code);
+
+    if (
+      specification.dataType === "boolean" ||
+      specification.dataType === "enumeration"
+    ) {
+      await field.selectOption(specification.value);
+    } else {
+      await field.fill(specification.value);
+    }
+  }
 }
 
 test("内容编辑预览、发布、恢复并处理草稿并发冲突", async ({
@@ -149,13 +173,20 @@ test("内容编辑预览、发布、恢复并处理草稿并发冲突", async ({
     await expect(
       page.getByRole("heading", { name: fixture.initialNameZhCn }),
     ).toBeVisible();
+    await fillSpecifications(page, fixture.specifications);
 
     await openEnglishTab(page);
     await page.getByLabel("Product name").fill(firstPublishedName);
     await page.getByRole("tab", { name: "简体中文" }).click();
     await page.getByLabel("产品名称").fill("");
+    await page.getByLabel("短描述").fill("");
     await page.getByRole("button", { name: "保存草稿" }).click();
     await expect(page.getByText("草稿 v2")).toBeVisible();
+
+    const sitemapBeforePreviewResponse = await page.request.get("/sitemap.xml");
+    expect(sitemapBeforePreviewResponse.ok()).toBe(true);
+    const sitemapBeforePreview = await sitemapBeforePreviewResponse.text();
+    expect(sitemapBeforePreview).not.toContain(fixture.partNumber);
 
     const previewPromise = page.waitForEvent("popup");
     await page.getByRole("link", { name: "英文预览" }).click();
@@ -170,16 +201,34 @@ test("内容编辑预览、发布、恢复并处理草稿并发冲突", async ({
     ).toBeVisible();
     await preview.close();
 
+    const sitemapAfterPreview = await (
+      await page.request.get("/sitemap.xml")
+    ).text();
+    expect(sitemapAfterPreview).toBe(sitemapBeforePreview);
+
     expect((await page.request.get(publicPath)).status()).toBe(404);
     await page.getByRole("button", { name: "发布产品" }).click();
     await expect(page.getByText("产品尚未满足发布条件。")).toBeVisible();
-    await expect(page.getByText("此公开字段为必填项。")).toBeVisible();
+    await expect(
+      page.getByRole("link", {
+        name: "简体中文 / 产品名称：此公开字段为必填项。",
+      }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("link", {
+        name: "简体中文 / 短描述：此公开字段为必填项。",
+      }),
+    ).toBeVisible();
 
     await page.getByLabel("产品名称").fill("首次发布 " + suffix);
+    await page.getByLabel("短描述").fill("首次发布的中文短描述。" + suffix);
     await page.getByRole("button", { name: "保存草稿" }).click();
     await expect(page.getByText("草稿 v3")).toBeVisible();
     await page.getByRole("button", { name: "发布产品" }).click();
     await expect(page.getByText("已创建不可变公开版本 v1。")).toBeVisible();
+    await expect
+      .poll(async () => (await page.request.get("/sitemap.xml")).text())
+      .toContain(publicPath);
 
     await page.goto(publicPath);
     await expect(
@@ -204,6 +253,7 @@ test("内容编辑预览、发布、恢复并处理草稿并发冲突", async ({
       .locator(".product-version-history article")
       .filter({ hasText: "v1" });
     await versionOne.getByRole("button", { name: "恢复为新草稿" }).click();
+    await page.getByRole("button", { name: "确认恢复为新草稿" }).click();
     await expect(
       page.getByRole("heading", { name: "首次发布 " + suffix }),
     ).toBeVisible();
@@ -247,15 +297,24 @@ test("内容编辑预览、发布、恢复并处理草稿并发冲突", async ({
     await expect(stalePage.getByText(/最新修改：王晴/u)).toBeVisible();
     await staleContext.close();
   } finally {
-    await fixture.prisma.auditLog.deleteMany({
-      where: { targetId: fixture.productId },
-    });
-    await fixture.prisma.product.update({
-      data: { currentPublicationId: null, status: "draft" },
-      where: { id: fixture.productId },
-    });
-    await fixture.prisma.product.deleteMany({
-      where: { id: fixture.productId },
+    await fixture.prisma.$transaction(async (transaction) => {
+      await transaction.$executeRaw`
+        SELECT set_config(
+          'torquelis.allow_product_publication_mutation',
+          'on',
+          true
+        )
+      `;
+      await transaction.auditLog.deleteMany({
+        where: { targetId: fixture.productId },
+      });
+      await transaction.product.update({
+        data: { currentPublicationId: null, status: "draft" },
+        where: { id: fixture.productId },
+      });
+      await transaction.product.deleteMany({
+        where: { id: fixture.productId },
+      });
     });
     await fixture.close();
   }

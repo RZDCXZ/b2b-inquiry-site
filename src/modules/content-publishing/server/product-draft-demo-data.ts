@@ -136,5 +136,10 @@ export async function seedProductDraftDemoData(
         });
       }
     }
+
+    await transaction.productPublication.updateMany({
+      data: { sealedAt: new Date() },
+      where: { sealedAt: null },
+    });
   });
 }

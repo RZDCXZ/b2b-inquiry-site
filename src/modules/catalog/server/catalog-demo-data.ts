@@ -198,6 +198,13 @@ export async function replaceCatalogIdentities(
   prisma: PrismaClient,
 ): Promise<void> {
   await prisma.$transaction(async (transaction) => {
+    await transaction.$executeRaw`
+      SELECT set_config(
+        'torquelis.allow_product_publication_mutation',
+        'on',
+        true
+      )
+    `;
     await transaction.product.deleteMany();
     await transaction.productCategory.deleteMany();
     await writeCatalogIdentities(transaction);
@@ -229,8 +236,17 @@ export async function seedCatalogProductLifecycleDemoData(
 export async function seedProductReferenceDemoData(
   prisma: PrismaClient,
 ): Promise<void> {
-  await prisma.productReference.createMany({
-    data: [...productReferences],
-    skipDuplicates: true,
+  await prisma.$transaction(async (transaction) => {
+    await transaction.$executeRaw`
+      SELECT set_config(
+        'torquelis.allow_product_publication_mutation',
+        'on',
+        true
+      )
+    `;
+    await transaction.productReference.createMany({
+      data: [...productReferences],
+      skipDuplicates: true,
+    });
   });
 }

@@ -15,10 +15,12 @@ ADD COLUMN "fitment_summary_zh_cn" TEXT NOT NULL DEFAULT '',
 ADD COLUMN "status" "ProductStatus" NOT NULL DEFAULT 'published',
 ADD COLUMN "replacement_product_id" TEXT,
 ADD COLUMN "restored_from_publication_id" TEXT,
-ADD COLUMN "published_by_user_id" TEXT;
+ADD COLUMN "published_by_user_id" TEXT,
+ADD COLUMN "sealed_at" TIMESTAMP(3);
 
 UPDATE "product_publication" AS publication
 SET
+  "sealed_at" = publication."published_at",
   "source_draft_version" = 1,
   "category_id" = product."category_id",
   "image_path" = product."image_path",
@@ -278,22 +280,68 @@ WHERE product."current_publication_id" = publication."id";
 CREATE OR REPLACE FUNCTION reject_immutable_product_publication_update()
 RETURNS TRIGGER AS $$
 BEGIN
-  RAISE EXCEPTION '% records are immutable', TG_TABLE_NAME;
+  IF TG_OP = 'INSERT' AND NEW."sealed_at" IS NOT NULL THEN
+    RAISE EXCEPTION 'product publications must be constructed before sealing';
+  END IF;
+
+  IF TG_OP IN ('UPDATE', 'DELETE')
+    AND OLD."sealed_at" IS NOT NULL
+    AND current_setting('torquelis.allow_product_publication_mutation', true) IS DISTINCT FROM 'on'
+  THEN
+    RAISE EXCEPTION '% records are immutable after sealing', TG_TABLE_NAME;
+  END IF;
+
+  IF TG_OP = 'DELETE' THEN
+    RETURN OLD;
+  END IF;
+
+  RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER "product_publication_immutable"
-BEFORE UPDATE ON "product_publication"
+BEFORE INSERT OR UPDATE OR DELETE ON "product_publication"
 FOR EACH ROW EXECUTE FUNCTION reject_immutable_product_publication_update();
+
+CREATE OR REPLACE FUNCTION reject_sealed_product_snapshot_mutation()
+RETURNS TRIGGER AS $$
+DECLARE
+  target_publication_id TEXT;
+  publication_is_sealed BOOLEAN;
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    target_publication_id := OLD."publication_id";
+  ELSE
+    target_publication_id := NEW."publication_id";
+  END IF;
+
+  SELECT publication."sealed_at" IS NOT NULL
+  INTO publication_is_sealed
+  FROM "product_publication" AS publication
+  WHERE publication."id" = target_publication_id;
+
+  IF publication_is_sealed
+    AND current_setting('torquelis.allow_product_publication_mutation', true) IS DISTINCT FROM 'on'
+  THEN
+    RAISE EXCEPTION '% records are immutable after publication sealing', TG_TABLE_NAME;
+  END IF;
+
+  IF TG_OP = 'DELETE' THEN
+    RETURN OLD;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
 
 CREATE TRIGGER "product_specification_value_immutable"
-BEFORE UPDATE ON "product_specification_value"
-FOR EACH ROW EXECUTE FUNCTION reject_immutable_product_publication_update();
+BEFORE INSERT OR UPDATE OR DELETE ON "product_specification_value"
+FOR EACH ROW EXECUTE FUNCTION reject_sealed_product_snapshot_mutation();
 
 CREATE TRIGGER "product_reference_immutable"
-BEFORE UPDATE ON "product_reference"
-FOR EACH ROW EXECUTE FUNCTION reject_immutable_product_publication_update();
+BEFORE INSERT OR UPDATE OR DELETE ON "product_reference"
+FOR EACH ROW EXECUTE FUNCTION reject_sealed_product_snapshot_mutation();
 
 CREATE TRIGGER "product_fitment_immutable"
-BEFORE UPDATE ON "product_fitment"
-FOR EACH ROW EXECUTE FUNCTION reject_immutable_product_publication_update();
+BEFORE INSERT OR UPDATE OR DELETE ON "product_fitment"
+FOR EACH ROW EXECUTE FUNCTION reject_sealed_product_snapshot_mutation();

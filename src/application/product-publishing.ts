@@ -56,6 +56,7 @@ function assertCanManageProducts(actor: AdminActor): void {
 }
 
 const requiredTextFields = [
+  "imagePath",
   "imageAltEn",
   "imageAltZhCn",
   "nameEn",
@@ -284,6 +285,36 @@ function publicationSpecificationCreateData(
   }));
 }
 
+function specificationInputFromSnapshot(
+  value: PersistedSpecificationSnapshot,
+): ProductDraftSpecificationInput {
+  let inputValue: unknown;
+
+  switch (value.dataType) {
+    case "decimal":
+      inputValue =
+        typeof value.decimalValue === "number"
+          ? value.decimalValue
+          : (value.decimalValue?.toNumber() ?? Number.NaN);
+      break;
+    case "boolean":
+      inputValue = value.booleanValue;
+      break;
+    case "enumeration":
+      inputValue = value.enumerationValue;
+      break;
+    case "text":
+      inputValue = value.textValue;
+      break;
+  }
+
+  return {
+    attributeCode: value.attributeCode,
+    unit: value.baseUnit ?? undefined,
+    value: inputValue,
+  };
+}
+
 export async function getProductDraft({
   actor,
   partNumber,
@@ -325,8 +356,14 @@ export async function getProductDraft({
         },
       },
       publications: {
-        include: { publishedBy: { select: { id: true, name: true } } },
         orderBy: { version: "desc" },
+        select: {
+          id: true,
+          publishedAt: true,
+          publishedBy: { select: { id: true, name: true } },
+          restoredFromPublicationId: true,
+          version: true,
+        },
       },
     },
     where: { normalizedPartNumber: normalizeProductNumber(partNumber) },
@@ -420,7 +457,56 @@ export async function getProductDraftPreview({
   prisma?: ApplicationDatabase;
   unitSystem?: UnitSystem;
 }) {
-  const draft = await getProductDraft({ actor, partNumber, prisma });
+  assertCanManageProducts(actor);
+  const product = await prisma.product.findUnique({
+    select: {
+      draft: {
+        select: {
+          category: { select: { nameEn: true, nameZhCn: true } },
+          descriptionEn: true,
+          descriptionZhCn: true,
+          fitmentSummaryEn: true,
+          fitmentSummaryZhCn: true,
+          fitments: {
+            include: {
+              engine: {
+                include: { vehicleModel: { include: { make: true } } },
+              },
+            },
+            orderBy: [{ vehicleModelId: "asc" }, { yearFrom: "asc" }],
+          },
+          imageAltEn: true,
+          imageAltZhCn: true,
+          imagePath: true,
+          nameEn: true,
+          nameZhCn: true,
+          references: {
+            orderBy: [{ brand: "asc" }, { referenceNumber: "asc" }],
+            select: { brand: true, referenceNumber: true },
+          },
+          seoDescriptionEn: true,
+          seoDescriptionZhCn: true,
+          seoTitleEn: true,
+          seoTitleZhCn: true,
+          slugEn: true,
+          slugZhCn: true,
+          specificationValues: { orderBy: { position: "asc" } },
+          status: true,
+          summaryEn: true,
+          summaryZhCn: true,
+          version: true,
+        },
+      },
+      partNumber: true,
+    },
+    where: { normalizedPartNumber: normalizeProductNumber(partNumber) },
+  });
+
+  if (!product?.draft) {
+    throw new ProductPublishingError("NOT_FOUND");
+  }
+
+  const draft = { ...product.draft, partNumber: product.partNumber };
   const english = locale === "en";
 
   return {
@@ -592,7 +678,7 @@ export async function saveProductDraft({
         version: expectedDraftVersion + 1,
       };
     },
-    { isolationLevel: "Serializable" },
+    { isolationLevel: "ReadCommitted" },
   );
 }
 
@@ -763,7 +849,7 @@ export async function restoreProductPublication({
         version: expectedDraftVersion + 1,
       };
     },
-    { isolationLevel: "Serializable" },
+    { isolationLevel: "ReadCommitted" },
   );
 }
 
@@ -837,7 +923,7 @@ export async function deleteNeverPublishedProductDraft({
 
       return { deletedPartNumber: product.partNumber };
     },
-    { isolationLevel: "Serializable" },
+    { isolationLevel: "ReadCommitted" },
   );
 }
 
@@ -915,18 +1001,19 @@ export async function publishProductDraft({
         });
       }
 
-      const requiredDefinitions =
-        await transaction.specificationAttributeDefinition.findMany({
-          select: { id: true },
-          where: { categoryId: draft.categoryId, required: true },
-        });
-      const draftAttributeIds = new Set(
-        draft.specificationValues.map(({ attributeId }) => attributeId),
-      );
-      if (requiredDefinitions.some(({ id }) => !draftAttributeIds.has(id))) {
+      let validatedSpecifications: SpecificationSnapshotValue[] = [];
+      try {
+        validatedSpecifications =
+          await validateProductSpecificationsForCategory(transaction, {
+            categoryId: draft.categoryId,
+            values: draft.specificationValues.map(
+              specificationInputFromSnapshot,
+            ),
+          });
+      } catch {
         fieldErrors.push({
           field: "specifications",
-          message: "产品规格不完整。",
+          message: "规格值未通过当前分类、类型、单位或范围校验。",
         });
       }
 
@@ -1013,7 +1100,7 @@ export async function publishProductDraft({
         await transaction.productSpecificationValue.createMany({
           data: publicationSpecificationCreateData(
             publicationId,
-            draft.specificationValues,
+            validatedSpecifications,
           ),
         });
       }
@@ -1039,6 +1126,11 @@ export async function publishProductDraft({
           ),
         });
       }
+
+      await transaction.productPublication.update({
+        data: { sealedAt: now },
+        where: { id: publicationId },
+      });
 
       await transaction.product.update({
         data: {
@@ -1069,6 +1161,6 @@ export async function publishProductDraft({
         version: nextPublicationVersion,
       };
     },
-    { isolationLevel: "Serializable" },
+    { isolationLevel: "ReadCommitted" },
   );
 }

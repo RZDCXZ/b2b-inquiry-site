@@ -140,13 +140,20 @@ function parseSpecifications(formData: FormData) {
 
     const attributeCode = match[1];
     const dataType = formData.get(`specification:${attributeCode}:type`);
+    const required =
+      formData.get(`specification:${attributeCode}:required`) === "true";
     const unit = formData.get(`specification:${attributeCode}:unit`);
+
+    if (!required && rawValue.trim() === "") {
+      continue;
+    }
+
     let value: unknown = rawValue;
 
     if (dataType === "decimal") {
       value = rawValue.trim() === "" ? Number.NaN : Number(rawValue);
     } else if (dataType === "boolean") {
-      value = rawValue === "true";
+      value = rawValue === "" ? undefined : rawValue === "true";
     }
 
     inputs.push({
@@ -250,6 +257,7 @@ export async function publishProductDraftAction(
     revalidatePath("/admin/products");
     revalidatePath("/admin/content");
     revalidatePath("/en/products");
+    revalidatePath("/sitemap.xml");
     revalidatePath("/zh-cn/products");
 
     return {
