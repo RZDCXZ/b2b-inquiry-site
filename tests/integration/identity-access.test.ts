@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { verifyPassword } from "better-auth/crypto";
 
 import { POST as handleAuthPost } from "@/app/api/auth/[...all]/route";
+import { replaceInquiryAndNotificationData } from "@/src/application/inquiry-demo-reset";
 import { createPrismaClient } from "@/src/infrastructure/database/prisma";
 import { APP_ROLES } from "@/src/modules/identity-access/public/permissions";
 import {
@@ -19,15 +20,17 @@ let credentials: PresetCredentials;
 describe("预置账号数据库初始化", () => {
   beforeAll(async () => {
     credentials = await ensurePresetCredentials();
+    await replaceInquiryAndNotificationData(prisma);
     await replacePresetAccounts(prisma, credentials);
   });
 
   afterAll(async () => {
+    await replaceInquiryAndNotificationData(prisma);
     await replacePresetAccounts(prisma, credentials);
     await prisma.$disconnect();
   });
 
-  it("保存三个角色账号和 Better Auth 凭据哈希", async () => {
+  it("保存三个角色的四个账号和 Better Auth 凭据哈希", async () => {
     const users = await prisma.user.findMany({
       include: { accounts: true },
       orderBy: { email: "asc" },
@@ -36,7 +39,7 @@ describe("预置账号数据库初始化", () => {
     expect(new Set(users.map(({ role }) => role))).toEqual(
       new Set(Object.values(APP_ROLES)),
     );
-    expect(users).toHaveLength(3);
+    expect(users).toHaveLength(4);
 
     for (const credential of credentials.accounts) {
       const user = users.find(({ email }) => email === credential.email);

@@ -60,8 +60,20 @@ const roleDashboard = {
   },
 } as const;
 
-export function Dashboard({ actor }: { actor: AdminActor }) {
+export function Dashboard({
+  actor,
+  inquiryTotal,
+}: {
+  actor: AdminActor;
+  inquiryTotal: number;
+}) {
   const dashboard = roleDashboard[actor.role];
+  const inquirySummaryDetail =
+    actor.role === APP_ROLES.ADMINISTRATOR
+      ? "当前待分配询盘"
+      : actor.role === APP_ROLES.CONTENT_EDITOR
+        ? "仅显示数量，不显示联系方式或留言"
+        : "只统计当前分配给你的询盘";
 
   return (
     <>
@@ -71,11 +83,11 @@ export function Dashboard({ actor }: { actor: AdminActor }) {
         title={dashboard.title}
       />
       <section className="admin-summary-grid" aria-label="当前角色摘要">
-        {dashboard.summaries.map(([label, value, detail]) => (
+        {dashboard.summaries.map(([label, value, detail], index) => (
           <article key={label}>
             <span>{label}</span>
-            <strong>{value}</strong>
-            <small>{detail}</small>
+            <strong>{index === 0 ? `${inquiryTotal} 张` : value}</strong>
+            <small>{index === 0 ? inquirySummaryDetail : detail}</small>
           </article>
         ))}
       </section>

@@ -6,5 +6,10 @@ export async function replaceInquiryAndNotificationData(
   prisma: ApplicationDatabase,
 ): Promise<void> {
   await replaceNotificationData(prisma);
+  await prisma.auditLog.deleteMany({
+    where: {
+      event: { in: ["INQUIRY_ASSIGNED", "INQUIRY_REASSIGNED"] },
+    },
+  });
   await replaceInquirySubmissionData(prisma);
 }

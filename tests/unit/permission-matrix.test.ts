@@ -9,6 +9,7 @@ import {
 
 describe("后台角色权限矩阵", () => {
   it("管理员可访问全部后台壳层功能", () => {
+    expect(PERMISSIONS.INQUIRIES_ASSIGN).toBe("inquiries:assign");
     for (const permission of Object.values(PERMISSIONS)) {
       expect(hasPermission(APP_ROLES.ADMINISTRATOR, permission)).toBe(true);
     }
@@ -43,6 +44,9 @@ describe("后台角色权限矩阵", () => {
       false,
     );
     expect(hasPermission(APP_ROLES.SALES, PERMISSIONS.SETTINGS_MANAGE)).toBe(
+      false,
+    );
+    expect(hasPermission(APP_ROLES.SALES, PERMISSIONS.INQUIRIES_ASSIGN)).toBe(
       false,
     );
   });

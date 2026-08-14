@@ -17,6 +17,7 @@ export const PERMISSIONS = {
   CONTENT_MANAGE: "content:manage",
   DASHBOARD_VIEW: "dashboard:view",
   IMPORTS_MANAGE: "imports:manage",
+  INQUIRIES_ASSIGN: "inquiries:assign",
   INQUIRIES_MANAGE: "inquiries:manage",
   INQUIRIES_VIEW: "inquiries:view",
   INQUIRY_METRICS_VIEW: "inquiry-metrics:view",

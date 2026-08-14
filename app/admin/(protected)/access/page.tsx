@@ -16,6 +16,7 @@ import { authorizeAdminPage } from "@/src/modules/identity-access/server/authori
 const rows: ReadonlyArray<[string, Permission]> = [
   ["查看角色总览", PERMISSIONS.DASHBOARD_VIEW],
   ["查看完整询盘", PERMISSIONS.INQUIRIES_VIEW],
+  ["分配当前负责人", PERMISSIONS.INQUIRIES_ASSIGN],
   ["维护产品内容", PERMISSIONS.PRODUCTS_MANAGE],
   ["执行批量导入", PERMISSIONS.IMPORTS_MANAGE],
   ["维护发布内容", PERMISSIONS.CONTENT_MANAGE],

@@ -6,6 +6,7 @@ export async function listNotificationOutbox({
   prisma: ApplicationDatabase;
 }) {
   const records = await prisma.notificationOutboxRecord.findMany({
+    include: { recipientUser: { select: { name: true } } },
     orderBy: [{ createdAt: "asc" }, { id: "asc" }],
   });
 
@@ -15,6 +16,8 @@ export async function listNotificationOutbox({
     id: record.id,
     inquiryReferenceNumber: record.inquiryReferenceNumber,
     recipientRole: record.recipientRole,
+    recipientName: record.recipientUser?.name ?? null,
+    recipientUserId: record.recipientUserId,
     template: record.template,
   }));
 }

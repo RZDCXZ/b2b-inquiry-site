@@ -29,14 +29,28 @@ export async function listRecentAuditLogs(
     const succeeded = record.outcome === "SUCCESS";
 
     return {
-      action: record.event === "LOGIN" ? "后台登录" : record.event,
+      action:
+        record.event === "LOGIN"
+          ? "后台登录"
+          : record.event === "INQUIRY_ASSIGNED"
+            ? "分配询盘"
+            : record.event === "INQUIRY_REASSIGNED"
+              ? "重新分配询盘"
+              : record.event,
       id: record.id,
       occurredAt: record.createdAt,
       operator: record.actor?.name ?? "未识别账号",
-      summary: succeeded
-        ? `${roleLabel ?? "预置账号"}登录成功。`
-        : "登录失败；未记录提交的账号信息。",
-      target: record.event === "LOGIN" ? "运营后台会话" : "系统记录",
+      summary:
+        record.summary ??
+        (succeeded
+          ? `${roleLabel ?? "预置账号"}登录成功。`
+          : "登录失败；未记录提交的账号信息。"),
+      target:
+        record.targetType === "INQUIRY"
+          ? "询盘"
+          : record.event === "LOGIN"
+            ? "运营后台会话"
+            : "系统记录",
     };
   });
 }

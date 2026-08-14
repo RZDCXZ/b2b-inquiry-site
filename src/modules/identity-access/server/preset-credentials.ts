@@ -22,6 +22,12 @@ const presetAccountSchema = z.object({
 });
 
 const presetCredentialsSchema = z.object({
+  accounts: z.array(presetAccountSchema).length(4),
+  generatedAt: z.iso.datetime(),
+  version: z.literal(2),
+});
+
+const legacyPresetCredentialsSchema = z.object({
   accounts: z.array(presetAccountSchema).length(3),
   generatedAt: z.iso.datetime(),
   version: z.literal(1),
@@ -52,6 +58,11 @@ const accountDefinitions = [
     name: "林婧",
     role: APP_ROLES.SALES,
   },
+  {
+    email: "sales-secondary@torquelis.local",
+    name: "周程",
+    role: APP_ROLES.SALES,
+  },
 ] as const;
 
 function createPassword(): string {
@@ -66,7 +77,26 @@ function createPresetCredentials(): PresetCredentials {
       roleLabel: ROLE_LABELS[account.role],
     })),
     generatedAt: new Date().toISOString(),
-    version: 1,
+    version: 2,
+  };
+}
+
+function migrateLegacyCredentials(
+  legacy: z.infer<typeof legacyPresetCredentialsSchema>,
+): PresetCredentials {
+  const secondarySales = accountDefinitions[3];
+
+  return {
+    accounts: [
+      ...legacy.accounts,
+      {
+        ...secondarySales,
+        password: createPassword(),
+        roleLabel: ROLE_LABELS[secondarySales.role],
+      },
+    ],
+    generatedAt: legacy.generatedAt,
+    version: 2,
   };
 }
 
@@ -80,10 +110,10 @@ export async function readPresetCredentials(
 export async function ensurePresetCredentials(
   filePath = DEFAULT_CREDENTIALS_PATH,
 ): Promise<PresetCredentials> {
+  let rawCredentials: string;
+
   try {
-    const existingCredentials = await readPresetCredentials(filePath);
-    await chmod(filePath, 0o600);
-    return existingCredentials;
+    rawCredentials = await readFile(filePath, "utf8");
   } catch (error) {
     const errorCode =
       error instanceof Error && "code" in error
@@ -93,13 +123,36 @@ export async function ensurePresetCredentials(
     if (errorCode !== "ENOENT") {
       throw error;
     }
+
+    const credentials = createPresetCredentials();
+    await mkdir(path.dirname(filePath), { mode: 0o700, recursive: true });
+    await writeFile(filePath, `${JSON.stringify(credentials, null, 2)}\n`, {
+      encoding: "utf8",
+      flag: "wx",
+      mode: 0o600,
+    });
+    await chmod(filePath, 0o600);
+
+    return credentials;
   }
 
-  const credentials = createPresetCredentials();
-  await mkdir(path.dirname(filePath), { mode: 0o700, recursive: true });
+  const stored: unknown = JSON.parse(rawCredentials);
+  const current = presetCredentialsSchema.safeParse(stored);
+
+  if (current.success) {
+    await chmod(filePath, 0o600);
+    return current.data;
+  }
+
+  const legacy = legacyPresetCredentialsSchema.safeParse(stored);
+
+  if (!legacy.success) {
+    return presetCredentialsSchema.parse(stored);
+  }
+
+  const credentials = migrateLegacyCredentials(legacy.data);
   await writeFile(filePath, `${JSON.stringify(credentials, null, 2)}\n`, {
     encoding: "utf8",
-    flag: "wx",
     mode: 0o600,
   });
   await chmod(filePath, 0o600);

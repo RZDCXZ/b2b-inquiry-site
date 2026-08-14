@@ -47,20 +47,27 @@ enum InquiryInterfaceLanguage {
 
 enum InquiryStatus {
   pending_assignment
+  assigned
 }
 
 model User {
-  id            String     @id
-  name          String
-  email         String     @unique
-  emailVerified Boolean    @default(true) @map("email_verified")
-  image         String?
-  role          AppRole
-  createdAt     DateTime   @default(now()) @map("created_at")
-  updatedAt     DateTime   @updatedAt @map("updated_at")
-  sessions      Session[]
-  accounts      Account[]
-  auditLogs     AuditLog[]
+  id                        String                     @id
+  name                      String
+  email                     String                     @unique
+  emailVerified             Boolean                    @default(true) @map("email_verified")
+  image                     String?
+  role                      AppRole
+  createdAt                 DateTime                   @default(now()) @map("created_at")
+  updatedAt                 DateTime                   @updatedAt @map("updated_at")
+  sessions                  Session[]
+  accounts                  Account[]
+  auditLogs                 AuditLog[]
+  currentOwnedInquiries     Inquiry[]                  @relation("InquiryCurrentOwner")
+  lastModifiedInquiries     Inquiry[]                  @relation("InquiryLastModifier")
+  inquiryAssignmentsMade    InquiryAssignment[]        @relation("InquiryAssignmentActor")
+  inquiryAssignmentsFrom    InquiryAssignment[]        @relation("InquiryAssignmentPreviousOwner")
+  inquiryAssignmentsTo      InquiryAssignment[]        @relation("InquiryAssignmentNewOwner")
+  notificationOutboxRecords NotificationOutboxRecord[]
 
   @@map("user")
 }
@@ -119,6 +126,9 @@ model AuditLog {
   outcome     String
   actorUserId String?  @map("actor_user_id")
   actorRole   AppRole? @map("actor_role")
+  targetType  String?  @map("target_type")
+  targetId    String?  @map("target_id")
+  summary     String?
   createdAt   DateTime @default(now()) @map("created_at")
   actor       User?    @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
 
@@ -353,33 +363,63 @@ model InquirySubmission {
 }
 
 model Inquiry {
-  id                    String                   @id @default(uuid())
-  referenceNumber       String                   @unique @map("reference_number")
-  submissionId          String                   @unique @map("submission_id")
-  productId             String?                  @map("product_id")
-  status                InquiryStatus            @default(pending_assignment)
-  contactName           String                   @map("contact_name")
-  workEmail             String                   @map("work_email")
+  id                    String                     @id @default(uuid())
+  referenceNumber       String                     @unique @map("reference_number")
+  submissionId          String                     @unique @map("submission_id")
+  productId             String?                    @map("product_id")
+  status                InquiryStatus              @default(pending_assignment)
+  currentOwnerId        String?                    @map("current_owner_id")
+  lastModifiedByUserId  String?                    @map("last_modified_by_user_id")
+  contactName           String                     @map("contact_name")
+  workEmail             String                     @map("work_email")
   company               String
-  countryRegion         String                   @map("country_region")
-  expectedQuantity      String                   @map("expected_quantity")
+  countryRegion         String                     @map("country_region")
+  expectedQuantity      String                     @map("expected_quantity")
   message               String
-  phoneOrWhatsapp       String?                  @map("phone_or_whatsapp")
-  targetMarket          String?                  @map("target_market")
-  privateLabelNeeded    Boolean                  @map("private_label_needed")
-  customPackagingNeeded Boolean                  @map("custom_packaging_needed")
-  privacyConsentAt      DateTime                 @map("privacy_consent_at")
-  sourcePage            String                   @map("source_page")
-  interfaceLanguage     InquiryInterfaceLanguage @map("interface_language")
-  submittedAt           DateTime                 @map("submitted_at")
-  version               Int                      @default(1)
-  submission            InquirySubmission        @relation(fields: [submissionId], references: [id], onDelete: Restrict)
-  product               Product?                 @relation(fields: [productId], references: [id], onDelete: Restrict)
-  notification          NotificationOutboxRecord?
+  phoneOrWhatsapp       String?                    @map("phone_or_whatsapp")
+  targetMarket          String?                    @map("target_market")
+  privateLabelNeeded    Boolean                    @map("private_label_needed")
+  customPackagingNeeded Boolean                    @map("custom_packaging_needed")
+  privacyConsentAt      DateTime                   @map("privacy_consent_at")
+  sourcePage            String                     @map("source_page")
+  interfaceLanguage     InquiryInterfaceLanguage   @map("interface_language")
+  submittedAt           DateTime                   @map("submitted_at")
+  version               Int                        @default(1)
+  updatedAt             DateTime                   @default(now()) @updatedAt @map("updated_at")
+  submission            InquirySubmission          @relation(fields: [submissionId], references: [id], onDelete: Restrict)
+  product               Product?                   @relation(fields: [productId], references: [id], onDelete: Restrict)
+  currentOwner          User?                      @relation("InquiryCurrentOwner", fields: [currentOwnerId], references: [id], onDelete: Restrict)
+  lastModifiedBy        User?                      @relation("InquiryLastModifier", fields: [lastModifiedByUserId], references: [id], onDelete: Restrict)
+  assignmentHistory     InquiryAssignment[]
+  notifications         NotificationOutboxRecord[]
 
   @@index([status, submittedAt])
   @@index([productId])
+  @@index([currentOwnerId, status, submittedAt])
   @@map("inquiry")
+}
+
+model InquiryAssignment {
+  id               String   @id @default(uuid())
+  inquiryId        String   @map("inquiry_id")
+  previousOwnerId  String?  @map("previous_owner_id")
+  newOwnerId       String   @map("new_owner_id")
+  assignedByUserId String   @map("assigned_by_user_id")
+  reason           String
+  assignedAt       DateTime @map("assigned_at")
+  fromVersion      Int      @map("from_version")
+  toVersion        Int      @map("to_version")
+  inquiry          Inquiry  @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
+  previousOwner    User?    @relation("InquiryAssignmentPreviousOwner", fields: [previousOwnerId], references: [id], onDelete: Restrict)
+  newOwner         User     @relation("InquiryAssignmentNewOwner", fields: [newOwnerId], references: [id], onDelete: Restrict)
+  assignedBy       User     @relation("InquiryAssignmentActor", fields: [assignedByUserId], references: [id], onDelete: Restrict)
+
+  @@unique([inquiryId, toVersion])
+  @@index([inquiryId, assignedAt])
+  @@index([previousOwnerId])
+  @@index([newOwnerId])
+  @@index([assignedByUserId])
+  @@map("inquiry_assignment")
 }
 
 model QuarantinedInquiry {
@@ -412,14 +452,18 @@ model QuarantinedInquiry {
 
 model NotificationOutboxRecord {
   id                     String   @id @default(uuid())
-  inquiryId              String   @unique @map("inquiry_id")
+  inquiryId              String   @map("inquiry_id")
   inquiryReferenceNumber String   @map("inquiry_reference_number")
   recipientRole          AppRole  @map("recipient_role")
+  recipientUserId        String?  @map("recipient_user_id")
   template               String
   contentPreview         String   @map("content_preview")
   createdAt              DateTime @map("created_at")
   inquiry                Inquiry  @relation(fields: [inquiryId], references: [id], onDelete: Restrict)
+  recipientUser          User?    @relation(fields: [recipientUserId], references: [id], onDelete: Restrict)
 
+  @@index([inquiryId, createdAt])
+  @@index([recipientUserId, createdAt])
   @@index([createdAt])
   @@map("notification_outbox_record")
 }

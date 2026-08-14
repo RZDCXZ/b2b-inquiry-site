@@ -7,6 +7,18 @@ type PreparedAccount = PresetCredentials["accounts"][number] & {
   passwordHash: string;
 };
 
+function presetAccountIds(account: PreparedAccount) {
+  const suffix =
+    account.email === "sales-secondary@torquelis.local"
+      ? "sales-secondary"
+      : account.role;
+
+  return {
+    accountId: `demo-account-${suffix}`,
+    userId: `demo-user-${suffix}`,
+  };
+}
+
 async function prepareAccounts(
   credentials: PresetCredentials,
 ): Promise<PreparedAccount[]> {
@@ -23,7 +35,7 @@ async function writePresetAccounts(
   accounts: PreparedAccount[],
 ): Promise<void> {
   for (const account of accounts) {
-    const userId = `demo-user-${account.role}`;
+    const { accountId, userId } = presetAccountIds(account);
 
     await transaction.user.upsert({
       create: {
@@ -44,7 +56,7 @@ async function writePresetAccounts(
     await transaction.account.upsert({
       create: {
         accountId: userId,
-        id: `demo-account-${account.role}`,
+        id: accountId,
         password: account.passwordHash,
         providerId: "credential",
         userId,
@@ -55,7 +67,7 @@ async function writePresetAccounts(
         providerId: "credential",
         userId,
       },
-      where: { id: `demo-account-${account.role}` },
+      where: { id: accountId },
     });
   }
 }

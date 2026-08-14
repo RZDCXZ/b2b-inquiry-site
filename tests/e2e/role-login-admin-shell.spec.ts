@@ -3,10 +3,10 @@ import { expect, test } from "@playwright/test";
 import { APP_ROLES } from "@/src/modules/identity-access/public/permissions";
 import { readPresetCredentials } from "@/src/modules/identity-access/server/preset-credentials";
 
-test("未登录访问进入登录流程，三个预置角色获得各自后台壳层并可退出", async ({
+test("未登录访问进入登录流程，四个预置账号获得各自后台壳层并可退出", async ({
   browser,
 }) => {
-  test.setTimeout(60_000);
+  test.setTimeout(90_000);
 
   const credentials = await readPresetCredentials();
   const anonymousContext = await browser.newContext();
@@ -121,7 +121,8 @@ test("未登录访问进入登录流程，三个预置角色获得各自后台�
     }
 
     await expect(logoutButton).toBeVisible();
-    await logoutButton.click();
+    await logoutButton.focus();
+    await page.keyboard.press("Enter");
     await expect(page).toHaveURL(/\/admin\/login\?loggedOut=1$/);
     await page.goto("/admin");
     await expect(page).toHaveURL(/\/admin\/login\?next=%2Fadmin$/);

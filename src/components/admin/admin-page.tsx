@@ -45,3 +45,26 @@ export function PermissionDenied({ role }: { role: AppRole }) {
     </section>
   );
 }
+
+export function CurrentOwnerPermissionDenied({
+  currentOwnerName,
+}: {
+  currentOwnerName?: string;
+}) {
+  return (
+    <section className="admin-denied" role="alert">
+      <LockKey aria-hidden="true" size={54} weight="thin" />
+      <p>权限已更新</p>
+      <h1>你不再是这张询盘的当前负责人。</h1>
+      <span>
+        {currentOwnerName
+          ? `该询盘已重新分配给${currentOwnerName}。`
+          : "你不是这张询盘的当前负责人。"}
+        旧负责人不能查看联系方式和内部记录；历史操作仍然保留。
+      </span>
+      <Link className="admin-primary-button" href="/admin/inquiries">
+        返回我的询盘
+      </Link>
+    </section>
+  );
+}
