@@ -1,6 +1,17 @@
-import type { ApplicationDatabase } from "@/src/infrastructure/database/prisma";
+import {
+  getProductDraft,
+  ProductPublishingError,
+  saveProductDraft,
+} from "@/src/application/product-publishing";
+import {
+  getApplicationPrisma,
+  type ApplicationDatabase,
+} from "@/src/infrastructure/database/prisma";
+import type { AdminActor } from "@/src/modules/identity-access/public/actor";
 import { normalizeProductNumber } from "@/src/modules/catalog/public/product-identity";
 import type { ProductStatus } from "@/src/modules/catalog/public/product-lifecycle";
+
+type EditableProductStatus = Exclude<ProductStatus, "draft">;
 
 export type ProductLifecycleErrorCode =
   | "PRODUCT_NOT_FOUND"
@@ -22,139 +33,102 @@ export class ProductLifecycleError extends Error {
 }
 
 export async function setProductLifecycle({
+  actor,
+  expectedDraftVersion,
   partNumber,
-  prisma,
+  prisma = getApplicationPrisma(),
   replacementPartNumber,
   status,
 }: {
+  actor: AdminActor;
+  expectedDraftVersion: number;
   partNumber: string;
-  prisma: ApplicationDatabase;
+  prisma?: ApplicationDatabase;
   replacementPartNumber?: string;
-  status: ProductStatus;
+  status: EditableProductStatus;
 }): Promise<{
   partNumber: string;
   replacementPartNumber: string | null;
-  status: ProductStatus;
+  status: EditableProductStatus;
 }> {
-  return prisma.$transaction(
-    async (transaction) => {
-      const product = await transaction.product.findUnique({
-        select: {
-          currentPublication: { select: { status: true } },
-          draft: { select: { productId: true } },
-          id: true,
-          partNumber: true,
+  const draft = await getProductDraft({ actor, partNumber, prisma });
+
+  try {
+    await saveProductDraft({
+      actor,
+      expectedDraftVersion,
+      input: {
+        categoryId: draft.categoryId,
+        descriptionEn: draft.descriptionEn,
+        descriptionZhCn: draft.descriptionZhCn,
+        fitmentSummaryEn: draft.fitmentSummaryEn,
+        fitmentSummaryZhCn: draft.fitmentSummaryZhCn,
+        imageAltEn: draft.imageAltEn,
+        imageAltZhCn: draft.imageAltZhCn,
+        imagePath: draft.imagePath,
+        nameEn: draft.nameEn,
+        nameZhCn: draft.nameZhCn,
+        references: draft.references.map(({ brand, referenceNumber }) => ({
+          brand,
+          referenceNumber,
+        })),
+        replacementPartNumber: replacementPartNumber ?? null,
+        seoDescriptionEn: draft.seoDescriptionEn,
+        seoDescriptionZhCn: draft.seoDescriptionZhCn,
+        seoTitleEn: draft.seoTitleEn,
+        seoTitleZhCn: draft.seoTitleZhCn,
+        slugEn: draft.slugEn,
+        slugZhCn: draft.slugZhCn,
+        specifications: draft.specificationValues.map((value) => ({
+          attributeCode: value.attributeCode,
+          unit: value.baseUnit ?? undefined,
+          value:
+            value.dataType === "decimal"
+              ? value.decimalValue?.toNumber()
+              : value.dataType === "boolean"
+                ? value.booleanValue
+                : value.dataType === "enumeration"
+                  ? value.enumerationValue
+                  : value.textValue,
+        })),
+        status,
+        summaryEn: draft.summaryEn,
+        summaryZhCn: draft.summaryZhCn,
+      },
+      partNumber: draft.partNumber,
+      prisma,
+    });
+  } catch (error) {
+    if (
+      error instanceof ProductPublishingError &&
+      error.code === "INVALID_DRAFT"
+    ) {
+      const message =
+        error.fieldErrors[0]?.message ?? "Invalid lifecycle change.";
+      const code = message.includes("自身")
+        ? "REPLACEMENT_SELF_REFERENCE"
+        : message.includes("循环")
+          ? "REPLACEMENT_CYCLE"
+          : message.includes("只有已停产")
+            ? "REPLACEMENT_STATUS_INVALID"
+            : "REPLACEMENT_NOT_PUBLIC";
+      throw new ProductLifecycleError(code, message);
+    }
+    throw error;
+  }
+
+  const savedReplacement = replacementPartNumber
+    ? await prisma.product.findUniqueOrThrow({
+        select: { partNumber: true },
+        where: {
+          normalizedPartNumber: normalizeProductNumber(replacementPartNumber),
         },
-        where: { normalizedPartNumber: normalizeProductNumber(partNumber) },
-      });
+      })
+    : null;
 
-      if (!product?.draft) {
-        throw new ProductLifecycleError(
-          "PRODUCT_NOT_FOUND",
-          `Product ${partNumber} does not exist.`,
-        );
-      }
-
-      if (status !== "draft" && !product.currentPublication) {
-        throw new ProductLifecycleError(
-          "PUBLICATION_REQUIRED",
-          "Published and discontinued products require a current publication.",
-        );
-      }
-
-      if (status !== "discontinued" && replacementPartNumber) {
-        throw new ProductLifecycleError(
-          "REPLACEMENT_STATUS_INVALID",
-          "Only discontinued products can have a replacement product.",
-        );
-      }
-
-      const replacement = replacementPartNumber
-        ? await transaction.product.findUnique({
-            select: {
-              currentPublication: { select: { status: true } },
-              id: true,
-              partNumber: true,
-            },
-            where: {
-              normalizedPartNumber: normalizeProductNumber(
-                replacementPartNumber,
-              ),
-            },
-          })
-        : null;
-
-      if (replacementPartNumber && !replacement) {
-        throw new ProductLifecycleError(
-          "REPLACEMENT_NOT_FOUND",
-          `Replacement product ${replacementPartNumber} does not exist.`,
-        );
-      }
-
-      if (replacement?.id === product.id) {
-        throw new ProductLifecycleError(
-          "REPLACEMENT_SELF_REFERENCE",
-          "A product cannot replace itself.",
-        );
-      }
-
-      if (
-        replacement &&
-        (replacement.currentPublication?.status === "draft" ||
-          !replacement.currentPublication)
-      ) {
-        throw new ProductLifecycleError(
-          "REPLACEMENT_NOT_PUBLIC",
-          "A replacement product must have a current public representation.",
-        );
-      }
-
-      if (replacement) {
-        const replacementEdges = await transaction.productDraft.findMany({
-          select: { productId: true, replacementProductId: true },
-        });
-        const nextProductIdById = new Map(
-          replacementEdges.map(({ productId, replacementProductId }) => [
-            productId,
-            replacementProductId,
-          ]),
-        );
-        const visitedProductIds = new Set<string>();
-        let candidateProductId: string | null = replacement.id;
-
-        while (candidateProductId) {
-          if (
-            candidateProductId === product.id ||
-            visitedProductIds.has(candidateProductId)
-          ) {
-            throw new ProductLifecycleError(
-              "REPLACEMENT_CYCLE",
-              "Replacement products cannot form a cycle.",
-            );
-          }
-
-          visitedProductIds.add(candidateProductId);
-          candidateProductId =
-            nextProductIdById.get(candidateProductId) ?? null;
-        }
-      }
-
-      const updated = await transaction.productDraft.update({
-        data: {
-          replacementProductId: replacement?.id ?? null,
-          status,
-          version: { increment: 1 },
-        },
-        select: { status: true },
-        where: { productId: product.id },
-      });
-
-      return {
-        partNumber: product.partNumber,
-        replacementPartNumber: replacement?.partNumber ?? null,
-        status: updated.status,
-      };
-    },
-    { isolationLevel: "Serializable" },
-  );
+  return {
+    partNumber: draft.partNumber,
+    replacementPartNumber: savedReplacement?.partNumber ?? null,
+    status,
+  };
 }

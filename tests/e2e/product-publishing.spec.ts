@@ -301,6 +301,19 @@ test("内容编辑预览、发布、恢复并处理草稿并发冲突", async ({
       stalePage.getByText("草稿已由其他窗口更新，本次保存未覆盖较新内容。"),
     ).toBeVisible();
     await expect(stalePage.getByText(/最新修改：王晴/u)).toBeVisible();
+    const staleVersionOne = stalePage
+      .locator(".product-version-history article")
+      .filter({ hasText: "v1" });
+    await staleVersionOne.getByRole("button", { name: "恢复为新草稿" }).click();
+    const restoreConflictDialog = stalePage.getByRole("alertdialog");
+    await restoreConflictDialog
+      .getByRole("button", { name: "确认恢复为新草稿" })
+      .click();
+    await expect(
+      restoreConflictDialog.getByText(
+        "草稿已由其他窗口更新，本次保存未覆盖较新内容。",
+      ),
+    ).toBeVisible();
     await staleContext.close();
   } finally {
     await fixture.prisma.$transaction(async (transaction) => {

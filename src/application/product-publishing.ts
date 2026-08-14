@@ -170,10 +170,12 @@ function normalizeReferences(
 async function resolveReplacementProduct(
   prisma: Pick<ApplicationDatabase, "product" | "productDraft">,
   {
+    graph = "draft",
     productId,
     replacementPartNumber,
     status,
   }: {
+    graph?: "draft" | "published";
     productId: string;
     replacementPartNumber: string | null;
     status: ProductDraftInput["status"];
@@ -222,15 +224,33 @@ async function resolveReplacementProduct(
     ]);
   }
 
-  const replacementEdges = await prisma.productDraft.findMany({
-    select: { productId: true, replacementProductId: true },
-  });
-  const nextProductIdById = new Map(
-    replacementEdges.map(({ productId, replacementProductId }) => [
-      productId,
-      replacementProductId,
-    ]),
-  );
+  const nextProductIdById =
+    graph === "published"
+      ? new Map(
+          (
+            await prisma.product.findMany({
+              select: {
+                currentPublication: {
+                  select: { replacementProductId: true },
+                },
+                id: true,
+              },
+            })
+          ).map(({ currentPublication, id }) => [
+            id,
+            currentPublication?.replacementProductId ?? null,
+          ]),
+        )
+      : new Map(
+          (
+            await prisma.productDraft.findMany({
+              select: { productId: true, replacementProductId: true },
+            })
+          ).map(({ productId, replacementProductId }) => [
+            productId,
+            replacementProductId,
+          ]),
+        );
   const visited = new Set<string>();
   let candidateId: string | null = replacement.id;
 
@@ -415,6 +435,18 @@ export async function getProductDraft({
     prisma,
     product.draft,
   );
+  let replacement = true;
+  try {
+    await resolveReplacementProduct(prisma, {
+      graph: "published",
+      productId: product.draft.productId,
+      replacementPartNumber:
+        product.draft.replacementProduct?.partNumber ?? null,
+      status: product.draft.status as ProductDraftInput["status"],
+    });
+  } catch {
+    replacement = false;
+  }
 
   return {
     ...product.draft,
@@ -425,6 +457,7 @@ export async function getProductDraft({
       bilingualContent: languageCompleteness.en && languageCompleteness.zhCn,
       image: product.draft.imagePath.trim().length > 0,
       references: product.draft.references.length > 0,
+      replacement,
       specifications,
     },
     publications: product.publications,
@@ -444,7 +477,6 @@ export async function listProductDrafts({
     orderBy: { partNumber: "asc" },
     select: {
       category: { select: { nameZhCn: true } },
-      currentPublicationId: true,
       draft: {
         select: {
           descriptionEn: true,
@@ -457,14 +489,12 @@ export async function listProductDrafts({
           lastPublishedVersion: true,
           nameEn: true,
           nameZhCn: true,
-          references: { select: { id: true } },
           seoDescriptionEn: true,
           seoDescriptionZhCn: true,
           seoTitleEn: true,
           seoTitleZhCn: true,
           slugEn: true,
           slugZhCn: true,
-          specificationValues: { select: { attributeId: true } },
           summaryEn: true,
           summaryZhCn: true,
           updatedAt: true,
@@ -1098,6 +1128,7 @@ export async function publishProductDraft({
       }
 
       await resolveReplacementProduct(transaction, {
+        graph: "published",
         productId: product.id,
         replacementPartNumber:
           draft.replacementProductId === null

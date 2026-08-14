@@ -627,6 +627,131 @@ describe("产品草稿发布", () => {
     }
   });
 
+  it("发布替代关系按当前公开版本图拒绝循环而不受下游未发布草稿影响", async () => {
+    const original = await getProductDraft({
+      actor: contentEditor,
+      partNumber: "TQ-FL-4827",
+      prisma,
+    });
+    const downstreamDraft = await prisma.productDraft.findUniqueOrThrow({
+      where: { productId: "product-tq-fl-4720" },
+    });
+    let unexpectedPublicationId: string | undefined;
+
+    try {
+      await prisma.productDraft.update({
+        data: { replacementProductId: null },
+        where: { productId: downstreamDraft.productId },
+      });
+      const saved = await saveProductDraft({
+        actor: contentEditor,
+        expectedDraftVersion: original.version,
+        input: editableInput(original, {
+          replacementPartNumber: "TQ-FL-4720",
+          status: "discontinued",
+        }),
+        partNumber: original.partNumber,
+        prisma,
+      });
+      await expect(
+        getProductDraft({
+          actor: contentEditor,
+          partNumber: original.partNumber,
+          prisma,
+        }),
+      ).resolves.toMatchObject({
+        publicationReadiness: { replacement: false },
+      });
+      const outcome = await publishProductDraft({
+        actor: contentEditor,
+        expectedDraftVersion: saved.version,
+        partNumber: original.partNumber,
+        prisma,
+      }).then(
+        (publication) => ({ publication }),
+        (error: unknown) => ({ error }),
+      );
+
+      if ("publication" in outcome) {
+        unexpectedPublicationId = outcome.publication.publicationId;
+      }
+      expect(outcome).toMatchObject({
+        error: {
+          code: "INVALID_DRAFT",
+          fieldErrors: expect.arrayContaining([
+            expect.objectContaining({ field: "replacementPartNumber" }),
+          ]),
+        },
+      });
+    } finally {
+      await prisma.$transaction(async (transaction) => {
+        await transaction.$executeRaw`
+          SELECT set_config(
+            'torquelis.allow_product_publication_mutation',
+            'on',
+            true
+          )
+        `;
+        await transaction.product.update({
+          data: {
+            categoryId: original.categoryId,
+            currentPublicationId: original.currentPublicationId,
+            imagePath: original.imagePath,
+            replacementProductId: original.replacementProductId,
+            status: original.productStatus,
+          },
+          where: { id: original.productId },
+        });
+        if (unexpectedPublicationId) {
+          await transaction.productPublication.delete({
+            where: { id: unexpectedPublicationId },
+          });
+        }
+        await transaction.auditLog.deleteMany({
+          where: { targetId: original.productId },
+        });
+        await transaction.productDraft.update({
+          data: {
+            categoryId: original.categoryId,
+            descriptionEn: original.descriptionEn,
+            descriptionZhCn: original.descriptionZhCn,
+            fitmentSummaryEn: original.fitmentSummaryEn,
+            fitmentSummaryZhCn: original.fitmentSummaryZhCn,
+            imageAltEn: original.imageAltEn,
+            imageAltZhCn: original.imageAltZhCn,
+            imagePath: original.imagePath,
+            lastModifiedByUserId: original.lastModifiedByUserId,
+            lastPublishedVersion: original.lastPublishedVersion,
+            nameEn: original.nameEn,
+            nameZhCn: original.nameZhCn,
+            replacementProductId: original.replacementProductId,
+            restoredFromPublicationId: original.restoredFromPublicationId,
+            seoDescriptionEn: original.seoDescriptionEn,
+            seoDescriptionZhCn: original.seoDescriptionZhCn,
+            seoTitleEn: original.seoTitleEn,
+            seoTitleZhCn: original.seoTitleZhCn,
+            slugEn: original.slugEn,
+            slugZhCn: original.slugZhCn,
+            status: original.status,
+            summaryEn: original.summaryEn,
+            summaryZhCn: original.summaryZhCn,
+            updatedAt: original.updatedAt,
+            version: original.version,
+          },
+          where: { productId: original.productId },
+        });
+        await transaction.productDraft.update({
+          data: {
+            replacementProductId: downstreamDraft.replacementProductId,
+            updatedAt: downstreamDraft.updatedAt,
+            version: downstreamDraft.version,
+          },
+          where: { productId: downstreamDraft.productId },
+        });
+      });
+    }
+  });
+
   it("两个窗口同时保存时旧草稿版本被拒绝并返回最新修改人和时间", async () => {
     const original = await getProductDraft({
       actor: contentEditor,

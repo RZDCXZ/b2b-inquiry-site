@@ -16,7 +16,6 @@ export type CatalogProductIdentity = {
   currentPublication:
     | (CatalogPublicationIdentity & {
         replacementProduct: CatalogReplacementProductIdentity | null;
-        replacementProductId: string | null;
       })
     | null;
   currentPublicationId: string | null;
@@ -75,7 +74,6 @@ const catalogProductIdentitySelect = {
           partNumber: true,
         },
       },
-      replacementProductId: true,
       status: true,
     },
   },

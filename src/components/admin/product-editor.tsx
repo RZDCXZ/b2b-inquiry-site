@@ -30,7 +30,6 @@ type SpecificationEditorValue = {
   baseUnit: string | null;
   booleanValue: boolean | null;
   code: string;
-  complete: boolean;
   dataType: "boolean" | "decimal" | "enumeration" | "text";
   decimalValue: number | null;
   enumerationValue: string | null;
@@ -85,6 +84,7 @@ export type ProductEditorDraftView = {
     bilingualContent: boolean;
     image: boolean;
     references: boolean;
+    replacement: boolean;
     specifications: boolean;
   };
   publications: Array<{
@@ -319,9 +319,9 @@ function RestoreVersionButton({
               </button>
             </form>
           </div>
+          <MutationFeedback state={state} />
         </section>
       </dialog>
-      <MutationFeedback state={state} />
     </div>
   );
 }
@@ -412,9 +412,9 @@ function DeleteDraftButton({ draft }: { draft: ProductEditorDraftView }) {
               </button>
             </form>
           </div>
+          <MutationFeedback state={state} />
         </section>
       </dialog>
-      <MutationFeedback state={state} />
     </div>
   );
 }
@@ -614,6 +614,10 @@ export function ProductEditor({ draft }: { draft: ProductEditorDraftView }) {
       passed: draft.publicationReadiness.specifications,
     },
     { label: "参考号", passed: draft.publicationReadiness.references },
+    {
+      label: "状态与替代产品",
+      passed: draft.publicationReadiness.replacement,
+    },
     { label: "产品图片路径", passed: draft.publicationReadiness.image },
   ];
 

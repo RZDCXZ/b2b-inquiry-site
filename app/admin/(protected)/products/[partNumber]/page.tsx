@@ -88,7 +88,6 @@ export default async function ProductEditorPage({
         baseUnit: definition.baseUnit,
         booleanValue: value?.booleanValue ?? null,
         code: definition.code,
-        complete: !definition.required || value !== undefined,
         dataType: definition.dataType,
         decimalValue: value?.decimalValue?.toNumber() ?? null,
         enumerationValue: value?.enumerationValue ?? null,
