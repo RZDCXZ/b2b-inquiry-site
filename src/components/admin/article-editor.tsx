@@ -3,10 +3,10 @@
 import {
   Archive,
   ArrowCounterClockwise,
-  CheckCircle,
+  Eye,
   FloppyDisk,
-  XCircle,
 } from "@phosphor-icons/react";
+import Link from "next/link";
 import { useActionState } from "react";
 
 import {
@@ -16,43 +16,12 @@ import {
   saveArticleAction,
   type ContentMutationState,
 } from "@/app/admin/(protected)/content/actions";
+import { MutationFeedback } from "@/src/components/admin/mutation-feedback";
 
 const initialState: ContentMutationState = { message: "", status: "idle" };
 
 function Feedback({ state }: { state: ContentMutationState }) {
-  if (state.status === "idle") return null;
-  return (
-    <div
-      className={`content-feedback is-${state.status}`}
-      role={state.status === "error" ? "alert" : "status"}
-    >
-      {state.status === "success" ? (
-        <CheckCircle weight="fill" />
-      ) : (
-        <XCircle weight="fill" />
-      )}
-      <div>
-        <strong>{state.message}</strong>
-        {state.conflict ? (
-          <p>
-            最新修改：{state.conflict.latestModifiedBy} ·{" "}
-            {new Date(state.conflict.latestModifiedAt).toLocaleString("zh-CN", {
-              timeZone: "Asia/Shanghai",
-            })}
-          </p>
-        ) : null}
-        {state.fieldErrors ? (
-          <ul>
-            {Object.entries(state.fieldErrors).map(([field, message]) => (
-              <li key={field}>
-                {field}：{message}
-              </li>
-            ))}
-          </ul>
-        ) : null}
-      </div>
-    </div>
-  );
+  return <MutationFeedback state={state} />;
 }
 
 function RestoreButton({
@@ -164,6 +133,14 @@ export function ArticleEditor({
           <span>草稿 v{currentVersion} · 语言版本独立发布</span>
         </div>
         <div>
+          <Link
+            className="admin-secondary-button"
+            href={`/admin/content/articles/${draft.articleId}/${draft.locale}/preview`}
+            target="_blank"
+          >
+            <Eye />
+            Preview draft
+          </Link>
           <form action={publishAction}>
             {identity}
             <button
@@ -204,24 +181,34 @@ export function ArticleEditor({
         <div className="article-editor-fields">
           <label>
             <span>标题</span>
-            <input defaultValue={draft.title} name="title" />
+            <input defaultValue={draft.title} id="title" name="title" />
           </label>
           <label>
             <span>URL slug</span>
-            <input defaultValue={draft.slug} name="slug" />
+            <input defaultValue={draft.slug} id="slug" name="slug" />
           </label>
           <label className="is-wide">
             <span>摘要</span>
-            <textarea defaultValue={draft.excerpt} name="excerpt" rows={3} />
+            <textarea
+              defaultValue={draft.excerpt}
+              id="excerpt"
+              name="excerpt"
+              rows={3}
+            />
           </label>
           <label>
             <span>SEO 标题</span>
-            <input defaultValue={draft.seoTitle} name="seoTitle" />
+            <input
+              defaultValue={draft.seoTitle}
+              id="seoTitle"
+              name="seoTitle"
+            />
           </label>
           <label>
             <span>SEO 描述</span>
             <textarea
               defaultValue={draft.seoDescription}
+              id="seoDescription"
               name="seoDescription"
               rows={3}
             />
@@ -240,7 +227,12 @@ export function ArticleEditor({
               <b>Image</b>
               <b>Emphasis</b>
             </div>
-            <textarea defaultValue={draft.body} name="body" rows={18} />
+            <textarea
+              defaultValue={draft.body}
+              id="body"
+              name="body"
+              rows={18}
+            />
           </label>
         </div>
         <Feedback state={saveState} />

@@ -3,11 +3,11 @@
 import {
   Archive,
   ArrowCounterClockwise,
-  CheckCircle,
+  Eye,
   FloppyDisk,
   Warning,
-  XCircle,
 } from "@phosphor-icons/react";
+import Link from "next/link";
 import { useActionState } from "react";
 
 import {
@@ -18,42 +18,22 @@ import {
   type ContentMutationState,
 } from "@/app/admin/(protected)/content/actions";
 import type { CorePageTranslation } from "@/src/modules/content-publishing/public/core-page-contracts";
+import { MutationFeedback } from "@/src/components/admin/mutation-feedback";
 
 const initialState: ContentMutationState = { message: "", status: "idle" };
 
 function Feedback({ state }: { state: ContentMutationState }) {
-  if (state.status === "idle") return null;
   return (
-    <div
-      className={`content-feedback is-${state.status}`}
-      role={state.status === "error" ? "alert" : "status"}
-    >
-      {state.status === "success" ? (
-        <CheckCircle weight="fill" />
-      ) : (
-        <XCircle weight="fill" />
-      )}
-      <div>
-        <strong>{state.message}</strong>
-        {state.conflict ? (
-          <p>
-            最新修改：{state.conflict.latestModifiedBy} ·{" "}
-            {new Date(state.conflict.latestModifiedAt).toLocaleString("zh-CN", {
-              timeZone: "Asia/Shanghai",
-            })}
-          </p>
-        ) : null}
-        {state.fieldErrors ? (
-          <ul>
-            {Object.entries(state.fieldErrors).map(([field, message]) => (
-              <li key={field}>
-                {field}：{message}
-              </li>
-            ))}
-          </ul>
-        ) : null}
-      </div>
-    </div>
+    <MutationFeedback
+      fieldTarget={(field) =>
+        field === "contentZhCn"
+          ? "zhCn:eyebrow"
+          : field === "contentEn" || field === "content"
+            ? "en:eyebrow"
+            : field
+      }
+      state={state}
+    />
   );
 }
 
@@ -71,16 +51,25 @@ function LanguageFields({
       <legend>{title}</legend>
       <label>
         <span>眉题</span>
-        <input defaultValue={content.eyebrow} name={`${prefix}:eyebrow`} />
+        <input
+          defaultValue={content.eyebrow}
+          id={`${prefix}:eyebrow`}
+          name={`${prefix}:eyebrow`}
+        />
       </label>
       <label>
         <span>主标题</span>
-        <input defaultValue={content.title} name={`${prefix}:title`} />
+        <input
+          defaultValue={content.title}
+          id={`${prefix}:title`}
+          name={`${prefix}:title`}
+        />
       </label>
       <label>
         <span>导语</span>
         <textarea
           defaultValue={content.lede}
+          id={`${prefix}:lede`}
           name={`${prefix}:lede`}
           rows={4}
         />
@@ -94,6 +83,7 @@ function LanguageFields({
             <span>版块标题</span>
             <input
               defaultValue={section.heading}
+              id={`${prefix}:section:${section.id}:heading`}
               name={`${prefix}:section:${section.id}:heading`}
             />
           </label>
@@ -101,6 +91,7 @@ function LanguageFields({
             <span>版块正文</span>
             <textarea
               defaultValue={section.body}
+              id={`${prefix}:section:${section.id}:body`}
               name={`${prefix}:section:${section.id}:body`}
               rows={5}
             />
@@ -207,6 +198,22 @@ export function CorePageEditor({
           </span>
         </div>
         <div>
+          <Link
+            className="admin-secondary-button"
+            href={`/admin/content/pages/${draft.key}/preview/zh-cn`}
+            target="_blank"
+          >
+            <Eye />
+            预览简中草稿
+          </Link>
+          <Link
+            className="admin-secondary-button"
+            href={`/admin/content/pages/${draft.key}/preview/en`}
+            target="_blank"
+          >
+            <Eye />
+            Preview English draft
+          </Link>
           <form action={publishAction}>
             <input
               name="expectedDraftVersion"

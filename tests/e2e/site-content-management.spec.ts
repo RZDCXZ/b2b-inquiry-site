@@ -82,3 +82,69 @@ test("单语文章明确标记缺失语言，内容编辑与站点设置权限�
 
   await Promise.all([editorContext.close(), administratorContext.close()]);
 });
+
+test("强类型页面完整呈现内容、保持同页语言切换，并提供受保护草稿预览", async ({
+  browser,
+  page,
+}) => {
+  test.setTimeout(90_000);
+
+  await page.goto("/en");
+  await expect(
+    page.getByRole("heading", { level: 2, name: "Three exact ways to search" }),
+  ).toBeVisible();
+
+  await page.goto("/en/inquiry");
+  await expect(
+    page.getByRole("heading", {
+      level: 2,
+      name: "One inquiry, one clear context",
+    }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", {
+      level: 2,
+      name: "Captured by a local demo workflow",
+    }),
+  ).toBeVisible();
+
+  await page.goto("/en/quality");
+  await expect(
+    page.locator('.locale-switcher a[href="/zh-cn/quality"]'),
+  ).toBeVisible();
+
+  const credentials = await readPresetCredentials();
+  const editor = credentials.accounts.find(
+    ({ role }) => role === "content_editor",
+  )!;
+  const editorContext = await browser.newContext();
+  const editorPage = await login(editorContext, editor);
+
+  await editorPage.goto("/admin/content/pages/about");
+  const pagePreviewPromise = editorPage.waitForEvent("popup");
+  await editorPage.getByRole("link", { name: "Preview English draft" }).click();
+  const pagePreview = await pagePreviewPromise;
+  await expect(pagePreview.getByText("未发布草稿预览")).toBeVisible();
+  await expect(
+    pagePreview.getByRole("heading", {
+      level: 1,
+      name: "A fictional manufacturer built to demonstrate a maintained inquiry system.",
+    }),
+  ).toBeVisible();
+  await pagePreview.close();
+
+  await editorPage.goto("/admin/content/articles/article-fitment-basics/en");
+  const articlePreviewPromise = editorPage.waitForEvent("popup");
+  await editorPage.getByRole("link", { name: "Preview draft" }).click();
+  const articlePreview = await articlePreviewPromise;
+  await expect(articlePreview.getByText("未发布草稿预览")).toBeVisible();
+  await expect(
+    articlePreview.getByRole("heading", {
+      level: 1,
+      name: "Commercial vehicle fitment basics",
+    }),
+  ).toBeVisible();
+  await articlePreview.close();
+
+  await editorContext.close();
+});

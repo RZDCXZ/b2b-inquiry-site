@@ -30,11 +30,23 @@ export function CoreContentPage({
   locale: PublicLocale;
 }) {
   const copy = getHomeCopy(locale);
+  const routeByAnchor: Record<string, string> = {
+    about: "about",
+    contact: "inquiry",
+    "private-label": "private-label",
+    quality: "quality",
+    resources: "resources",
+  };
+  const route = routeByAnchor[activeNavigationAnchor] ?? "";
   return (
     <div className="public-shell">
       <PublicHeader
         activeNavigationAnchor={activeNavigationAnchor}
         descriptor={copy.brandDescriptor}
+        languageHrefs={{
+          en: `/en/${route}`.replace(/\/$/u, ""),
+          "zh-cn": `/zh-cn/${route}`.replace(/\/$/u, ""),
+        }}
         languageLabel={copy.languageLabel}
         locale={locale}
         mobileNavigationLabel={copy.mobileNavigationLabel}

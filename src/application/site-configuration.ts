@@ -199,7 +199,21 @@ export async function saveSiteConfiguration({
       where: { key: "primary", version: expectedVersion },
     });
     if (updated.count !== 1) {
-      throw new SiteConfigurationError("CONFLICT");
+      const latest = await transaction.siteConfiguration.findUnique({
+        include: settingsInclude,
+        where: { key: "primary" },
+      });
+      throw new SiteConfigurationError(
+        "CONFLICT",
+        [],
+        latest
+          ? {
+              latestModifiedAt: latest.updatedAt,
+              latestModifiedBy: latest.lastModifiedBy?.name ?? "系统",
+              latestVersion: latest.version,
+            }
+          : undefined,
+      );
     }
     await transaction.auditLog.create({
       data: {

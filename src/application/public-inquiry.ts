@@ -6,6 +6,7 @@ import {
   getPublishedProduct,
   getPublishedProductById,
 } from "@/src/application/public-catalog";
+import { getPublicSiteConfiguration } from "@/src/application/site-configuration";
 import {
   createInquirySubmissionToken,
   submitInquiryWithToken,
@@ -13,7 +14,7 @@ import {
 } from "@/src/modules/inquiry-operations/server/inquiry-submission-service";
 import type { PublicLocale } from "@/src/modules/site-config/public/locales";
 import { getPublicInquiryReceipt } from "@/src/modules/inquiry-operations/server/inquiry-query";
-import { captureAdministratorInquiryNotification } from "@/src/modules/notifications/server/notification-outbox";
+import { captureConfiguredInquiryNotifications } from "@/src/modules/notifications/server/notification-outbox";
 
 type StoredInquiryReceipt = InquirySubmissionResult["receipt"];
 
@@ -96,8 +97,30 @@ export async function submitInquiry({
     referenceNumber: string;
   };
 }> {
+  const configuration = await getPublicSiteConfiguration({ prisma });
+  const salesRecipient = configuration.notificationRecipientRoles.includes(
+    "sales",
+  )
+    ? await prisma.user.findFirst({
+        orderBy: { id: "asc" },
+        select: { id: true },
+        where: { role: "sales" },
+      })
+    : null;
+  const recipients = configuration.notificationRecipientRoles.flatMap(
+    (role) => {
+      if (role === "sales" && !salesRecipient) return [];
+      return [
+        {
+          role,
+          userId: role === "sales" ? (salesRecipient?.id ?? null) : null,
+        },
+      ];
+    },
+  );
   const result: InquirySubmissionResult = await submitInquiryWithToken({
-    captureAdministratorNotification: captureAdministratorInquiryNotification,
+    captureNotifications: (transaction, input) =>
+      captureConfiguredInquiryNotifications(transaction, input, recipients),
     clientAddress,
     fingerprintSecret,
     form,

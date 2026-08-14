@@ -52,6 +52,10 @@ export function HomePage({
             <p className="eyebrow">{content.eyebrow}</p>
             <h1>{content.title}</h1>
             <p className="lede">{content.lede}</p>
+            <div className="home-finder-intro">
+              <h2>{sections.get("finder_intro")?.heading}</h2>
+              <p>{sections.get("finder_intro")?.body}</p>
+            </div>
             <ProductFinder
               action={copy.findAction}
               categories={copy.categories.map(({ code, name }) => ({

@@ -316,6 +316,10 @@ export async function publishCorePageDraft({
       },
     });
     if (claim.count !== 1) {
+      const latest = await findCorePageDraft(transaction, key);
+      if (latest && latest.version !== expectedDraftVersion) {
+        throw new SiteContentError("CONFLICT", [], corePageConflict(latest));
+      }
       throw new SiteContentError("NOTHING_TO_PUBLISH");
     }
 
@@ -394,7 +398,12 @@ export async function restoreCorePagePublication({
       where: { pageKey: key, version: expectedDraftVersion },
     });
     if (updated.count !== 1) {
-      throw new SiteContentError("CONFLICT");
+      const latest = await findCorePageDraft(transaction, key);
+      throw new SiteContentError(
+        "CONFLICT",
+        [],
+        latest ? corePageConflict(latest) : undefined,
+      );
     }
     await transaction.auditLog.create({
       data: {
@@ -443,7 +452,14 @@ export async function archiveCorePage({
       },
       where: { pageKey: key, version: expectedDraftVersion },
     });
-    if (updated.count !== 1) throw new SiteContentError("CONFLICT");
+    if (updated.count !== 1) {
+      const latest = await findCorePageDraft(transaction, key);
+      throw new SiteContentError(
+        "CONFLICT",
+        [],
+        latest ? corePageConflict(latest) : undefined,
+      );
+    }
     const now = new Date();
     const publication = await transaction.corePagePublication.create({
       data: {
@@ -695,7 +711,18 @@ export async function saveArticleDraft({
         version: expectedDraftVersion,
       },
     });
-    if (updated.count !== 1) throw new SiteContentError("CONFLICT");
+    if (updated.count !== 1) {
+      const latest = await findArticleDraft(
+        transaction,
+        articleId,
+        localeValue,
+      );
+      throw new SiteContentError(
+        "CONFLICT",
+        [],
+        latest ? articleConflict(latest) : undefined,
+      );
+    }
     await transaction.auditLog.create({
       data: {
         actorRole: actor.role,
@@ -797,7 +824,17 @@ export async function publishArticleDraft({
         ],
       },
     });
-    if (claim.count !== 1) throw new SiteContentError("NOTHING_TO_PUBLISH");
+    if (claim.count !== 1) {
+      const latest = await findArticleDraft(
+        transaction,
+        articleId,
+        localeValue,
+      );
+      if (latest && latest.version !== expectedDraftVersion) {
+        throw new SiteContentError("CONFLICT", [], articleConflict(latest));
+      }
+      throw new SiteContentError("NOTHING_TO_PUBLISH");
+    }
 
     const now = new Date();
     const publication = await transaction.articlePublication.create({
@@ -893,7 +930,18 @@ export async function restoreArticlePublication({
         version: expectedDraftVersion,
       },
     });
-    if (updated.count !== 1) throw new SiteContentError("CONFLICT");
+    if (updated.count !== 1) {
+      const latest = await findArticleDraft(
+        transaction,
+        articleId,
+        localeValue,
+      );
+      throw new SiteContentError(
+        "CONFLICT",
+        [],
+        latest ? articleConflict(latest) : undefined,
+      );
+    }
     await transaction.auditLog.create({
       data: {
         actorRole: actor.role,
@@ -952,7 +1000,18 @@ export async function archiveArticle({
         version: expectedDraftVersion,
       },
     });
-    if (updated.count !== 1) throw new SiteContentError("CONFLICT");
+    if (updated.count !== 1) {
+      const latest = await findArticleDraft(
+        transaction,
+        articleId,
+        localeValue,
+      );
+      throw new SiteContentError(
+        "CONFLICT",
+        [],
+        latest ? articleConflict(latest) : undefined,
+      );
+    }
     const now = new Date();
     const publication = await transaction.articlePublication.create({
       data: {

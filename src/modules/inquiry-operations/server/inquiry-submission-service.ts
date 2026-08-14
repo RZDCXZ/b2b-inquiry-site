@@ -33,7 +33,7 @@ export type InquirySubmissionResult = {
   receipt: InquiryReceipt;
 };
 
-export type CaptureAdministratorInquiryNotification = (
+export type CaptureInquiryNotifications = (
   transaction: Prisma.TransactionClient,
   input: {
     company: string;
@@ -134,7 +134,7 @@ export async function createInquirySubmissionToken({
 async function persistSubmission(
   transaction: Prisma.TransactionClient,
   input: {
-    captureAdministratorNotification: CaptureAdministratorInquiryNotification;
+    captureNotifications: CaptureInquiryNotifications;
     clientFingerprintHash: string;
     form: unknown;
     now: Date;
@@ -222,7 +222,7 @@ async function persistSubmission(
         ...commonRecord,
       },
     });
-    await input.captureAdministratorNotification(transaction, {
+    await input.captureNotifications(transaction, {
       company: parsedForm.data.company,
       countryRegion: parsedForm.data.countryRegion,
       createdAt: input.now,
@@ -259,7 +259,7 @@ async function persistSubmission(
 }
 
 export async function submitInquiryWithToken({
-  captureAdministratorNotification,
+  captureNotifications,
   clientAddress,
   fingerprintSecret,
   form,
@@ -267,7 +267,7 @@ export async function submitInquiryWithToken({
   prisma,
   token,
 }: {
-  captureAdministratorNotification: CaptureAdministratorInquiryNotification;
+  captureNotifications: CaptureInquiryNotifications;
   clientAddress: string;
   fingerprintSecret: string;
   form: unknown;
@@ -280,7 +280,7 @@ export async function submitInquiryWithToken({
   }
 
   const transactionInput = {
-    captureAdministratorNotification,
+    captureNotifications,
     clientFingerprintHash: hashClientAddress(clientAddress, fingerprintSecret),
     form,
     now,

@@ -170,6 +170,20 @@ export function InquiryFormPage({
             {copy.inquiryBoundary}
           </aside>
         </header>
+        <section
+          aria-label={locale === "en" ? "Inquiry guidance" : "询盘说明"}
+          className="inquiry-content-guidance"
+        >
+          {contactContent.sections.map((section, index) => (
+            <article key={section.id}>
+              <span>{String(index + 1).padStart(2, "0")}</span>
+              <div>
+                <h2>{section.heading}</h2>
+                <p>{section.body}</p>
+              </div>
+            </article>
+          ))}
+        </section>
         <div
           className={`inquiry-layout${product ? "" : " inquiry-layout--general"}`}
         >

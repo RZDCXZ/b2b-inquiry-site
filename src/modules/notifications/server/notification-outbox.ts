@@ -1,6 +1,6 @@
-import type { Prisma } from "@/src/generated/prisma/client";
+import type { AppRole, Prisma } from "@/src/generated/prisma/client";
 
-export async function captureAdministratorInquiryNotification(
+export async function captureConfiguredInquiryNotifications(
   transaction: Prisma.TransactionClient,
   input: {
     company: string;
@@ -9,37 +9,20 @@ export async function captureAdministratorInquiryNotification(
     inquiryId: string;
     referenceNumber: string;
   },
+  recipients: ReadonlyArray<{
+    role: AppRole;
+    userId: string | null;
+  }>,
 ): Promise<void> {
-  const configuration = await transaction.siteConfiguration.findUnique({
-    select: { notificationRecipientRoles: true },
-    where: { key: "primary" },
-  });
-  const recipientRoles = configuration?.notificationRecipientRoles ?? [
-    "administrator",
-  ];
-  const salesRecipient = recipientRoles.includes("sales")
-    ? await transaction.user.findFirst({
-        orderBy: { id: "asc" },
-        select: { id: true },
-        where: { role: "sales" },
-      })
-    : null;
-
   await transaction.notificationOutboxRecord.createMany({
-    data: recipientRoles.flatMap((recipientRole) => {
-      if (recipientRole === "sales" && !salesRecipient) return [];
-      return [
-        {
-          contentPreview: `New inquiry ${input.referenceNumber} from ${input.company} (${input.countryRegion}).`,
-          createdAt: input.createdAt,
-          inquiryId: input.inquiryId,
-          inquiryReferenceNumber: input.referenceNumber,
-          recipientRole,
-          recipientUserId:
-            recipientRole === "sales" ? salesRecipient?.id : null,
-          template: `new_inquiry_for_${recipientRole}`,
-        },
-      ];
-    }),
+    data: recipients.map((recipient) => ({
+      contentPreview: `New inquiry ${input.referenceNumber} from ${input.company} (${input.countryRegion}).`,
+      createdAt: input.createdAt,
+      inquiryId: input.inquiryId,
+      inquiryReferenceNumber: input.referenceNumber,
+      recipientRole: recipient.role,
+      recipientUserId: recipient.userId,
+      template: `new_inquiry_for_${recipient.role}`,
+    })),
   });
 }

@@ -1,22 +1,28 @@
 import { CalendarBlank, Info } from "@phosphor-icons/react/dist/ssr";
 import Link from "next/link";
 
-import type { getPublishedArticle } from "@/src/application/site-content-management";
 import { PublicFooter } from "@/src/components/public/public-footer";
 import { PublicHeader } from "@/src/components/public/public-header";
 import { RestrictedRichText } from "@/src/components/public/restricted-rich-text";
 import { getHomeCopy } from "@/src/modules/content-publishing/public/home-copy";
 import type { PublicLocale } from "@/src/modules/site-config/public/locales";
 
-type PublishedArticle = NonNullable<
-  Awaited<ReturnType<typeof getPublishedArticle>>
->;
+export type ArticlePageContent = {
+  body: string;
+  excerpt: string;
+  otherLanguage:
+    | { available: true; locale: PublicLocale; slug: string }
+    | { available: false; locale: PublicLocale };
+  publishedAt: Date;
+  slug: string;
+  title: string;
+};
 
 export function ArticlePage({
   article,
   locale,
 }: {
-  article: PublishedArticle;
+  article: ArticlePageContent;
   locale: PublicLocale;
 }) {
   const copy = getHomeCopy(locale);

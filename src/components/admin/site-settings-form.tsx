@@ -1,17 +1,13 @@
 "use client";
 
-import {
-  CheckCircle,
-  FloppyDisk,
-  LockKey,
-  XCircle,
-} from "@phosphor-icons/react";
+import { FloppyDisk, LockKey } from "@phosphor-icons/react";
 import { useActionState } from "react";
 
 import {
   saveSiteConfigurationAction,
   type SettingsMutationState,
 } from "@/app/admin/(protected)/settings/actions";
+import { MutationFeedback } from "@/src/components/admin/mutation-feedback";
 
 const initialState: SettingsMutationState = { message: "", status: "idle" };
 
@@ -50,29 +46,40 @@ export function SiteSettingsForm({
           <span>企业中文名称</span>
           <input
             defaultValue={settings.companyNameZhCn}
+            id="companyNameZhCn"
             name="companyNameZhCn"
           />
         </label>
         <label>
           <span>Company name</span>
-          <input defaultValue={settings.companyNameEn} name="companyNameEn" />
+          <input
+            defaultValue={settings.companyNameEn}
+            id="companyNameEn"
+            name="companyNameEn"
+          />
         </label>
         <label>
           <span>联系邮箱</span>
           <input
             defaultValue={settings.contactEmail}
+            id="contactEmail"
             name="contactEmail"
             type="email"
           />
         </label>
         <label>
           <span>联系电话</span>
-          <input defaultValue={settings.contactPhone} name="contactPhone" />
+          <input
+            defaultValue={settings.contactPhone}
+            id="contactPhone"
+            name="contactPhone"
+          />
         </label>
         <label>
           <span>中文地址</span>
           <textarea
             defaultValue={settings.addressZhCn}
+            id="addressZhCn"
             name="addressZhCn"
             rows={3}
           />
@@ -81,6 +88,7 @@ export function SiteSettingsForm({
           <span>English address</span>
           <textarea
             defaultValue={settings.addressEn}
+            id="addressEn"
             name="addressEn"
             rows={3}
           />
@@ -92,6 +100,7 @@ export function SiteSettingsForm({
           <span>中文默认标题</span>
           <input
             defaultValue={settings.defaultSeoTitleZhCn}
+            id="defaultSeoTitleZhCn"
             name="defaultSeoTitleZhCn"
           />
         </label>
@@ -99,6 +108,7 @@ export function SiteSettingsForm({
           <span>English default title</span>
           <input
             defaultValue={settings.defaultSeoTitleEn}
+            id="defaultSeoTitleEn"
             name="defaultSeoTitleEn"
           />
         </label>
@@ -106,6 +116,7 @@ export function SiteSettingsForm({
           <span>中文默认描述</span>
           <textarea
             defaultValue={settings.defaultSeoDescriptionZhCn}
+            id="defaultSeoDescriptionZhCn"
             name="defaultSeoDescriptionZhCn"
             rows={3}
           />
@@ -114,6 +125,7 @@ export function SiteSettingsForm({
           <span>English default description</span>
           <textarea
             defaultValue={settings.defaultSeoDescriptionEn}
+            id="defaultSeoDescriptionEn"
             name="defaultSeoDescriptionEn"
             rows={3}
           />
@@ -127,11 +139,12 @@ export function SiteSettingsForm({
             defaultValue={Object.entries(settings.socialLinks)
               .map(([label, href]) => `${label} | ${href}`)
               .join("\n")}
+            id="socialLinks"
             name="socialLinks"
             rows={4}
           />
         </label>
-        <div className="settings-role-checks">
+        <div className="settings-role-checks" id="notificationRecipientRoles">
           <span>模拟通知收件角色</span>
           {[
             ["administrator", "管理员"],
@@ -162,39 +175,7 @@ export function SiteSettingsForm({
           </p>
         </div>
       </aside>
-      {state.status !== "idle" ? (
-        <div
-          className={`content-feedback is-${state.status}`}
-          role={state.status === "error" ? "alert" : "status"}
-        >
-          {state.status === "success" ? (
-            <CheckCircle weight="fill" />
-          ) : (
-            <XCircle weight="fill" />
-          )}
-          <div>
-            <strong>{state.message}</strong>
-            {state.conflict ? (
-              <p>
-                最新修改：{state.conflict.latestModifiedBy} ·{" "}
-                {new Date(state.conflict.latestModifiedAt).toLocaleString(
-                  "zh-CN",
-                  { timeZone: "Asia/Shanghai" },
-                )}
-              </p>
-            ) : null}
-            {state.fieldErrors ? (
-              <ul>
-                {Object.entries(state.fieldErrors).map(([field, message]) => (
-                  <li key={field}>
-                    {field}：{message}
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
+      <MutationFeedback state={state} />
       <footer>
         <span>
           最后保存：{settings.lastModifiedBy} ·{" "}
