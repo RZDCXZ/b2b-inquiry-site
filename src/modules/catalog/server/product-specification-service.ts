@@ -7,7 +7,7 @@ import {
 } from "@/src/modules/catalog/public/specifications";
 
 export async function validateProductSpecificationsForCategory(
-  prisma: PrismaClient,
+  prisma: Pick<PrismaClient, "productCategory">,
   {
     categoryId,
     values,

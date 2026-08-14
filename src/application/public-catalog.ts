@@ -14,6 +14,7 @@ import {
   findCatalogProductReferences,
   findCatalogProductIdentitiesBySpecifications,
   listCatalogCategories,
+  listCatalogProductReferences,
   listPublishedCatalogProductIdentities,
   type CatalogProductIdentity,
   type CatalogReplacementProductIdentity,
@@ -50,6 +51,7 @@ import {
 import {
   findCatalogFitmentPublicationIdsByVehicle,
   listCatalogVehicleFitments,
+  type CatalogVehicleFitment,
 } from "@/src/modules/catalog/server/fitment-query";
 import type { PublicProductStatus } from "@/src/modules/catalog/public/product-lifecycle";
 
@@ -57,6 +59,7 @@ export type PublishedCatalogProduct = {
   category: { code: ProductCategoryCode; name: string };
   href: string;
   id: string;
+  imageAlt: string;
   imagePath: string;
   name: string;
   partNumber: string;
@@ -65,8 +68,14 @@ export type PublishedCatalogProduct = {
 };
 
 export type PublishedProductDetail = PublishedCatalogProduct & {
+  description: string;
+  fitmentSummary: string;
+  fitments: Array<Omit<CatalogVehicleFitment, "publicationId">>;
   languageHrefs: Record<PublicLocale, string>;
+  references: Array<{ brand: string; referenceNumber: string }>;
   replacement: PublishedCatalogProduct | null;
+  seoDescription: string;
+  seoTitle: string;
   specifications: ProductSpecificationDisplay[];
   status: PublicProductStatus;
   unitSystem: UnitSystem;
@@ -100,13 +109,23 @@ function localizeProduct(
   return locale === "en"
     ? {
         categoryName: identity.category.nameEn,
+        description: content.descriptionEn,
+        fitmentSummary: content.fitmentSummaryEn,
+        imageAlt: content.imageAltEn,
         name: content.nameEn,
+        seoDescription: content.seoDescriptionEn,
+        seoTitle: content.seoTitleEn,
         slug: content.slugEn,
         summary: content.summaryEn,
       }
     : {
         categoryName: identity.category.nameZhCn,
+        description: content.descriptionZhCn,
+        fitmentSummary: content.fitmentSummaryZhCn,
+        imageAlt: content.imageAltZhCn,
         name: content.nameZhCn,
+        seoDescription: content.seoDescriptionZhCn,
+        seoTitle: content.seoTitleZhCn,
         slug: content.slugZhCn,
         summary: content.summaryZhCn,
       };
@@ -129,6 +148,7 @@ function createPublishedCatalogProduct(
       slug: localized.slug,
     }),
     id: identity.id,
+    imageAlt: localized.imageAlt,
     imagePath: identity.imagePath,
     name: localized.name,
     partNumber: identity.partNumber,
@@ -432,15 +452,22 @@ export async function getPublishedProduct({
     identity.replacementProduct?.status !== "draft"
       ? identity.replacementProduct?.currentPublicationId
       : null;
-  const [[content], persistedSpecifications, replacementContents] =
-    await Promise.all([
-      listPublishedProductContent(prisma, [identity.currentPublicationId]),
-      listProductSpecifications(prisma, identity.currentPublicationId),
-      listPublishedProductContent(
-        prisma,
-        replacementPublicationId ? [replacementPublicationId] : [],
-      ),
-    ]);
+  const [
+    [content],
+    persistedSpecifications,
+    replacementContents,
+    references,
+    fitments,
+  ] = await Promise.all([
+    listPublishedProductContent(prisma, [identity.currentPublicationId]),
+    listProductSpecifications(prisma, identity.currentPublicationId),
+    listPublishedProductContent(
+      prisma,
+      replacementPublicationId ? [replacementPublicationId] : [],
+    ),
+    listCatalogProductReferences(prisma, identity.currentPublicationId),
+    listCatalogVehicleFitments(prisma, identity.currentPublicationId),
+  ]);
 
   if (!content) {
     return null;
@@ -475,7 +502,19 @@ export async function getPublishedProduct({
 
   return {
     ...publishedProduct,
+    description:
+      locale === "en" ? content.descriptionEn : content.descriptionZhCn,
+    fitmentSummary:
+      locale === "en" ? content.fitmentSummaryEn : content.fitmentSummaryZhCn,
+    fitments: fitments.map(({ engine, make, model, yearFrom, yearTo }) => ({
+      engine,
+      make,
+      model,
+      yearFrom,
+      yearTo,
+    })),
     languageHrefs,
+    references,
     replacement:
       replacement && unitSystem === "imperial"
         ? { ...replacement, href: `${replacement.href}?unit=imperial` }
@@ -483,6 +522,9 @@ export async function getPublishedProduct({
     specifications: persistedSpecifications.map((specification) =>
       formatProductSpecification(specification, { locale, unitSystem }),
     ),
+    seoDescription:
+      locale === "en" ? content.seoDescriptionEn : content.seoDescriptionZhCn,
+    seoTitle: locale === "en" ? content.seoTitleEn : content.seoTitleZhCn,
     status: identity.status,
     unitSystem,
   };

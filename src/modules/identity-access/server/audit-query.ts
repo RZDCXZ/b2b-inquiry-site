@@ -20,6 +20,8 @@ const auditActionLabels: Record<string, string> = {
   INQUIRY_REASSIGNED: "重新分配询盘",
   INQUIRY_REOPENED: "重新打开询盘",
   LOGIN: "后台登录",
+  PRODUCT_PUBLICATION_RESTORED: "恢复产品历史版本",
+  PRODUCT_PUBLISHED: "发布产品",
 };
 
 export async function listRecentAuditLogs(
@@ -50,9 +52,11 @@ export async function listRecentAuditLogs(
       target:
         record.targetType === "INQUIRY"
           ? "询盘"
-          : record.event === "LOGIN"
-            ? "运营后台会话"
-            : "系统记录",
+          : record.targetType === "PRODUCT"
+            ? "产品"
+            : record.event === "LOGIN"
+              ? "运营后台会话"
+              : "系统记录",
     };
   });
 }

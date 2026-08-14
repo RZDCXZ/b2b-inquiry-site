@@ -84,7 +84,7 @@ export function ProductDetailPage({
         <section className="product-detail-hero">
           <figure>
             <Image
-              alt={`${product.name} ${product.partNumber}`}
+              alt={product.imageAlt}
               fill
               priority
               sizes="(max-width: 820px) 100vw, 50vw"
@@ -169,6 +169,18 @@ export function ProductDetailPage({
             </div>
           </div>
         </section>
+        <section className="product-public-copy">
+          <article>
+            <p className="eyebrow">{product.partNumber}</p>
+            <h2>{catalogCopy.detailDescriptionHeading}</h2>
+            <p>{product.description}</p>
+          </article>
+          <article>
+            <p className="eyebrow">{product.category.name}</p>
+            <h2>{catalogCopy.fitmentsHeading}</h2>
+            <p>{product.fitmentSummary}</p>
+          </article>
+        </section>
         <section
           aria-labelledby="product-specifications-heading"
           className="product-specifications"
@@ -210,6 +222,64 @@ export function ProductDetailPage({
             <Info aria-hidden="true" size={19} weight="fill" />
             {catalogCopy.demoDataNotice}
           </aside>
+        </section>
+        <section className="product-public-tables">
+          <article>
+            <header>
+              <p className="eyebrow">{product.partNumber}</p>
+              <h2>{catalogCopy.fitmentsHeading}</h2>
+            </header>
+            <div className="specification-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th scope="col">{catalogCopy.fitmentModelColumn}</th>
+                    <th scope="col">{catalogCopy.fitmentYearsColumn}</th>
+                    <th scope="col">{catalogCopy.fitmentEngineColumn}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {product.fitments.map((fitment) => (
+                    <tr
+                      key={`${fitment.model.id}-${fitment.engine.id}-${fitment.yearFrom}`}
+                    >
+                      <td>
+                        {fitment.make.name} {fitment.model.name}
+                      </td>
+                      <td>
+                        {fitment.yearFrom}–{fitment.yearTo}
+                      </td>
+                      <td>{fitment.engine.code}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </article>
+          <article>
+            <header>
+              <p className="eyebrow">{product.partNumber}</p>
+              <h2>{catalogCopy.referencesHeading}</h2>
+            </header>
+            <div className="specification-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th scope="col">{catalogCopy.lookupReferenceBrand}</th>
+                    <th scope="col">{catalogCopy.lookupReferenceNumber}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {product.references.map((reference) => (
+                    <tr key={`${reference.brand}-${reference.referenceNumber}`}>
+                      <td>{reference.brand}</td>
+                      <td>{reference.referenceNumber}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </article>
         </section>
       </main>
       <PublicFooter

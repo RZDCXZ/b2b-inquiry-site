@@ -12,11 +12,16 @@ type CatalogCopy = {
   discontinuedNoReplacement: string;
   discontinuedReplacementLabel: string;
   detailBack: string;
+  detailDescriptionHeading: string;
   detailDiscontinued: string;
   detailEyebrow: string;
   detailInquiry: string;
   detailSpecificationDownload: string;
   detailPublished: string;
+  fitmentEngineColumn: string;
+  fitmentModelColumn: string;
+  fitmentYearsColumn: string;
+  fitmentsHeading: string;
   keySpecificationsHeading: string;
   filterAny: string;
   filterApply: string;
@@ -63,6 +68,7 @@ type CatalogCopy = {
   resultNoMatchesLede: string;
   resultSearchByNumber: string;
   resultVehicleType: string;
+  referencesHeading: string;
   resultSpecificationType: string;
   sortedLabel: string;
   paginationLabel: string;
@@ -103,11 +109,16 @@ const copy: Record<PublicLocale, CatalogCopy> = {
     discontinuedNoReplacement: "No replacement product is currently specified.",
     discontinuedReplacementLabel: "Replacement product:",
     detailBack: "Back to products",
+    detailDescriptionHeading: "Product description",
     detailDiscontinued: "Discontinued",
     detailEyebrow: "TORQUELIS PART NUMBER",
     detailInquiry: "Inquire about this product",
     detailSpecificationDownload: "Download specification PDF",
     detailPublished: "Published",
+    fitmentEngineColumn: "Engine",
+    fitmentModelColumn: "Vehicle application",
+    fitmentYearsColumn: "Years",
+    fitmentsHeading: "Fitment summary",
     keySpecificationsHeading: "Key specifications",
     filterAny: "Any",
     filterApply: "Apply specifications",
@@ -182,6 +193,7 @@ const copy: Record<PublicLocale, CatalogCopy> = {
       "No published standard replacement filter matches every selected vehicle or specification condition.",
     resultSearchByNumber: "Search by number",
     resultVehicleType: "Vehicle fitment results",
+    referencesHeading: "Cross-reference numbers",
     resultSpecificationType: "Category specification results",
     sortedLabel: "Sorted by Torquelis part number",
     paginationLabel: "Catalogue result pages",
@@ -220,11 +232,16 @@ const copy: Record<PublicLocale, CatalogCopy> = {
     discontinuedNoReplacement: "当前没有指定替代产品。",
     discontinuedReplacementLabel: "替代产品：",
     detailBack: "返回产品中心",
+    detailDescriptionHeading: "产品描述",
     detailDiscontinued: "已停产",
     detailEyebrow: "TORQUELIS 产品编号",
     detailInquiry: "咨询此产品",
     detailSpecificationDownload: "下载规格 PDF",
     detailPublished: "已发布",
+    fitmentEngineColumn: "发动机",
+    fitmentModelColumn: "适配车型",
+    fitmentYearsColumn: "适用年份",
+    fitmentsHeading: "适配摘要",
     keySpecificationsHeading: "关键规格",
     filterAny: "不限",
     filterApply: "应用规格条件",
@@ -286,6 +303,7 @@ const copy: Record<PublicLocale, CatalogCopy> = {
     resultNoMatchesLede: "没有已发布标准替换件同时符合全部已选车型或规格条件。",
     resultSearchByNumber: "改用编号查找",
     resultVehicleType: "车型适配结果",
+    referencesHeading: "参考号",
     resultSpecificationType: "分类规格结果",
     sortedLabel: "按 Torquelis 产品编号排序",
     paginationLabel: "产品结果分页",

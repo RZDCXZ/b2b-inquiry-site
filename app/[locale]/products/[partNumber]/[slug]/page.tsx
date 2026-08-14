@@ -30,7 +30,9 @@ export async function generateMetadata({
     partNumber: parsedParams.data.partNumber,
   });
 
-  return product ? { description: product.summary, title: product.name } : {};
+  return product
+    ? { description: product.seoDescription, title: product.seoTitle }
+    : {};
 }
 
 export default async function ProductPage({

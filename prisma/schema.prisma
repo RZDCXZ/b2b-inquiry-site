@@ -92,6 +92,8 @@ model User {
   inquiryFollowUps          InquiryFollowUp[]
   inquiryStatusChanges      InquiryStatusChange[]
   notificationOutboxRecords NotificationOutboxRecord[]
+  modifiedProductDrafts     ProductDraft[]             @relation("ProductDraftLastModifier")
+  productPublications       ProductPublication[]       @relation("ProductPublicationPublisher")
 
   @@map("user")
 }
@@ -189,6 +191,8 @@ model ProductCategory {
   nameEn                  String                             @map("name_en")
   nameZhCn                String                             @map("name_zh_cn")
   products                Product[]
+  productDrafts           ProductDraft[]
+  productPublications     ProductPublication[]
   specificationAttributes SpecificationAttributeDefinition[]
 
   @@map("product_category")
@@ -215,11 +219,12 @@ model VehicleModel {
 }
 
 model Engine {
-  id             String           @id
-  vehicleModelId String           @map("vehicle_model_id")
+  id             String                @id
+  vehicleModelId String                @map("vehicle_model_id")
   code           String
-  vehicleModel   VehicleModel     @relation(fields: [vehicleModelId], references: [id], onDelete: Cascade)
+  vehicleModel   VehicleModel          @relation(fields: [vehicleModelId], references: [id], onDelete: Cascade)
   fitments       ProductFitment[]
+  draftFitments  ProductDraftFitment[]
 
   @@unique([vehicleModelId, code])
   @@unique([id, vehicleModelId])
@@ -228,24 +233,27 @@ model Engine {
 }
 
 model Product {
-  id                   String               @id
-  partNumber           String               @map("part_number")
-  normalizedPartNumber String               @unique @default(dbgenerated()) @map("normalized_part_number")
-  categoryId           String               @map("category_id")
-  imagePath            String               @map("image_path")
-  status               ProductStatus        @default(draft)
-  currentPublicationId String?              @unique @map("current_publication_id")
-  replacementProductId String?              @map("replacement_product_id")
-  createdAt            DateTime             @default(now()) @map("created_at")
-  updatedAt            DateTime             @updatedAt @map("updated_at")
-  category             ProductCategory      @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  currentPublication   ProductPublication?  @relation("CurrentProductPublication", fields: [id, currentPublicationId], references: [productId, id], onDelete: NoAction)
-  replacementProduct   Product?             @relation("ProductReplacement", fields: [replacementProductId], references: [id], onDelete: Restrict)
-  replacedProducts     Product[]            @relation("ProductReplacement")
-  publications         ProductPublication[] @relation("ProductPublicationVersions")
-  inquirySubmissions   InquirySubmission[]
-  inquiries            Inquiry[]
-  quarantinedInquiries QuarantinedInquiry[]
+  id                      String               @id
+  partNumber              String               @map("part_number")
+  normalizedPartNumber    String               @unique @default(dbgenerated()) @map("normalized_part_number")
+  categoryId              String               @map("category_id")
+  imagePath               String               @map("image_path")
+  status                  ProductStatus        @default(draft)
+  currentPublicationId    String?              @unique @map("current_publication_id")
+  replacementProductId    String?              @map("replacement_product_id")
+  createdAt               DateTime             @default(now()) @map("created_at")
+  updatedAt               DateTime             @updatedAt @map("updated_at")
+  category                ProductCategory      @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  currentPublication      ProductPublication?  @relation("CurrentProductPublication", fields: [id, currentPublicationId], references: [productId, id], onDelete: NoAction)
+  replacementProduct      Product?             @relation("ProductReplacement", fields: [replacementProductId], references: [id], onDelete: Restrict)
+  replacedProducts        Product[]            @relation("ProductReplacement")
+  publications            ProductPublication[] @relation("ProductPublicationVersions")
+  draft                   ProductDraft?
+  draftReplacements       ProductDraft[]       @relation("ProductDraftReplacement")
+  publicationReplacements ProductPublication[] @relation("ProductPublicationReplacement")
+  inquirySubmissions      InquirySubmission[]
+  inquiries               Inquiry[]
+  quarantinedInquiries    QuarantinedInquiry[]
 
   @@unique([id, currentPublicationId])
   @@index([categoryId])
@@ -268,21 +276,22 @@ model ProductReference {
 }
 
 model SpecificationAttributeDefinition {
-  id                  String                         @id
-  categoryId          String                         @map("category_id")
+  id                  String                           @id
+  categoryId          String                           @map("category_id")
   code                String
   position            Int
-  nameEn              String                         @map("name_en")
-  nameZhCn            String                         @map("name_zh_cn")
-  dataType            SpecificationDataType          @map("data_type")
-  baseUnit            SpecificationUnit?             @map("base_unit")
-  minimumDecimalValue Decimal?                       @map("minimum_decimal_value") @db.Decimal(18, 6)
-  maximumDecimalValue Decimal?                       @map("maximum_decimal_value") @db.Decimal(18, 6)
+  nameEn              String                           @map("name_en")
+  nameZhCn            String                           @map("name_zh_cn")
+  dataType            SpecificationDataType            @map("data_type")
+  baseUnit            SpecificationUnit?               @map("base_unit")
+  minimumDecimalValue Decimal?                         @map("minimum_decimal_value") @db.Decimal(18, 6)
+  maximumDecimalValue Decimal?                         @map("maximum_decimal_value") @db.Decimal(18, 6)
   required            Boolean
   filterable          Boolean
-  category            ProductCategory                @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  category            ProductCategory                  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   options             SpecificationAttributeOption[]
   values              ProductSpecificationValue[]
+  draftValues         ProductDraftSpecificationValue[]
 
   @@unique([categoryId, code])
   @@unique([id, dataType])
@@ -328,25 +337,145 @@ model ProductSpecificationValue {
   @@map("product_specification_value")
 }
 
+model ProductDraft {
+  productId                 String                           @id @map("product_id")
+  version                   Int                              @default(1)
+  lastPublishedVersion      Int?                             @map("last_published_version")
+  categoryId                String                           @map("category_id")
+  imagePath                 String                           @map("image_path")
+  imageAltEn                String                           @map("image_alt_en")
+  imageAltZhCn              String                           @map("image_alt_zh_cn")
+  nameEn                    String                           @map("name_en")
+  slugEn                    String                           @map("slug_en")
+  summaryEn                 String                           @map("summary_en")
+  descriptionEn             String                           @map("description_en")
+  seoTitleEn                String                           @map("seo_title_en")
+  seoDescriptionEn          String                           @map("seo_description_en")
+  fitmentSummaryEn          String                           @map("fitment_summary_en")
+  nameZhCn                  String                           @map("name_zh_cn")
+  slugZhCn                  String                           @map("slug_zh_cn")
+  summaryZhCn               String                           @map("summary_zh_cn")
+  descriptionZhCn           String                           @map("description_zh_cn")
+  seoTitleZhCn              String                           @map("seo_title_zh_cn")
+  seoDescriptionZhCn        String                           @map("seo_description_zh_cn")
+  fitmentSummaryZhCn        String                           @map("fitment_summary_zh_cn")
+  status                    ProductStatus                    @default(published)
+  replacementProductId      String?                          @map("replacement_product_id")
+  restoredFromPublicationId String?                          @map("restored_from_publication_id")
+  lastModifiedByUserId      String?                          @map("last_modified_by_user_id")
+  updatedAt                 DateTime                         @default(now()) @updatedAt @map("updated_at")
+  product                   Product                          @relation(fields: [productId], references: [id], onDelete: Cascade)
+  category                  ProductCategory                  @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  replacementProduct        Product?                         @relation("ProductDraftReplacement", fields: [replacementProductId], references: [id], onDelete: Restrict)
+  restoredFromPublication   ProductPublication?              @relation("ProductDraftRestorationSource", fields: [restoredFromPublicationId], references: [id], onDelete: SetNull)
+  lastModifiedBy            User?                            @relation("ProductDraftLastModifier", fields: [lastModifiedByUserId], references: [id], onDelete: SetNull)
+  specificationValues       ProductDraftSpecificationValue[]
+  references                ProductDraftReference[]
+  fitments                  ProductDraftFitment[]
+
+  @@index([categoryId])
+  @@index([replacementProductId])
+  @@index([lastModifiedByUserId])
+  @@map("product_draft")
+}
+
+model ProductDraftSpecificationValue {
+  productId            String                           @map("product_id")
+  attributeId          String                           @map("attribute_id")
+  attributeCode        String                           @map("attribute_code")
+  position             Int
+  nameEn               String                           @map("name_en")
+  nameZhCn             String                           @map("name_zh_cn")
+  dataType             SpecificationDataType            @map("data_type")
+  baseUnit             SpecificationUnit?               @map("base_unit")
+  decimalValue         Decimal?                         @map("decimal_value") @db.Decimal(18, 6)
+  booleanValue         Boolean?                         @map("boolean_value")
+  enumerationValue     String?                          @map("enumeration_value")
+  enumerationLabelEn   String?                          @map("enumeration_label_en")
+  enumerationLabelZhCn String?                          @map("enumeration_label_zh_cn")
+  textValue            String?                          @map("text_value")
+  draft                ProductDraft                     @relation(fields: [productId], references: [productId], onDelete: Cascade)
+  attribute            SpecificationAttributeDefinition @relation(fields: [attributeId], references: [id], onDelete: Restrict)
+
+  @@id([productId, attributeId])
+  @@unique([productId, position])
+  @@index([attributeId])
+  @@map("product_draft_specification_value")
+}
+
+model ProductDraftReference {
+  id                        String       @id @default(uuid())
+  productId                 String       @map("product_id")
+  brand                     String
+  referenceNumber           String       @map("reference_number")
+  normalizedReferenceNumber String       @default(dbgenerated()) @map("normalized_reference_number")
+  draft                     ProductDraft @relation(fields: [productId], references: [productId], onDelete: Cascade)
+
+  @@unique([productId, brand, normalizedReferenceNumber])
+  @@index([normalizedReferenceNumber])
+  @@map("product_draft_reference")
+}
+
+model ProductDraftFitment {
+  id             String       @id @default(uuid())
+  productId      String       @map("product_id")
+  vehicleModelId String       @map("vehicle_model_id")
+  engineId       String       @map("engine_id")
+  yearFrom       Int          @map("year_from")
+  yearTo         Int          @map("year_to")
+  draft          ProductDraft @relation(fields: [productId], references: [productId], onDelete: Cascade)
+  engine         Engine       @relation(fields: [engineId, vehicleModelId], references: [id, vehicleModelId], onDelete: Restrict)
+
+  @@unique([productId, vehicleModelId, engineId, yearFrom, yearTo])
+  @@index([vehicleModelId, engineId, yearFrom, yearTo])
+  @@map("product_draft_fitment")
+}
+
 model ProductPublication {
-  id                  String                      @id
-  productId           String                      @map("product_id")
-  version             Int
-  nameEn              String                      @map("name_en")
-  slugEn              String                      @map("slug_en")
-  summaryEn           String                      @map("summary_en")
-  nameZhCn            String                      @map("name_zh_cn")
-  slugZhCn            String                      @map("slug_zh_cn")
-  summaryZhCn         String                      @map("summary_zh_cn")
-  publishedAt         DateTime                    @default(now()) @map("published_at")
-  product             Product                     @relation("ProductPublicationVersions", fields: [productId], references: [id], onDelete: Cascade)
-  currentFor          Product?                    @relation("CurrentProductPublication")
-  specificationValues ProductSpecificationValue[]
-  references          ProductReference[]
-  fitments            ProductFitment[]
+  id                        String                      @id
+  productId                 String                      @map("product_id")
+  version                   Int
+  sourceDraftVersion        Int?                        @map("source_draft_version")
+  categoryId                String?                     @map("category_id")
+  imagePath                 String                      @default("/assets/filter-family.png") @map("image_path")
+  imageAltEn                String                      @default("Product image") @map("image_alt_en")
+  imageAltZhCn              String                      @default("产品图片") @map("image_alt_zh_cn")
+  nameEn                    String                      @map("name_en")
+  slugEn                    String                      @map("slug_en")
+  summaryEn                 String                      @map("summary_en")
+  descriptionEn             String                      @default("") @map("description_en")
+  seoTitleEn                String                      @default("") @map("seo_title_en")
+  seoDescriptionEn          String                      @default("") @map("seo_description_en")
+  fitmentSummaryEn          String                      @default("") @map("fitment_summary_en")
+  nameZhCn                  String                      @map("name_zh_cn")
+  slugZhCn                  String                      @map("slug_zh_cn")
+  summaryZhCn               String                      @map("summary_zh_cn")
+  descriptionZhCn           String                      @default("") @map("description_zh_cn")
+  seoTitleZhCn              String                      @default("") @map("seo_title_zh_cn")
+  seoDescriptionZhCn        String                      @default("") @map("seo_description_zh_cn")
+  fitmentSummaryZhCn        String                      @default("") @map("fitment_summary_zh_cn")
+  status                    ProductStatus               @default(published)
+  replacementProductId      String?                     @map("replacement_product_id")
+  restoredFromPublicationId String?                     @map("restored_from_publication_id")
+  publishedByUserId         String?                     @map("published_by_user_id")
+  publishedAt               DateTime                    @default(now()) @map("published_at")
+  product                   Product                     @relation("ProductPublicationVersions", fields: [productId], references: [id], onDelete: Cascade)
+  category                  ProductCategory?            @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  replacementProduct        Product?                    @relation("ProductPublicationReplacement", fields: [replacementProductId], references: [id], onDelete: Restrict)
+  restoredFromPublication   ProductPublication?         @relation("ProductPublicationRestoration", fields: [restoredFromPublicationId], references: [id], onDelete: Restrict)
+  restoredPublications      ProductPublication[]        @relation("ProductPublicationRestoration")
+  restoredDrafts            ProductDraft[]              @relation("ProductDraftRestorationSource")
+  publishedBy               User?                       @relation("ProductPublicationPublisher", fields: [publishedByUserId], references: [id], onDelete: Restrict)
+  currentFor                Product?                    @relation("CurrentProductPublication")
+  specificationValues       ProductSpecificationValue[]
+  references                ProductReference[]
+  fitments                  ProductFitment[]
 
   @@unique([productId, version])
   @@unique([productId, id])
+  @@index([categoryId])
+  @@index([replacementProductId])
+  @@index([publishedByUserId])
   @@map("product_publication")
 }
 
