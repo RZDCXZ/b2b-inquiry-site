@@ -1,5 +1,3 @@
-import { randomUUID } from "node:crypto";
-
 import { expect, test, type Page } from "@playwright/test";
 
 import { createPrismaClient } from "@/src/infrastructure/database/prisma";
@@ -19,7 +17,6 @@ async function createDraftFixture(suffix: string) {
     include: {
       currentPublication: {
         include: {
-          fitments: true,
           references: true,
           specificationValues: true,
         },
@@ -38,13 +35,15 @@ async function createDraftFixture(suffix: string) {
     dataType: value.dataType,
     label: value.nameZhCn,
     value:
-      value.dataType === "decimal"
-        ? (value.decimalValue?.toString() ?? "")
-        : value.dataType === "boolean"
-          ? String(value.booleanValue)
-          : value.dataType === "enumeration"
-            ? (value.enumerationValue ?? "")
-            : (value.textValue ?? ""),
+      value.attributeCode === "outer_diameter"
+        ? "80"
+        : value.dataType === "decimal"
+          ? (value.decimalValue?.toString() ?? "")
+          : value.dataType === "boolean"
+            ? String(value.booleanValue)
+            : value.dataType === "enumeration"
+              ? (value.enumerationValue ?? "")
+              : (value.textValue ?? ""),
   }));
 
   await prisma.product.create({
@@ -63,19 +62,6 @@ async function createDraftFixture(suffix: string) {
       descriptionZhCn: "用于产品发布浏览器测试的完整草稿。",
       fitmentSummaryEn: sourcePublication.fitmentSummaryEn,
       fitmentSummaryZhCn: sourcePublication.fitmentSummaryZhCn,
-      fitments: {
-        createMany: {
-          data: sourcePublication.fitments.map(
-            ({ engineId, vehicleModelId, yearFrom, yearTo }) => ({
-              engineId,
-              id: randomUUID(),
-              vehicleModelId,
-              yearFrom,
-              yearTo,
-            }),
-          ),
-        },
-      },
       imageAltEn: initialNameEn + " product image",
       imageAltZhCn: initialNameZhCn + "产品图片",
       imagePath: source.imagePath,
@@ -260,6 +246,7 @@ test("内容编辑预览、发布、恢复并处理草稿并发冲突", async ({
     await expect(restoreTrigger).toBeFocused();
     await restoreTrigger.click();
     await page.getByRole("button", { name: "确认恢复为新草稿" }).click();
+    await expect(page.getByText("草稿 v5")).toBeVisible();
     await expect(
       page.getByRole("heading", { name: "首次发布 " + suffix }),
     ).toBeVisible();
