@@ -129,7 +129,7 @@ async function importWorkbook({
   return Buffer.from(await workbook.xlsx.writeBuffer());
 }
 
-test("内容编辑一次查看全部 Excel 错误，修正后原子导入新增与更新草稿", async ({
+test("内容编辑校验导入后可整批撤销、确定性重导入并原子批量发布", async ({
   page,
 }, testInfo) => {
   test.setTimeout(120_000);
@@ -265,7 +265,51 @@ test("内容编辑一次查看全部 Excel 错误，修正后原子导入新增�
       }),
     ).toBeVisible();
     await expect(page.getByText("新增 1 个草稿，更新 1 个草稿")).toBeVisible();
-    await page.getByRole("link", { name: "查看产品草稿" }).click();
+    await expect(page.getByText("当前可安全整批撤销")).toBeVisible();
+    await page.getByRole("button", { exact: true, name: "整批撤销" }).click();
+    await expect(
+      page.getByRole("heading", { name: "确认整批撤销？" }),
+    ).toBeVisible();
+    await page
+      .getByRole("button", { exact: true, name: "确认整批撤销" })
+      .click();
+    await expect(page).toHaveURL(/notice=rolled-back/u);
+    await expect(page.getByText("批次已撤销", { exact: true })).toBeVisible();
+    await expect(
+      prisma.product.findUnique({
+        where: {
+          normalizedPartNumber: newPartNumber
+            .replace(/[\s-]/gu, "")
+            .toUpperCase(),
+        },
+      }),
+    ).resolves.toBeNull();
+
+    await page.getByRole("link", { name: "再次导入" }).click();
+    await page.getByLabel("工作簿文件").setInputFiles({
+      buffer: await importWorkbook({
+        invalid: false,
+        newPartNumber,
+        updatePartNumber,
+      }),
+      mimeType: xlsxMime,
+      name: validFilename,
+    });
+    await page.getByRole("button", { name: "上传并校验" }).click();
+    await expect(page.getByText("全部校验通过")).toBeVisible();
+    await page.getByRole("button", { name: "确认导入草稿" }).click();
+    await expect(page.getByText("当前可安全整批撤销")).toBeVisible();
+    await page.getByRole("button", { name: "预览批量发布" }).click();
+    await expect(page).toHaveURL(/\/admin\/products\/publish\?/u);
+    await expect(
+      page.getByRole("heading", { name: "批量发布预览 · 2 个草稿" }),
+    ).toBeVisible();
+    await expect(page.getByText("全部通过，可以原子批量发布")).toBeVisible();
+    await page.getByRole("button", { name: "原子发布全部 2 个草稿" }).click();
+    await expect(page).toHaveURL(/notice=bulk-published/u);
+    await expect(
+      page.getByText("已在一个事务中发布 2 个产品草稿"),
+    ).toBeVisible();
     await expect(page.getByText(newPartNumber, { exact: true })).toBeVisible();
     await expect(
       page.getByText(updatePartNumber, { exact: true }),
@@ -276,20 +320,59 @@ test("内容编辑一次查看全部 Excel 错误，修正后原子导入新增�
       where: { originalFilename: { in: [invalidFilename, validFilename] } },
     });
     const batchIds = previews.flatMap(({ batch }) => (batch ? [batch.id] : []));
-    await prisma.auditLog.deleteMany({ where: { targetId: { in: batchIds } } });
-    await prisma.productImportBatch.deleteMany({
-      where: { id: { in: batchIds } },
-    });
-    await prisma.productImportPreview.deleteMany({
-      where: { id: { in: previews.map(({ id }) => id) } },
+    const normalizedPartNumbers = [updatePartNumber, newPartNumber].map(
+      (value) => value.replace(/[\s-]/gu, "").toUpperCase(),
+    );
+    const productIds = (
+      await prisma.product.findMany({
+        select: { id: true },
+        where: { normalizedPartNumber: { in: normalizedPartNumbers } },
+      })
+    ).map(({ id }) => id);
+    await prisma.$transaction(async (transaction) => {
+      await transaction.$executeRawUnsafe(
+        "SET LOCAL torquelis.allow_product_publication_mutation = 'on'",
+      );
+      await transaction.auditLog.deleteMany({
+        where: {
+          OR: [
+            { targetId: { in: [...batchIds, ...productIds] } },
+            {
+              event: {
+                in: [
+                  "PRODUCT_BATCH_PUBLISHED",
+                  "PRODUCT_BATCH_PUBLISH_REJECTED",
+                ],
+              },
+              summary: { contains: updatePartNumber },
+            },
+          ],
+        },
+      });
+      await transaction.product.updateMany({
+        data: {
+          currentPublicationId: null,
+          replacementProductId: null,
+          status: "draft",
+        },
+        where: { id: { in: productIds } },
+      });
+      await transaction.productPublication.deleteMany({
+        where: { productId: { in: productIds } },
+      });
+      await transaction.productImportBatch.deleteMany({
+        where: { id: { in: batchIds } },
+      });
+      await transaction.productImportPreview.deleteMany({
+        where: { id: { in: previews.map(({ id }) => id) } },
+      });
+      await transaction.product.deleteMany({
+        where: { id: { in: productIds } },
+      });
     });
     await prisma.product.deleteMany({
       where: {
-        normalizedPartNumber: {
-          in: [updatePartNumber, newPartNumber].map((value) =>
-            value.replace(/[\s-]/gu, "").toUpperCase(),
-          ),
-        },
+        normalizedPartNumber: { in: normalizedPartNumbers },
       },
     });
     await prisma.$disconnect();

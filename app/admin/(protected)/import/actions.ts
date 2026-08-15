@@ -8,6 +8,7 @@ import {
   confirmProductImport,
   previewProductImport,
   ProductImportError,
+  rollbackProductImportBatch,
 } from "@/src/application/product-import";
 import { PERMISSIONS } from "@/src/modules/identity-access/public/permissions";
 import { authorizeAdminPage } from "@/src/modules/identity-access/server/authorization";
@@ -19,6 +20,9 @@ export type ProductImportUploadState = {
 
 const confirmationSchema = z.object({
   previewId: z.string().uuid(),
+});
+const rollbackSchema = z.object({
+  batchId: z.string().uuid(),
 });
 const uploadSchema = z.object({
   file: z.instanceof(File).refine((file) => file.size > 0),
@@ -98,4 +102,34 @@ export async function confirmProductImportAction(formData: FormData) {
   revalidatePath("/admin/products");
   revalidatePath(previewPath);
   redirect(`/admin/import/batches/${batchId}`);
+}
+
+export async function rollbackProductImportBatchAction(formData: FormData) {
+  const parsed = rollbackSchema.safeParse({ batchId: formData.get("batchId") });
+  if (!parsed.success) redirect("/admin/import");
+
+  const batchPath = `/admin/import/batches/${parsed.data.batchId}`;
+  const { actor, allowed } = await authorizeAdminPage(
+    PERMISSIONS.IMPORTS_MANAGE,
+    batchPath,
+  );
+  if (!allowed) redirect(`${batchPath}?notice=forbidden`);
+
+  let notice = "rolled-back";
+  try {
+    await rollbackProductImportBatch({
+      actor,
+      batchId: parsed.data.batchId,
+    });
+  } catch (error) {
+    notice =
+      error instanceof ProductImportError
+        ? error.code.toLocaleLowerCase().replaceAll("_", "-")
+        : "transaction-failed";
+  }
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/products");
+  revalidatePath(batchPath);
+  redirect(`${batchPath}?notice=${notice}`);
 }

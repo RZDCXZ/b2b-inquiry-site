@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import {
@@ -9,7 +10,9 @@ import {
 } from "@/src/application/asset-management";
 import {
   deleteNeverPublishedProductDraft,
+  ProductBatchPublishingError,
   ProductPublishingError,
+  publishProductDraftBatch,
   publishProductDraft,
   restoreProductPublication,
   saveProductDraft,
@@ -32,6 +35,10 @@ export type ProductMutationState = {
 
 const identitySchema = z.object({
   expectedDraftVersion: z.coerce.number().int().positive(),
+  partNumber: z.string().trim().min(1).max(80),
+});
+const batchSelectionSchema = z.object({
+  expectedDraftVersion: z.number().int().positive(),
   partNumber: z.string().trim().min(1).max(80),
 });
 
@@ -337,6 +344,60 @@ export async function publishProductDraftAction(
   } catch (error) {
     return errorState(error);
   }
+}
+
+function parseBatchSelections(formData: FormData) {
+  const values = formData.getAll("selection").map((value) => {
+    if (typeof value !== "string") return null;
+    try {
+      return JSON.parse(value) as unknown;
+    } catch {
+      return null;
+    }
+  });
+  return z.array(batchSelectionSchema).min(1).max(100).safeParse(values);
+}
+
+function batchPreviewPath(selections: z.infer<typeof batchSelectionSchema>[]) {
+  const query = new URLSearchParams();
+  for (const selection of selections) {
+    query.append("selection", JSON.stringify(selection));
+  }
+  return `/admin/products/publish?${query.toString()}`;
+}
+
+export async function publishProductDraftBatchAction(formData: FormData) {
+  const parsed = parseBatchSelections(formData);
+  if (!parsed.success) redirect("/admin/products?notice=invalid-selection");
+  const previewPath = batchPreviewPath(parsed.data);
+  const authorization = await authorizeAdminPage(
+    PERMISSIONS.PRODUCTS_MANAGE,
+    previewPath,
+  );
+  if (!authorization.allowed) redirect(`${previewPath}&notice=forbidden`);
+
+  let publishedCount = 0;
+  let notice: string | undefined;
+  try {
+    const published = await publishProductDraftBatch({
+      actor: authorization.actor,
+      selections: parsed.data,
+    });
+    publishedCount = published.publishedCount;
+  } catch (error) {
+    notice =
+      error instanceof ProductBatchPublishingError
+        ? error.code.toLocaleLowerCase().replaceAll("_", "-")
+        : "transaction-failed";
+  }
+
+  if (notice) redirect(`${previewPath}&notice=${notice}`);
+  revalidatePath("/admin");
+  revalidatePath("/admin/products");
+  revalidatePath("/admin/content");
+  revalidatePath("/en/products");
+  revalidatePath("/zh-cn/products");
+  redirect(`/admin/products?notice=bulk-published&count=${publishedCount}`);
 }
 
 const restoreSchema = identitySchema.extend({

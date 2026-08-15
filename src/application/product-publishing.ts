@@ -53,6 +53,40 @@ export class ProductPublishingError extends Error {
   }
 }
 
+export type ProductPublishingBatchSelection = {
+  expectedDraftVersion: number;
+  partNumber: string;
+};
+
+export type ProductPublishingBatchItemPreview = {
+  expectedDraftVersion: number;
+  fieldErrors: ProductPublishingFieldError[];
+  nameZhCn: string | null;
+  partNumber: string;
+  status: "already_published" | "conflict" | "invalid" | "not_found" | "ready";
+};
+
+export type ProductPublishingBatchPreview = {
+  allReady: boolean;
+  items: ProductPublishingBatchItemPreview[];
+};
+
+export class ProductBatchPublishingError extends Error {
+  constructor(
+    readonly code:
+      | "CONFLICT"
+      | "FORBIDDEN"
+      | "INVALID_SELECTION"
+      | "NOTHING_TO_PUBLISH"
+      | "TRANSACTION_FAILED"
+      | "VALIDATION_FAILED",
+    readonly preview?: ProductPublishingBatchPreview,
+  ) {
+    super(code);
+    this.name = "ProductBatchPublishingError";
+  }
+}
+
 function assertCanManageProducts(actor: AdminActor): void {
   if (
     actor.role !== APP_ROLES.ADMINISTRATOR &&
@@ -182,11 +216,13 @@ async function resolveReplacementProduct(
     productId,
     replacementPartNumber,
     status,
+    validateCycle = true,
   }: {
     graph?: "draft" | "published";
     productId: string;
     replacementPartNumber: string | null;
     status: ProductDraftInput["status"];
+    validateCycle?: boolean;
   },
 ) {
   if (status !== "discontinued" && replacementPartNumber) {
@@ -246,6 +282,8 @@ async function resolveReplacementProduct(
       },
     ]);
   }
+
+  if (!validateCycle) return replacement;
 
   const nextProductIdById =
     graph === "published"
@@ -1103,6 +1141,554 @@ export async function deleteNeverPublishedProductDraft({
   );
 }
 
+function normalizeBatchSelections(
+  selections: ProductPublishingBatchSelection[],
+): ProductPublishingBatchSelection[] {
+  if (selections.length === 0 || selections.length > 100) {
+    throw new ProductBatchPublishingError("INVALID_SELECTION");
+  }
+
+  const normalized = selections.map(({ expectedDraftVersion, partNumber }) => ({
+    expectedDraftVersion,
+    partNumber: partNumber.trim(),
+  }));
+  if (
+    normalized.some(
+      ({ expectedDraftVersion, partNumber }) =>
+        !partNumber ||
+        !Number.isInteger(expectedDraftVersion) ||
+        expectedDraftVersion < 1,
+    )
+  ) {
+    throw new ProductBatchPublishingError("INVALID_SELECTION");
+  }
+  const keys = normalized.map(({ partNumber }) =>
+    normalizeProductNumber(partNumber),
+  );
+  if (new Set(keys).size !== keys.length) {
+    throw new ProductBatchPublishingError("INVALID_SELECTION");
+  }
+
+  return normalized.sort((left, right) =>
+    normalizeProductNumber(left.partNumber).localeCompare(
+      normalizeProductNumber(right.partNumber),
+    ),
+  );
+}
+
+async function loadValidatedProductDraft(
+  transaction: Prisma.TransactionClient,
+  { expectedDraftVersion, partNumber }: ProductPublishingBatchSelection,
+) {
+  const product = await transaction.product.findUnique({
+    select: { id: true, partNumber: true },
+    where: { normalizedPartNumber: normalizeProductNumber(partNumber) },
+  });
+  if (!product) throw new ProductPublishingError("NOT_FOUND");
+
+  const [draftRecord, specificationValues, references, fitments] =
+    await Promise.all([
+      transaction.productDraft.findUnique({ where: { productId: product.id } }),
+      transaction.productDraftSpecificationValue.findMany({
+        where: { productId: product.id },
+      }),
+      transaction.productDraftReference.findMany({
+        where: { productId: product.id },
+      }),
+      transaction.productDraftFitment.findMany({
+        where: { productId: product.id },
+      }),
+    ]);
+  if (!draftRecord) throw new ProductPublishingError("NOT_FOUND");
+  const draft = { ...draftRecord, fitments, references, specificationValues };
+
+  if (draft.version !== expectedDraftVersion) {
+    throw new ProductPublishingError(
+      "CONFLICT",
+      [],
+      await latestDraftConflict(transaction, product.id),
+    );
+  }
+  if (draft.lastPublishedVersion === draft.version) {
+    throw new ProductPublishingError("NOTHING_TO_PUBLISH");
+  }
+
+  const fieldErrors: ProductPublishingFieldError[] = [];
+  for (const field of requiredTextFields) {
+    if (draft[field].trim().length === 0) {
+      fieldErrors.push({ field, message: "此公开字段为必填项。" });
+    }
+  }
+  for (const [field, value] of [
+    ["descriptionEn", draft.descriptionEn],
+    ["descriptionZhCn", draft.descriptionZhCn],
+  ] as const) {
+    const richText = validateRestrictedRichText(value);
+    if (!richText.success) {
+      fieldErrors.push(
+        ...richText.issues.map((message) => ({ field, message })),
+      );
+    }
+  }
+  if (draft.references.length === 0) {
+    fieldErrors.push({ field: "references", message: "至少需要一个参考号。" });
+  }
+  if (draft.imageAssetId) {
+    const imageAsset = await transaction.asset.findUnique({
+      select: { imageAltEn: true, imageAltZhCn: true, kind: true },
+      where: { id: draft.imageAssetId },
+    });
+    if (
+      imageAsset?.kind !== "image" ||
+      !imageAsset.imageAltEn?.trim() ||
+      !imageAsset.imageAltZhCn?.trim()
+    ) {
+      fieldErrors.push({
+        field: "imageAssetId",
+        message: "图片素材必须存在并包含中英文替代文本。",
+      });
+    }
+  }
+  if (draft.documentAssetId) {
+    const documentAsset = await transaction.asset.findUnique({
+      select: { kind: true },
+      where: { id: draft.documentAssetId },
+    });
+    if (documentAsset?.kind !== "document") {
+      fieldErrors.push({
+        field: "documentAssetId",
+        message: "产品资料必须引用有效的 PDF 素材。",
+      });
+    }
+  }
+
+  let validatedSpecifications: SpecificationSnapshotValue[] = [];
+  try {
+    validatedSpecifications = await validateProductSpecificationsForCategory(
+      transaction,
+      {
+        categoryId: draft.categoryId,
+        values: draft.specificationValues.map(specificationInputFromSnapshot),
+      },
+    );
+  } catch {
+    fieldErrors.push({
+      field: "specifications",
+      message: "规格值未通过当前分类、类型、单位或范围校验。",
+    });
+  }
+  if (fieldErrors.length > 0) {
+    throw new ProductPublishingError("PUBLISH_VALIDATION_FAILED", fieldErrors);
+  }
+
+  return { draft, product, validatedSpecifications };
+}
+
+type ValidatedProductDraft = Awaited<
+  ReturnType<typeof loadValidatedProductDraft>
+>;
+
+async function validatePublishingReplacement(
+  transaction: Prisma.TransactionClient,
+  { draft, product }: ValidatedProductDraft,
+  { validateCycle = true }: { validateCycle?: boolean } = {},
+) {
+  await resolveReplacementProduct(transaction, {
+    graph: "published",
+    productId: product.id,
+    replacementPartNumber:
+      draft.replacementProductId === null
+        ? null
+        : (
+            await transaction.product.findUniqueOrThrow({
+              select: { partNumber: true },
+              where: { id: draft.replacementProductId },
+            })
+          ).partNumber,
+    status: draft.status as ProductDraftInput["status"],
+    validateCycle,
+  });
+}
+
+async function findBatchReplacementCycleProductIds(
+  transaction: Prisma.TransactionClient,
+  loadedDrafts: ValidatedProductDraft[],
+): Promise<Set<string>> {
+  const nextProductIdById = new Map(
+    (
+      await transaction.product.findMany({
+        select: {
+          currentPublication: { select: { replacementProductId: true } },
+          id: true,
+        },
+      })
+    ).map(({ currentPublication, id }) => [
+      id,
+      currentPublication?.replacementProductId ?? null,
+    ]),
+  );
+  for (const { draft, product } of loadedDrafts) {
+    nextProductIdById.set(product.id, draft.replacementProductId);
+  }
+
+  const productIdsWithCycles = new Set<string>();
+  for (const { product } of loadedDrafts) {
+    const visited = new Set<string>();
+    let candidateId: string | null = product.id;
+    while (candidateId) {
+      if (visited.has(candidateId)) {
+        productIdsWithCycles.add(product.id);
+        break;
+      }
+      visited.add(candidateId);
+      candidateId = nextProductIdById.get(candidateId) ?? null;
+    }
+  }
+  return productIdsWithCycles;
+}
+
+const batchReplacementCycleFieldError: ProductPublishingFieldError = {
+  field: "replacementPartNumber",
+  message: "所选草稿的最终替代关系不能形成循环。",
+  reason: "REPLACEMENT_CYCLE",
+};
+
+async function publishValidatedProductDraft(
+  transaction: Prisma.TransactionClient,
+  {
+    actor,
+    expectedDraftVersion,
+    loaded,
+    now,
+  }: {
+    actor: AdminActor;
+    expectedDraftVersion: number;
+    loaded: ValidatedProductDraft;
+    now: Date;
+  },
+) {
+  const { draft, product, validatedSpecifications } = loaded;
+  const publishClaim = await transaction.productDraft.updateMany({
+    data: { lastPublishedVersion: draft.version, updatedAt: draft.updatedAt },
+    where: {
+      OR: [
+        { lastPublishedVersion: null },
+        { lastPublishedVersion: { not: draft.version } },
+      ],
+      productId: product.id,
+      version: expectedDraftVersion,
+    },
+  });
+  if (publishClaim.count !== 1) {
+    throw new ProductPublishingError("NOTHING_TO_PUBLISH");
+  }
+
+  const latestPublication = await transaction.productPublication.findFirst({
+    orderBy: { version: "desc" },
+    select: { version: true },
+    where: { productId: product.id },
+  });
+  const nextPublicationVersion = (latestPublication?.version ?? 0) + 1;
+  const publicationId = `publication-${product.id}-${randomUUID()}`;
+  await transaction.productPublication.create({
+    data: {
+      categoryId: draft.categoryId,
+      descriptionEn: draft.descriptionEn,
+      descriptionZhCn: draft.descriptionZhCn,
+      documentAssetId: draft.documentAssetId,
+      fitmentSummaryEn: draft.fitmentSummaryEn,
+      fitmentSummaryZhCn: draft.fitmentSummaryZhCn,
+      id: publicationId,
+      imageAltEn: draft.imageAltEn,
+      imageAltZhCn: draft.imageAltZhCn,
+      imageAssetId: draft.imageAssetId,
+      imagePath: draft.imagePath,
+      nameEn: draft.nameEn,
+      nameZhCn: draft.nameZhCn,
+      productId: product.id,
+      publishedAt: now,
+      publishedByUserId: actor.id,
+      replacementProductId: draft.replacementProductId,
+      restoredFromPublicationId: draft.restoredFromPublicationId,
+      seoDescriptionEn: draft.seoDescriptionEn,
+      seoDescriptionZhCn: draft.seoDescriptionZhCn,
+      seoTitleEn: draft.seoTitleEn,
+      seoTitleZhCn: draft.seoTitleZhCn,
+      slugEn: draft.slugEn,
+      slugZhCn: draft.slugZhCn,
+      sourceDraftVersion: draft.version,
+      status: draft.status,
+      summaryEn: draft.summaryEn,
+      summaryZhCn: draft.summaryZhCn,
+      version: nextPublicationVersion,
+    },
+  });
+  if (draft.specificationValues.length > 0) {
+    await transaction.productSpecificationValue.createMany({
+      data: publicationSpecificationCreateData(
+        publicationId,
+        validatedSpecifications,
+      ),
+    });
+  }
+  await transaction.productReference.createMany({
+    data: draft.references.map(({ brand, referenceNumber }) => ({
+      brand,
+      id: randomUUID(),
+      publicationId,
+      referenceNumber,
+    })),
+  });
+  if (draft.fitments.length > 0) {
+    await transaction.productFitment.createMany({
+      data: draft.fitments.map(
+        ({ engineId, vehicleModelId, yearFrom, yearTo }) => ({
+          engineId,
+          id: randomUUID(),
+          publicationId,
+          vehicleModelId,
+          yearFrom,
+          yearTo,
+        }),
+      ),
+    });
+  }
+  await transaction.productPublication.update({
+    data: { sealedAt: now },
+    where: { id: publicationId },
+  });
+  await transaction.product.update({
+    data: {
+      categoryId: draft.categoryId,
+      currentPublicationId: publicationId,
+      imagePath: draft.imagePath,
+      replacementProductId: draft.replacementProductId,
+      status: draft.status,
+    },
+    where: { id: product.id },
+  });
+  await transaction.auditLog.create({
+    data: {
+      actorRole: actor.role,
+      actorUserId: actor.id,
+      createdAt: now,
+      event: "PRODUCT_PUBLISHED",
+      outcome: "SUCCESS",
+      summary: `草稿 v${draft.version} 形成不可变公开版本 v${nextPublicationVersion}。`,
+      targetId: product.id,
+      targetType: "PRODUCT",
+    },
+  });
+
+  return {
+    partNumber: product.partNumber,
+    publicationId,
+    publishedAt: now,
+    version: nextPublicationVersion,
+  };
+}
+
+function previewItemFromPublishingError(
+  selection: ProductPublishingBatchSelection,
+  error: ProductPublishingError,
+): ProductPublishingBatchItemPreview {
+  const status: ProductPublishingBatchItemPreview["status"] =
+    error.code === "CONFLICT"
+      ? "conflict"
+      : error.code === "NOTHING_TO_PUBLISH"
+        ? "already_published"
+        : error.code === "NOT_FOUND"
+          ? "not_found"
+          : "invalid";
+  return {
+    expectedDraftVersion: selection.expectedDraftVersion,
+    fieldErrors: error.fieldErrors,
+    nameZhCn: null,
+    partNumber: selection.partNumber,
+    status,
+  };
+}
+
+export async function previewProductPublishingBatch({
+  actor,
+  prisma = getApplicationPrisma(),
+  selections,
+}: {
+  actor: AdminActor;
+  prisma?: ApplicationDatabase;
+  selections: ProductPublishingBatchSelection[];
+}): Promise<ProductPublishingBatchPreview> {
+  assertCanManageProducts(actor);
+  const normalizedSelections = normalizeBatchSelections(selections);
+
+  return prisma.$transaction(async (transaction) => {
+    const items: ProductPublishingBatchItemPreview[] = [];
+    const loadedDrafts: ValidatedProductDraft[] = [];
+    for (const selection of normalizedSelections) {
+      try {
+        const loaded = await loadValidatedProductDraft(transaction, selection);
+        await validatePublishingReplacement(transaction, loaded, {
+          validateCycle: false,
+        });
+        loadedDrafts.push(loaded);
+        items.push({
+          expectedDraftVersion: selection.expectedDraftVersion,
+          fieldErrors: [],
+          nameZhCn: loaded.draft.nameZhCn,
+          partNumber: loaded.product.partNumber,
+          status: "ready",
+        });
+      } catch (error) {
+        if (!(error instanceof ProductPublishingError)) throw error;
+        items.push(previewItemFromPublishingError(selection, error));
+      }
+    }
+    const productIdsWithCycles = await findBatchReplacementCycleProductIds(
+      transaction,
+      loadedDrafts,
+    );
+    for (const loaded of loadedDrafts) {
+      if (!productIdsWithCycles.has(loaded.product.id)) continue;
+      const item = items.find(
+        ({ partNumber }) => partNumber === loaded.product.partNumber,
+      );
+      if (!item) continue;
+      item.fieldErrors = [batchReplacementCycleFieldError];
+      item.status = "invalid";
+    }
+    return { allReady: items.every(({ status }) => status === "ready"), items };
+  });
+}
+
+function batchPublishingErrorCode(error: unknown) {
+  if (error instanceof ProductBatchPublishingError) return error.code;
+  if (!(error instanceof ProductPublishingError)) return "TRANSACTION_FAILED";
+  if (error.code === "FORBIDDEN") return "FORBIDDEN";
+  if (error.code === "CONFLICT") return "CONFLICT";
+  if (error.code === "NOTHING_TO_PUBLISH") return "NOTHING_TO_PUBLISH";
+  return "VALIDATION_FAILED";
+}
+
+export async function publishProductDraftBatch({
+  actor,
+  now = new Date(),
+  prisma = getApplicationPrisma(),
+  selections,
+}: {
+  actor: AdminActor;
+  now?: Date;
+  prisma?: ApplicationDatabase;
+  selections: ProductPublishingBatchSelection[];
+}) {
+  assertCanManageProducts(actor);
+  const normalizedSelections = normalizeBatchSelections(selections);
+  const publishBatchId = randomUUID();
+  const partNumbers = normalizedSelections.map(({ partNumber }) => partNumber);
+
+  try {
+    return await prisma.$transaction(
+      async (transaction) => {
+        for (const selection of normalizedSelections) {
+          const normalizedPartNumber = normalizeProductNumber(
+            selection.partNumber,
+          );
+          await transaction.$queryRaw`
+            SELECT "id" FROM "product"
+            WHERE "normalized_part_number" = ${normalizedPartNumber}
+            FOR UPDATE
+          `;
+        }
+        const loadedDrafts: Array<{
+          loaded: ValidatedProductDraft;
+          selection: ProductPublishingBatchSelection;
+        }> = [];
+        for (const selection of normalizedSelections) {
+          loadedDrafts.push({
+            loaded: await loadValidatedProductDraft(transaction, selection),
+            selection,
+          });
+        }
+
+        await lockProductReplacementGraph(transaction);
+        for (const { loaded } of loadedDrafts) {
+          await validatePublishingReplacement(transaction, loaded, {
+            validateCycle: false,
+          });
+        }
+        if (
+          (
+            await findBatchReplacementCycleProductIds(
+              transaction,
+              loadedDrafts.map(({ loaded }) => loaded),
+            )
+          ).size > 0
+        ) {
+          throw new ProductPublishingError("PUBLISH_VALIDATION_FAILED", [
+            batchReplacementCycleFieldError,
+          ]);
+        }
+
+        const publications = [];
+        for (const { loaded, selection } of loadedDrafts) {
+          publications.push(
+            await publishValidatedProductDraft(transaction, {
+              actor,
+              expectedDraftVersion: selection.expectedDraftVersion,
+              loaded,
+              now,
+            }),
+          );
+        }
+        await transaction.auditLog.create({
+          data: {
+            actorRole: actor.role,
+            actorUserId: actor.id,
+            createdAt: now,
+            event: "PRODUCT_BATCH_PUBLISHED",
+            outcome: "SUCCESS",
+            summary: `已原子发布 ${publications.length} 个产品草稿：${partNumbers.join("、")}。`,
+            targetId: publishBatchId,
+            targetType: "ProductPublishBatch",
+          },
+        });
+        return {
+          batchId: publishBatchId,
+          publications,
+          publishedCount: publications.length,
+        };
+      },
+      { isolationLevel: "ReadCommitted" },
+    );
+  } catch (error) {
+    const code = batchPublishingErrorCode(error);
+    const preview = await previewProductPublishingBatch({
+      actor,
+      prisma,
+      selections: normalizedSelections,
+    });
+    await prisma.auditLog.create({
+      data: {
+        actorRole: actor.role,
+        actorUserId: actor.id,
+        createdAt: now,
+        event: "PRODUCT_BATCH_PUBLISH_REJECTED",
+        outcome:
+          code === "CONFLICT"
+            ? "CONFLICT"
+            : code === "NOTHING_TO_PUBLISH"
+              ? "DUPLICATE"
+              : code === "VALIDATION_FAILED"
+                ? "VALIDATION"
+                : "FAILURE",
+        summary: `批量发布未执行（${code}）：${partNumbers.join("、")}。`,
+        targetId: publishBatchId,
+        targetType: "ProductPublishBatch",
+      },
+    });
+    throw new ProductBatchPublishingError(code, preview);
+  }
+}
+
 export async function publishProductDraft({
   actor,
   expectedDraftVersion,
@@ -1120,271 +1706,21 @@ export async function publishProductDraft({
 
   return prisma.$transaction(
     async (transaction) => {
-      const product = await transaction.product.findUnique({
-        select: { id: true },
-        where: { normalizedPartNumber: normalizeProductNumber(partNumber) },
+      const loaded = await loadValidatedProductDraft(transaction, {
+        expectedDraftVersion,
+        partNumber,
       });
-
-      if (!product) {
-        throw new ProductPublishingError("NOT_FOUND");
-      }
-
-      const draftRecord = await transaction.productDraft.findUnique({
-        where: { productId: product.id },
-      });
-      if (!draftRecord) {
-        throw new ProductPublishingError("NOT_FOUND");
-      }
-      const specificationValues =
-        await transaction.productDraftSpecificationValue.findMany({
-          where: { productId: product.id },
-        });
-      const references = await transaction.productDraftReference.findMany({
-        where: { productId: product.id },
-      });
-      const fitments = await transaction.productDraftFitment.findMany({
-        where: { productId: product.id },
-      });
-      const draft = {
-        ...draftRecord,
-        fitments,
-        references,
-        specificationValues,
-      };
-      if (draft.version !== expectedDraftVersion) {
-        throw new ProductPublishingError(
-          "CONFLICT",
-          [],
-          await latestDraftConflict(transaction, product.id),
-        );
-      }
-
-      if (draft.lastPublishedVersion === draft.version) {
-        throw new ProductPublishingError("NOTHING_TO_PUBLISH");
-      }
-
-      const fieldErrors: ProductPublishingFieldError[] = [];
-      for (const field of requiredTextFields) {
-        if (draft[field].trim().length === 0) {
-          fieldErrors.push({ field, message: "此公开字段为必填项。" });
-        }
-      }
-
-      for (const [field, value] of [
-        ["descriptionEn", draft.descriptionEn],
-        ["descriptionZhCn", draft.descriptionZhCn],
-      ] as const) {
-        const richText = validateRestrictedRichText(value);
-        if (!richText.success) {
-          fieldErrors.push(
-            ...richText.issues.map((message) => ({ field, message })),
-          );
-        }
-      }
-
-      if (draft.references.length === 0) {
-        fieldErrors.push({
-          field: "references",
-          message: "至少需要一个参考号。",
-        });
-      }
-
-      if (draft.imageAssetId) {
-        const imageAsset = await transaction.asset.findUnique({
-          select: {
-            imageAltEn: true,
-            imageAltZhCn: true,
-            kind: true,
-          },
-          where: { id: draft.imageAssetId },
-        });
-        if (
-          imageAsset?.kind !== "image" ||
-          !imageAsset.imageAltEn?.trim() ||
-          !imageAsset.imageAltZhCn?.trim()
-        ) {
-          fieldErrors.push({
-            field: "imageAssetId",
-            message: "图片素材必须存在并包含中英文替代文本。",
-          });
-        }
-      }
-      if (draft.documentAssetId) {
-        const documentAsset = await transaction.asset.findUnique({
-          select: { kind: true },
-          where: { id: draft.documentAssetId },
-        });
-        if (documentAsset?.kind !== "document") {
-          fieldErrors.push({
-            field: "documentAssetId",
-            message: "产品资料必须引用有效的 PDF 素材。",
-          });
-        }
-      }
-
-      let validatedSpecifications: SpecificationSnapshotValue[] = [];
-      try {
-        validatedSpecifications =
-          await validateProductSpecificationsForCategory(transaction, {
-            categoryId: draft.categoryId,
-            values: draft.specificationValues.map(
-              specificationInputFromSnapshot,
-            ),
-          });
-      } catch {
-        fieldErrors.push({
-          field: "specifications",
-          message: "规格值未通过当前分类、类型、单位或范围校验。",
-        });
-      }
-
-      if (fieldErrors.length > 0) {
-        throw new ProductPublishingError(
-          "PUBLISH_VALIDATION_FAILED",
-          fieldErrors,
-        );
-      }
-
       await lockProductReplacementGraph(transaction);
-      await resolveReplacementProduct(transaction, {
-        graph: "published",
-        productId: product.id,
-        replacementPartNumber:
-          draft.replacementProductId === null
-            ? null
-            : (
-                await transaction.product.findUniqueOrThrow({
-                  select: { partNumber: true },
-                  where: { id: draft.replacementProductId },
-                })
-              ).partNumber,
-        status: draft.status as ProductDraftInput["status"],
-      });
-
-      const publishClaim = await transaction.productDraft.updateMany({
-        data: {
-          lastPublishedVersion: draft.version,
-          updatedAt: draft.updatedAt,
-        },
-        where: {
-          OR: [
-            { lastPublishedVersion: null },
-            { lastPublishedVersion: { not: draft.version } },
-          ],
-          productId: product.id,
-          version: expectedDraftVersion,
-        },
-      });
-
-      if (publishClaim.count !== 1) {
-        throw new ProductPublishingError("NOTHING_TO_PUBLISH");
-      }
-
-      const latestPublication = await transaction.productPublication.findFirst({
-        orderBy: { version: "desc" },
-        select: { version: true },
-        where: { productId: product.id },
-      });
-      const nextPublicationVersion = (latestPublication?.version ?? 0) + 1;
-      const publicationId = `publication-${product.id}-${randomUUID()}`;
-
-      await transaction.productPublication.create({
-        data: {
-          categoryId: draft.categoryId,
-          descriptionEn: draft.descriptionEn,
-          descriptionZhCn: draft.descriptionZhCn,
-          fitmentSummaryEn: draft.fitmentSummaryEn,
-          fitmentSummaryZhCn: draft.fitmentSummaryZhCn,
-          id: publicationId,
-          imageAltEn: draft.imageAltEn,
-          imageAltZhCn: draft.imageAltZhCn,
-          imageAssetId: draft.imageAssetId,
-          imagePath: draft.imagePath,
-          documentAssetId: draft.documentAssetId,
-          nameEn: draft.nameEn,
-          nameZhCn: draft.nameZhCn,
-          productId: product.id,
-          publishedAt: now,
-          publishedByUserId: actor.id,
-          replacementProductId: draft.replacementProductId,
-          restoredFromPublicationId: draft.restoredFromPublicationId,
-          seoDescriptionEn: draft.seoDescriptionEn,
-          seoDescriptionZhCn: draft.seoDescriptionZhCn,
-          seoTitleEn: draft.seoTitleEn,
-          seoTitleZhCn: draft.seoTitleZhCn,
-          slugEn: draft.slugEn,
-          slugZhCn: draft.slugZhCn,
-          sourceDraftVersion: draft.version,
-          status: draft.status,
-          summaryEn: draft.summaryEn,
-          summaryZhCn: draft.summaryZhCn,
-          version: nextPublicationVersion,
-        },
-      });
-      if (draft.specificationValues.length > 0) {
-        await transaction.productSpecificationValue.createMany({
-          data: publicationSpecificationCreateData(
-            publicationId,
-            validatedSpecifications,
-          ),
+      await validatePublishingReplacement(transaction, loaded);
+      const { partNumber: ignoredPartNumber, ...published } =
+        await publishValidatedProductDraft(transaction, {
+          actor,
+          expectedDraftVersion,
+          loaded,
+          now,
         });
-      }
-      await transaction.productReference.createMany({
-        data: draft.references.map(({ brand, referenceNumber }) => ({
-          brand,
-          id: randomUUID(),
-          publicationId,
-          referenceNumber,
-        })),
-      });
-      if (draft.fitments.length > 0) {
-        await transaction.productFitment.createMany({
-          data: draft.fitments.map(
-            ({ engineId, vehicleModelId, yearFrom, yearTo }) => ({
-              engineId,
-              id: randomUUID(),
-              publicationId,
-              vehicleModelId,
-              yearFrom,
-              yearTo,
-            }),
-          ),
-        });
-      }
-
-      await transaction.productPublication.update({
-        data: { sealedAt: now },
-        where: { id: publicationId },
-      });
-
-      await transaction.product.update({
-        data: {
-          categoryId: draft.categoryId,
-          currentPublicationId: publicationId,
-          imagePath: draft.imagePath,
-          replacementProductId: draft.replacementProductId,
-          status: draft.status,
-        },
-        where: { id: product.id },
-      });
-      await transaction.auditLog.create({
-        data: {
-          actorRole: actor.role,
-          actorUserId: actor.id,
-          createdAt: now,
-          event: "PRODUCT_PUBLISHED",
-          outcome: "SUCCESS",
-          summary: `草稿 v${draft.version} 形成不可变公开版本 v${nextPublicationVersion}。`,
-          targetId: product.id,
-          targetType: "PRODUCT",
-        },
-      });
-
-      return {
-        publicationId,
-        publishedAt: now,
-        version: nextPublicationVersion,
-      };
+      void ignoredPartNumber;
+      return published;
     },
     { isolationLevel: "ReadCommitted" },
   );

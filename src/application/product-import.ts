@@ -33,16 +33,33 @@ export { PRODUCT_IMPORT_XLSX_MIME } from "@/src/modules/catalog/server/product-i
 export class ProductImportError extends Error {
   constructor(
     readonly code:
+      | "ALREADY_ROLLED_BACK"
       | "ALREADY_CONFIRMED"
       | "FORBIDDEN"
       | "HAS_VALIDATION_ERRORS"
       | "NOT_FOUND"
-      | "PREVIEW_STALE",
+      | "PREVIEW_STALE"
+      | "ROLLBACK_CONFLICT"
+      | "SNAPSHOT_UNAVAILABLE",
+    readonly conflicts: ProductImportRollbackConflict[] = [],
   ) {
     super(code);
     this.name = "ProductImportError";
   }
 }
+
+export type ProductImportRollbackConflictReason =
+  | "BUSINESS_HISTORY_AFTER_IMPORT"
+  | "DRAFT_MISSING"
+  | "MODIFIED_AFTER_IMPORT"
+  | "PUBLISHED_AFTER_IMPORT";
+
+export type ProductImportRollbackConflict = {
+  lastModifiedAt: Date | null;
+  lastModifiedBy: string;
+  partNumber: string;
+  reasons: ProductImportRollbackConflictReason[];
+};
 
 function assertCanManageImports(actor: AdminActor) {
   if (
@@ -139,6 +156,138 @@ const payloadSchema = z.object({
     }),
   ),
 });
+
+const draftSnapshotSchema = z.object({
+  draft: z.object({
+    categoryId: z.string(),
+    descriptionEn: z.string(),
+    descriptionZhCn: z.string(),
+    documentAssetId: z.string().nullable(),
+    fitmentSummaryEn: z.string(),
+    fitmentSummaryZhCn: z.string(),
+    imageAltEn: z.string(),
+    imageAltZhCn: z.string(),
+    imageAssetId: z.string().nullable(),
+    imagePath: z.string(),
+    lastModifiedByUserId: z.string().nullable(),
+    lastPublishedVersion: z.number().int().positive().nullable(),
+    nameEn: z.string(),
+    nameZhCn: z.string(),
+    replacementProductId: z.string().nullable(),
+    restoredFromPublicationId: z.string().nullable(),
+    seoDescriptionEn: z.string(),
+    seoDescriptionZhCn: z.string(),
+    seoTitleEn: z.string(),
+    seoTitleZhCn: z.string(),
+    slugEn: z.string(),
+    slugZhCn: z.string(),
+    status: z.enum(["draft", "published", "discontinued"]),
+    summaryEn: z.string(),
+    summaryZhCn: z.string(),
+    updatedAt: z.string().datetime(),
+    version: z.number().int().positive(),
+  }),
+  fitments: z.array(
+    z.object({
+      engineId: z.string(),
+      vehicleModelId: z.string(),
+      yearFrom: z.number().int(),
+      yearTo: z.number().int(),
+    }),
+  ),
+  references: z.array(
+    z.object({ brand: z.string(), referenceNumber: z.string() }),
+  ),
+  specificationValues: z.array(
+    z.object({
+      attributeCode: z.string(),
+      attributeId: z.string(),
+      baseUnit: z
+        .enum([
+          "cubic_metre_per_minute",
+          "kilopascal",
+          "litre_per_minute",
+          "micrometre",
+          "millimetre",
+        ])
+        .nullable(),
+      booleanValue: z.boolean().nullable(),
+      dataType: z.enum(["boolean", "decimal", "enumeration", "text"]),
+      decimalValue: z.string().nullable(),
+      enumerationLabelEn: z.string().nullable(),
+      enumerationLabelZhCn: z.string().nullable(),
+      enumerationValue: z.string().nullable(),
+      nameEn: z.string(),
+      nameZhCn: z.string(),
+      position: z.number().int().positive(),
+      textValue: z.string().nullable(),
+    }),
+  ),
+});
+
+type ProductDraftSnapshot = z.infer<typeof draftSnapshotSchema>;
+
+async function captureProductDraftSnapshot(
+  prisma: Pick<
+    Prisma.TransactionClient,
+    | "productDraft"
+    | "productDraftFitment"
+    | "productDraftReference"
+    | "productDraftSpecificationValue"
+  >,
+  productId: string,
+): Promise<ProductDraftSnapshot | null> {
+  const [draft, fitments, references, specificationValues] = await Promise.all([
+    prisma.productDraft.findUnique({ where: { productId } }),
+    prisma.productDraftFitment.findMany({
+      orderBy: [
+        { vehicleModelId: "asc" },
+        { engineId: "asc" },
+        { yearFrom: "asc" },
+        { yearTo: "asc" },
+      ],
+      select: {
+        engineId: true,
+        vehicleModelId: true,
+        yearFrom: true,
+        yearTo: true,
+      },
+      where: { productId },
+    }),
+    prisma.productDraftReference.findMany({
+      orderBy: [{ brand: "asc" }, { referenceNumber: "asc" }],
+      select: { brand: true, referenceNumber: true },
+      where: { productId },
+    }),
+    prisma.productDraftSpecificationValue.findMany({
+      orderBy: { position: "asc" },
+      where: { productId },
+    }),
+  ]);
+
+  if (!draft) return null;
+  const { productId: ignoredProductId, updatedAt, ...draftValues } = draft;
+  void ignoredProductId;
+
+  return draftSnapshotSchema.parse({
+    draft: { ...draftValues, updatedAt: updatedAt.toISOString() },
+    fitments,
+    references,
+    specificationValues: specificationValues.map(
+      ({
+        decimalValue,
+        productId: ignoredSpecificationProductId,
+        ...value
+      }) => {
+        void ignoredSpecificationProductId;
+        return {
+          ...value,
+          decimalValue: decimalValue?.toString() ?? null,
+        };
+      },
+    ),
+  });
+}
 
 function readErrors(value: Prisma.JsonValue): ProductImportIssue[] {
   return z.array(importIssueSchema).parse(value) as ProductImportIssue[];
@@ -663,8 +812,11 @@ export async function confirmProductImport({
 
       const imported: Array<{
         afterDraftVersion: number;
+        afterDraftSnapshot: ProductDraftSnapshot;
         beforeDraftVersion: number | null;
+        beforeDraftSnapshot: ProductDraftSnapshot | null;
         partNumber: string;
+        publicationIdAtImport: string | null;
         productId: string;
         productWasCreated: boolean;
       }> = [];
@@ -676,6 +828,16 @@ export async function confirmProductImport({
               normalizeProductNumber(product.replacementPartNumber),
             )!
           : null;
+        const beforeDraftSnapshot =
+          product.baselineDraftVersion === null
+            ? null
+            : await captureProductDraftSnapshot(transaction, productId);
+        if (
+          product.baselineDraftVersion !== null &&
+          beforeDraftSnapshot === null
+        ) {
+          throw new ProductImportError("PREVIEW_STALE");
+        }
         const draftData = {
           categoryId: product.categoryId,
           descriptionEn: product.translations.en.description,
@@ -754,10 +916,20 @@ export async function confirmProductImport({
             })),
           });
         }
+        const afterDraftSnapshot = await captureProductDraftSnapshot(
+          transaction,
+          productId,
+        );
+        if (!afterDraftSnapshot) {
+          throw new ProductImportError("PREVIEW_STALE");
+        }
         imported.push({
           afterDraftVersion,
+          afterDraftSnapshot,
           beforeDraftVersion: product.baselineDraftVersion,
+          beforeDraftSnapshot,
           partNumber: product.partNumber,
+          publicationIdAtImport: product.baselineCurrentPublicationId,
           productId,
           productWasCreated: product.baselineProductId === null,
         });
@@ -776,7 +948,20 @@ export async function confirmProductImport({
         },
       });
       await transaction.productImportBatchItem.createMany({
-        data: imported.map((item) => ({ ...item, batchId: batch.id })),
+        data: imported.map(
+          ({ afterDraftSnapshot, beforeDraftSnapshot, ...item }) => ({
+            ...item,
+            afterDraftSnapshot:
+              afterDraftSnapshot as unknown as Prisma.InputJsonValue,
+            batchId: batch.id,
+            ...(beforeDraftSnapshot === null
+              ? {}
+              : {
+                  beforeDraftSnapshot:
+                    beforeDraftSnapshot as unknown as Prisma.InputJsonValue,
+                }),
+          }),
+        ),
       });
       const confirmed = await transaction.productImportPreview.updateMany({
         data: { status: "confirmed" },
@@ -804,6 +989,331 @@ export async function confirmProductImport({
   );
 }
 
+type ProductImportRollbackTransactionResult =
+  | {
+      batchId: string;
+      kind: "success";
+      removedProductCount: number;
+      restoredDraftCount: number;
+      rolledBackAt: Date;
+    }
+  | {
+      code:
+        "ALREADY_ROLLED_BACK" | "ROLLBACK_CONFLICT" | "SNAPSHOT_UNAVAILABLE";
+      conflicts?: ProductImportRollbackConflict[];
+      kind: "rejected";
+    };
+
+function rollbackConflictSummary(
+  conflicts: ProductImportRollbackConflict[],
+): string {
+  return conflicts
+    .map(({ partNumber, reasons }) => `${partNumber}（${reasons.join("、")}）`)
+    .join("；");
+}
+
+type RollbackAssessmentItem = {
+  afterDraftSnapshot: Prisma.JsonValue | null;
+  partNumber: string;
+  productId: string;
+  productWasCreated: boolean;
+  publicationIdAtImport: string | null;
+};
+
+async function assessProductImportRollback(
+  transaction: Prisma.TransactionClient,
+  items: RollbackAssessmentItem[],
+): Promise<ProductImportRollbackConflict[]> {
+  const conflicts: ProductImportRollbackConflict[] = [];
+  const affectedProductIds = items.map(({ productId }) => productId);
+  for (const item of items) {
+    const product = await transaction.product.findUnique({
+      select: {
+        _count: {
+          select: {
+            inquiries: true,
+            inquirySubmissions: true,
+            publications: true,
+            publicationReplacements: true,
+            quarantinedInquiries: true,
+            replacedProducts: true,
+          },
+        },
+        currentPublicationId: true,
+        draft: {
+          select: {
+            lastModifiedBy: { select: { name: true } },
+            updatedAt: true,
+          },
+        },
+        id: true,
+      },
+      where: { id: item.productId },
+    });
+    const reasons: ProductImportRollbackConflictReason[] = [];
+    const currentSnapshot = product
+      ? await captureProductDraftSnapshot(transaction, product.id)
+      : null;
+
+    if (!product || !currentSnapshot) {
+      reasons.push("DRAFT_MISSING");
+    } else if (product.currentPublicationId !== item.publicationIdAtImport) {
+      reasons.push("PUBLISHED_AFTER_IMPORT");
+    } else if (
+      item.afterDraftSnapshot === null ||
+      JSON.stringify(currentSnapshot) !==
+        JSON.stringify(draftSnapshotSchema.parse(item.afterDraftSnapshot))
+    ) {
+      reasons.push("MODIFIED_AFTER_IMPORT");
+    }
+
+    if (
+      item.productWasCreated &&
+      product &&
+      (Object.values(product._count).some((count) => count > 0) ||
+        (await transaction.productDraft.count({
+          where: {
+            productId: { notIn: affectedProductIds },
+            replacementProductId: product.id,
+          },
+        })) > 0)
+    ) {
+      reasons.push("BUSINESS_HISTORY_AFTER_IMPORT");
+    }
+
+    if (reasons.length > 0) {
+      conflicts.push({
+        lastModifiedAt: product?.draft?.updatedAt ?? null,
+        lastModifiedBy: product?.draft?.lastModifiedBy?.name ?? "系统",
+        partNumber: item.partNumber,
+        reasons: [...new Set(reasons)],
+      });
+    }
+  }
+  return conflicts;
+}
+
+export async function rollbackProductImportBatch({
+  actor,
+  batchId,
+  now = new Date(),
+  prisma = getApplicationPrisma(),
+}: {
+  actor: AdminActor;
+  batchId: string;
+  now?: Date;
+  prisma?: ApplicationDatabase;
+}) {
+  assertCanManageImports(actor);
+
+  const result: ProductImportRollbackTransactionResult =
+    await prisma.$transaction(async (transaction) => {
+      await transaction.$executeRaw`
+        SELECT pg_advisory_xact_lock(hashtext(${`product-import-rollback:${batchId}`}))
+      `;
+      const batch = await transaction.productImportBatch.findUnique({
+        include: {
+          items: { orderBy: { partNumber: "asc" } },
+        },
+        where: { id: batchId },
+      });
+      if (!batch) throw new ProductImportError("NOT_FOUND");
+
+      if (batch.rolledBackAt) {
+        await transaction.auditLog.create({
+          data: {
+            actorRole: actor.role,
+            actorUserId: actor.id,
+            createdAt: now,
+            event: "PRODUCT_IMPORT_ROLLBACK_REJECTED",
+            outcome: "DUPLICATE",
+            summary: "该导入批次已撤销，本次重复操作未改变任何草稿。",
+            targetId: batch.id,
+            targetType: "ProductImportBatch",
+          },
+        });
+        return { code: "ALREADY_ROLLED_BACK", kind: "rejected" };
+      }
+
+      if (
+        batch.items.some(
+          (item) =>
+            item.afterDraftSnapshot === null ||
+            (!item.productWasCreated && item.beforeDraftSnapshot === null),
+        )
+      ) {
+        await transaction.auditLog.create({
+          data: {
+            actorRole: actor.role,
+            actorUserId: actor.id,
+            createdAt: now,
+            event: "PRODUCT_IMPORT_ROLLBACK_REJECTED",
+            outcome: "CONFLICT",
+            summary: "批次缺少可验证的草稿快照，未执行撤销。",
+            targetId: batch.id,
+            targetType: "ProductImportBatch",
+          },
+        });
+        return { code: "SNAPSHOT_UNAVAILABLE", kind: "rejected" };
+      }
+
+      const productIds = batch.items.map(({ productId }) => productId);
+      if (productIds.length > 0) {
+        for (const productId of productIds.toSorted()) {
+          await transaction.$queryRaw`
+            SELECT "id" FROM "product" WHERE "id" = ${productId} FOR UPDATE
+          `;
+          await transaction.$queryRaw`
+            SELECT "product_id" FROM "product_draft" WHERE "product_id" = ${productId} FOR UPDATE
+          `;
+        }
+      }
+
+      const conflicts = await assessProductImportRollback(
+        transaction,
+        batch.items,
+      );
+
+      if (conflicts.length > 0) {
+        await transaction.auditLog.create({
+          data: {
+            actorRole: actor.role,
+            actorUserId: actor.id,
+            createdAt: now,
+            event: "PRODUCT_IMPORT_ROLLBACK_REJECTED",
+            outcome: "CONFLICT",
+            summary: `整批撤销已拒绝：${rollbackConflictSummary(conflicts)}`,
+            targetId: batch.id,
+            targetType: "ProductImportBatch",
+          },
+        });
+        return {
+          code: "ROLLBACK_CONFLICT",
+          conflicts,
+          kind: "rejected",
+        };
+      }
+
+      let removedProductCount = 0;
+      let restoredDraftCount = 0;
+      const existingProductItems = batch.items.filter(
+        ({ productWasCreated }) => !productWasCreated,
+      );
+      for (const item of existingProductItems) {
+        const snapshot = draftSnapshotSchema.parse(item.beforeDraftSnapshot);
+        const {
+          lastModifiedByUserId: ignoredLastModifiedByUserId,
+          updatedAt: ignoredUpdatedAt,
+          version: ignoredVersion,
+          ...draftData
+        } = snapshot.draft;
+        void ignoredLastModifiedByUserId;
+        void ignoredUpdatedAt;
+        void ignoredVersion;
+
+        await transaction.productDraftSpecificationValue.deleteMany({
+          where: { productId: item.productId },
+        });
+        await transaction.productDraftReference.deleteMany({
+          where: { productId: item.productId },
+        });
+        await transaction.productDraftFitment.deleteMany({
+          where: { productId: item.productId },
+        });
+        const restored = await transaction.productDraft.updateMany({
+          data: {
+            ...draftData,
+            lastModifiedByUserId: actor.id,
+            updatedAt: now,
+            version: item.afterDraftVersion + 1,
+          },
+          where: {
+            productId: item.productId,
+            version: item.afterDraftVersion,
+          },
+        });
+        if (restored.count !== 1) {
+          throw new ProductImportError("ROLLBACK_CONFLICT");
+        }
+        if (snapshot.specificationValues.length > 0) {
+          await transaction.productDraftSpecificationValue.createMany({
+            data: snapshot.specificationValues.map((value) => ({
+              ...value,
+              productId: item.productId,
+            })),
+          });
+        }
+        if (snapshot.references.length > 0) {
+          await transaction.productDraftReference.createMany({
+            data: snapshot.references.map((reference) => ({
+              ...reference,
+              productId: item.productId,
+            })),
+          });
+        }
+        if (snapshot.fitments.length > 0) {
+          await transaction.productDraftFitment.createMany({
+            data: snapshot.fitments.map((fitment) => ({
+              ...fitment,
+              productId: item.productId,
+            })),
+          });
+        }
+        restoredDraftCount += 1;
+      }
+
+      const createdProductIds = batch.items
+        .filter(({ productWasCreated }) => productWasCreated)
+        .map(({ productId }) => productId);
+      if (createdProductIds.length > 0) {
+        // Restoring existing drafts first removes any same-batch references to
+        // products that are about to disappear. Clearing references between
+        // newly created drafts avoids depending on part-number/delete order.
+        await transaction.productDraft.updateMany({
+          data: { replacementProductId: null },
+          where: { productId: { in: createdProductIds } },
+        });
+        const removed = await transaction.product.deleteMany({
+          where: { id: { in: createdProductIds } },
+        });
+        if (removed.count !== createdProductIds.length) {
+          throw new ProductImportError("ROLLBACK_CONFLICT");
+        }
+        removedProductCount = removed.count;
+      }
+
+      await transaction.productImportBatch.update({
+        data: { rolledBackAt: now, rolledBackByUserId: actor.id },
+        where: { id: batch.id },
+      });
+      await transaction.auditLog.create({
+        data: {
+          actorRole: actor.role,
+          actorUserId: actor.id,
+          createdAt: now,
+          event: "PRODUCT_IMPORT_ROLLED_BACK",
+          outcome: "SUCCESS",
+          summary: `已恢复 ${restoredDraftCount} 个既有草稿并移除 ${removedProductCount} 个本批次新增产品；公开版本未改变。`,
+          targetId: batch.id,
+          targetType: "ProductImportBatch",
+        },
+      });
+
+      return {
+        batchId: batch.id,
+        kind: "success",
+        removedProductCount,
+        restoredDraftCount,
+        rolledBackAt: now,
+      };
+    });
+
+  if (result.kind === "rejected") {
+    throw new ProductImportError(result.code, result.conflicts);
+  }
+  return result;
+}
+
 export function formatProductImportBatchNumber(batchNumber: number): string {
   return `B-${String(batchNumber).padStart(3, "0")}`;
 }
@@ -818,24 +1328,58 @@ export async function getProductImportBatch({
   prisma?: ApplicationDatabase;
 }) {
   assertCanManageImports(actor);
-  const batch = await prisma.productImportBatch.findUnique({
-    include: {
-      createdBy: { select: { name: true } },
-      items: {
-        orderBy: { partNumber: "asc" },
-        select: {
-          afterDraftVersion: true,
-          beforeDraftVersion: true,
-          partNumber: true,
-          productWasCreated: true,
+  return prisma.$transaction(async (transaction) => {
+    const batch = await transaction.productImportBatch.findUnique({
+      include: {
+        createdBy: { select: { name: true } },
+        items: {
+          orderBy: { partNumber: "asc" },
+          select: {
+            afterDraftSnapshot: true,
+            afterDraftVersion: true,
+            beforeDraftSnapshot: true,
+            beforeDraftVersion: true,
+            partNumber: true,
+            productId: true,
+            productWasCreated: true,
+            publicationIdAtImport: true,
+          },
         },
+        rolledBackBy: { select: { name: true } },
       },
-    },
-    where: { id: batchId },
+      where: { id: batchId },
+    });
+    if (!batch) throw new ProductImportError("NOT_FOUND");
+
+    const snapshotsAvailable = batch.items.every(
+      (item) =>
+        item.afterDraftSnapshot !== null &&
+        (item.productWasCreated || item.beforeDraftSnapshot !== null),
+    );
+    const rollbackConflicts =
+      batch.rolledBackAt || !snapshotsAvailable
+        ? []
+        : await assessProductImportRollback(transaction, batch.items);
+    const items = batch.items.map(
+      ({ afterDraftSnapshot, beforeDraftSnapshot, ...item }) => {
+        void afterDraftSnapshot;
+        void beforeDraftSnapshot;
+        return item;
+      },
+    );
+
+    return {
+      ...batch,
+      displayNumber: formatProductImportBatchNumber(batch.batchNumber),
+      items,
+      rollbackConflicts,
+      rollbackStatus: batch.rolledBackAt
+        ? ("rolled_back" as const)
+        : !snapshotsAvailable
+          ? ("unavailable" as const)
+          : rollbackConflicts.length > 0
+            ? ("conflict" as const)
+            : ("eligible" as const),
+    };
   });
-  if (!batch) throw new ProductImportError("NOT_FOUND");
-  return {
-    ...batch,
-    displayNumber: formatProductImportBatchNumber(batch.batchNumber),
-  };
 }

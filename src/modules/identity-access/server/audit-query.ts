@@ -29,6 +29,11 @@ const auditActionLabels: Record<string, string> = {
   INQUIRY_REOPENED: "重新打开询盘",
   LOGIN: "后台登录",
   PRODUCT_PUBLICATION_RESTORED: "恢复产品历史版本",
+  PRODUCT_BATCH_PUBLISHED: "批量发布产品",
+  PRODUCT_BATCH_PUBLISH_REJECTED: "拒绝批量发布",
+  PRODUCT_IMPORT_CONFIRMED: "确认产品导入",
+  PRODUCT_IMPORT_ROLLED_BACK: "撤销产品导入批次",
+  PRODUCT_IMPORT_ROLLBACK_REJECTED: "拒绝撤销产品导入批次",
   PRODUCT_PUBLISHED: "发布产品",
   SITE_CONFIGURATION_UPDATED: "更新站点配置",
 };
@@ -38,6 +43,8 @@ const auditTargetLabels: Record<string, string> = {
   CORE_PAGE: "核心页面",
   INQUIRY: "询盘",
   PRODUCT: "产品",
+  ProductImportBatch: "产品导入批次",
+  ProductPublishBatch: "产品发布批次",
   SITE_CONFIGURATION: "站点配置",
 };
 
