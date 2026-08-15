@@ -93,13 +93,40 @@ function completedResult(submission: {
   };
 }
 
-function isSerializableConflict(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    error.code === "P2034"
-  );
+export function isRetryableInquirySubmissionConflict(error: unknown): boolean {
+  if (typeof error !== "object" || error === null || !("code" in error)) {
+    return false;
+  }
+
+  if (error.code === "P2034") {
+    return true;
+  }
+
+  if (error.code !== "P2002") {
+    return false;
+  }
+
+  // PostgreSQL may report concurrent inserts for the same submission as a
+  // unique violation instead of a serializable transaction conflict.
+  const message =
+    "message" in error && typeof error.message === "string"
+      ? error.message
+      : "";
+
+  if (message.includes("submission_id") || message.includes("submissionId")) {
+    return true;
+  }
+
+  try {
+    const metadata = JSON.stringify(
+      "meta" in error && error.meta !== undefined ? error.meta : {},
+    );
+    return (
+      metadata.includes("submission_id") || metadata.includes("submissionId")
+    );
+  } catch {
+    return false;
+  }
 }
 
 export async function createInquirySubmissionToken({
@@ -295,7 +322,7 @@ export async function submitInquiryWithToken({
       );
     } catch (error) {
       if (
-        !isSerializableConflict(error) ||
+        !isRetryableInquirySubmissionConflict(error) ||
         attempt === SERIALIZABLE_RETRY_LIMIT - 1
       ) {
         throw error;
