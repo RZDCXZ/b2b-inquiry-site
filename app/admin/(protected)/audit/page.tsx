@@ -1,6 +1,7 @@
 import { LockKey } from "@phosphor-icons/react/dist/ssr";
 import Link from "next/link";
 
+import { listOperationsAuditLogPage } from "@/src/application/operations-audit";
 import {
   AdminPageHeader,
   PermissionDenied,
@@ -9,7 +10,6 @@ import { formatAdminTime } from "@/src/components/admin/admin-time";
 import { PERMISSIONS } from "@/src/modules/identity-access/public/permissions";
 import {
   listAuditFilterOptions,
-  listAuditLogPage,
   parseAuditLogFilters,
 } from "@/src/modules/identity-access/server/audit-query";
 import { authorizeAdminPage } from "@/src/modules/identity-access/server/authorization";
@@ -49,7 +49,7 @@ export default async function AuditPage({
   const query = urlSearchParamsFromPage(await searchParams);
   const parsed = parseAuditLogFilters(query);
   const [auditPage, options] = await Promise.all([
-    listAuditLogPage({
+    listOperationsAuditLogPage({
       cursor: parsed.success ? parsed.cursor : undefined,
       filters: parsed.success ? parsed.filters : {},
       take: 50,

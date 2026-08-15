@@ -3,3 +3,4 @@
 拥有产品、产品编号、单层分类、强类型规格属性、参考号、适配关系、单位换算和目录查询。它不拥有公开页面发布历史、询盘或账号权限。
 
 `server/operations-dashboard-query.ts` 提供近期产品导入批次的后台安全读模型，不暴露工作簿内容。
+`public/operations-audit.ts` 提供产品编号与导入批次号解析能力，供 application 层把审计内部关联转换为业务标识。

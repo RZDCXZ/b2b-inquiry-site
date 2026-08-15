@@ -2,6 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { GET as getAuditRecords } from "@/app/api/admin/audit/route";
 import { POST as handleAuthPost } from "@/app/api/auth/[...all]/route";
+import { listOperationsAuditLogPage } from "@/src/application/operations-audit";
 import { getOperationsDashboardForActor } from "@/src/application/operations-dashboard";
 import { replaceInquiryAndNotificationData } from "@/src/application/inquiry-demo-reset";
 import { createPrismaClient } from "@/src/infrastructure/database/prisma";
@@ -89,6 +90,12 @@ describe("运营总览与只读审计", () => {
     await prisma.auditLog.deleteMany({
       where: { id: { startsWith: "ticket-18-" } },
     });
+    await prisma.productImportBatch.deleteMany({
+      where: { id: { startsWith: "ticket-18-" } },
+    });
+    await prisma.productImportPreview.deleteMany({
+      where: { id: { startsWith: "ticket-18-" } },
+    });
     await prisma.user.upsert({
       create: {
         email: "ticket-18-audit@torquelis.local",
@@ -104,6 +111,12 @@ describe("运营总览与只读审计", () => {
   afterAll(async () => {
     await replaceInquiryAndNotificationData(prisma);
     await prisma.auditLog.deleteMany({
+      where: { id: { startsWith: "ticket-18-" } },
+    });
+    await prisma.productImportBatch.deleteMany({
+      where: { id: { startsWith: "ticket-18-" } },
+    });
+    await prisma.productImportPreview.deleteMany({
       where: { id: { startsWith: "ticket-18-" } },
     });
     await prisma.user.deleteMany({ where: { id: auditActorId } });
@@ -288,7 +301,7 @@ describe("运营总览与只读审计", () => {
         action: "发布产品",
         id: "ticket-18-audit-match",
         operator: auditActor.name,
-        target: "产品 · TQ-AUDIT-0001",
+        target: "产品",
       }),
     ]);
     expect(Object.keys(records[0]!).sort()).toEqual([
@@ -305,6 +318,91 @@ describe("运营总览与只读审计", () => {
       "targetType",
     ]);
     expect(JSON.stringify(records)).not.toContain(auditActor.email);
+  });
+
+  it("审计对象把内部 ID 解析为产品编号、询盘参考号和导入批次号", async () => {
+    const product = await prisma.product.findFirstOrThrow({
+      orderBy: { partNumber: "asc" },
+      select: { id: true, partNumber: true },
+    });
+    const inquiry = await createInquiry({
+      referenceNumber: "TQI-AUDIT-TARGET-0001",
+      sourcePage: "/en/inquiry",
+      status: "pending_assignment",
+    });
+    const administrator = await prisma.user.findFirstOrThrow({
+      where: { role: APP_ROLES.ADMINISTRATOR },
+    });
+    const importPreview = await prisma.productImportPreview.create({
+      data: {
+        addedCount: 0,
+        affectedProductCount: 1,
+        createdByUserId: administrator.id,
+        errors: [],
+        fileHash: "ticket-18-target-file-hash",
+        id: "ticket-18-target-preview",
+        originalFilename: "ticket-18-target.xlsx",
+        payload: { products: [] },
+        status: "confirmed",
+        updatedCount: 1,
+      },
+    });
+    const importBatch = await prisma.productImportBatch.create({
+      data: {
+        addedCount: 0,
+        affectedProductCount: 1,
+        createdByUserId: administrator.id,
+        fileHash: "ticket-18-target-file-hash",
+        id: "ticket-18-target-import-batch",
+        originalFilename: "ticket-18-target.xlsx",
+        previewId: importPreview.id,
+        updatedCount: 1,
+      },
+      select: { batchNumber: true, id: true },
+    });
+
+    await prisma.auditLog.createMany({
+      data: [
+        {
+          createdAt: new Date("2032-08-15T03:00:03.000Z"),
+          event: "PRODUCT_PUBLISHED",
+          id: "ticket-18-target-product",
+          outcome: "SUCCESS",
+          targetId: product.id,
+          targetType: "PRODUCT",
+        },
+        {
+          createdAt: new Date("2032-08-15T03:00:02.000Z"),
+          event: "INQUIRY_ASSIGNED",
+          id: "ticket-18-target-inquiry",
+          outcome: "SUCCESS",
+          targetId: inquiry.id,
+          targetType: "INQUIRY",
+        },
+        {
+          createdAt: new Date("2032-08-15T03:00:01.000Z"),
+          event: "PRODUCT_IMPORT_CONFIRMED",
+          id: "ticket-18-target-import",
+          outcome: "SUCCESS",
+          targetId: importBatch.id,
+          targetType: "ProductImportBatch",
+        },
+      ],
+    });
+
+    const page = await listOperationsAuditLogPage({
+      filters: { dateFrom: "2032-08-15", dateTo: "2032-08-15" },
+      prisma,
+    });
+
+    expect(page.records.map(({ target }) => target)).toEqual([
+      `产品 · ${product.partNumber}`,
+      "询盘 · TQI-AUDIT-TARGET-0001",
+      `产品导入批次 · B-${String(importBatch.batchNumber).padStart(3, "0")}`,
+    ]);
+    expect(JSON.stringify(page.records)).not.toContain(product.id);
+    expect(JSON.stringify(page.records)).not.toContain(inquiry.id);
+    expect(JSON.stringify(page.records)).not.toContain(importBatch.id);
   });
 
   it("审计查询使用稳定游标访问超过首屏限制的更早记录", async () => {

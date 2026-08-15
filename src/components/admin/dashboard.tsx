@@ -160,10 +160,7 @@ function TaskList({
             >
               <span>
                 <strong>{task.company}</strong>
-                <small>
-                  {task.referenceNumber}
-                  {task.productPartNumber ? ` · ${task.productPartNumber}` : ""}
-                </small>
+                <small>{task.referenceNumber}</small>
               </span>
               <InquiryStatus status={task.status} />
               <time>
@@ -198,9 +195,7 @@ function RecentImports({ batches }: { batches: DashboardImportBatch[] }) {
               <strong>{batch.batchLabel}</strong>
               <span>
                 {batch.originalFilename}
-                <small>
-                  {batch.affectedProductCount} 个草稿 · {batch.createdBy}
-                </small>
+                <small>{batch.affectedProductCount} 个草稿</small>
               </span>
               <time>{formatAdminTime(batch.createdAt)}</time>
               <b>{batch.rolledBackAt ? "已撤销" : "已导入"}</b>

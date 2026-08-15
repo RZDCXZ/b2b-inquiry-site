@@ -9,3 +9,5 @@
 - `server/preset-credentials.ts` 只管理被忽略的本地明文凭据文件；数据库仅接收 Better Auth scrypt 哈希。
 
 页面、Server Action 与 Route Handler 必须在接近数据源的位置重新授权。隐藏导航只用于减少无关入口，不构成权限边界。
+
+`server/audit-query.ts` 拥有审计筛选、稳定游标和只读基础视图；对象的业务标识由 application 层调用各领域模块的公开能力解析，身份模块不跨边界读取产品、内容或询盘表。

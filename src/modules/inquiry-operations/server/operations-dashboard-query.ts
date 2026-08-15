@@ -17,9 +17,7 @@ import type {
 
 const dashboardInquirySelect = {
   company: true,
-  currentOwner: { select: { name: true } },
   nextStepDate: true,
-  product: { select: { partNumber: true } },
   referenceNumber: true,
   sourcePage: true,
   status: true,
@@ -61,9 +59,7 @@ function toTask(
 ): InquiryDashboardTask {
   return {
     company: record.company,
-    currentOwnerName: record.currentOwner?.name ?? null,
     nextStepDate: record.nextStepDate,
-    productPartNumber: record.product?.partNumber ?? null,
     referenceNumber: record.referenceNumber,
     sourcePage: record.sourcePage,
     status: record.status,

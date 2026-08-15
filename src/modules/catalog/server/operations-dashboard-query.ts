@@ -2,12 +2,12 @@ import {
   getApplicationPrisma,
   type ApplicationDatabase,
 } from "@/src/infrastructure/database/prisma";
+import { formatProductImportBatchNumber } from "@/src/modules/catalog/public/product-import";
 
 export type ProductImportDashboardBatch = {
   affectedProductCount: number;
   batchLabel: string;
   createdAt: Date;
-  createdBy: string;
   id: string;
   originalFilename: string;
   rolledBackAt: Date | null;
@@ -21,16 +21,14 @@ export async function listRecentProductImportBatches({
   take?: number;
 } = {}): Promise<ProductImportDashboardBatch[]> {
   const records = await prisma.productImportBatch.findMany({
-    include: { createdBy: { select: { name: true } } },
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     take,
   });
 
   return records.map((record) => ({
     affectedProductCount: record.affectedProductCount,
-    batchLabel: `B-${String(record.batchNumber).padStart(3, "0")}`,
+    batchLabel: formatProductImportBatchNumber(record.batchNumber),
     createdAt: record.createdAt,
-    createdBy: record.createdBy.name,
     id: record.id,
     originalFilename: record.originalFilename,
     rolledBackAt: record.rolledBackAt,

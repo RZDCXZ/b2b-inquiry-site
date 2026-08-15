@@ -20,3 +20,4 @@
 - 报价金额使用 `DECIMAL(18,2)`，币种限 USD、EUR、CNY；关闭结果限成交、未成交、无效。
 - 每次跟进或状态变化递增询盘版本并写入不复制业务摘要、联系方式或报价金额的脱敏审计。
 - `public/operations-dashboard.ts` 定义总览所需的安全询盘读模型，`server/operations-dashboard-query.ts` 在模块内重算全局或当前负责人的状态、来源、到期与关闭统计。
+- `public/operations-audit.ts` 提供询盘参考号解析能力，供 application 层展示审计对象而不泄露数据库 ID。

@@ -4,9 +4,7 @@ export type InquiryStatusCounts = Record<InquiryStatus, number>;
 
 export type InquiryDashboardTask = {
   company: string;
-  currentOwnerName: string | null;
   nextStepDate: Date | null;
-  productPartNumber: string | null;
   referenceNumber: string;
   sourcePage: string;
   status: InquiryStatus;

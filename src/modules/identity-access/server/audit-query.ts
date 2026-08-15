@@ -9,6 +9,16 @@ import {
   ROLE_LABELS,
 } from "@/src/modules/identity-access/public/permissions";
 
+const auditOutcomes = [
+  "CONFLICT",
+  "DUPLICATE",
+  "FAILURE",
+  "SUCCESS",
+  "VALIDATION",
+] as const;
+
+export type AuditOutcome = (typeof auditOutcomes)[number] | "OTHER";
+
 export type AuditLogView = {
   action: string;
   event: string;
@@ -16,7 +26,7 @@ export type AuditLogView = {
   occurredAt: Date;
   operator: string;
   operatorId: string | null;
-  outcome: string;
+  outcome: AuditOutcome;
   summary: string;
   target: string;
   targetId: string | null;
@@ -78,10 +88,16 @@ function auditActionLabel(event: string): string {
     : event;
 }
 
-function auditTargetLabel(targetType: string): string {
+export function auditTargetLabel(targetType: string): string {
   return Object.hasOwn(auditTargetLabels, targetType)
     ? auditTargetLabels[targetType as AuditTargetType]
     : targetType;
+}
+
+function auditOutcome(outcome: string): AuditOutcome {
+  return (auditOutcomes as readonly string[]).includes(outcome)
+    ? (outcome as Exclude<AuditOutcome, "OTHER">)
+    : "OTHER";
 }
 
 const auditActionSchema = z.enum(
@@ -306,17 +322,19 @@ export type AuditLogPage = {
   records: AuditLogView[];
 };
 
+export type ListAuditLogPageInput = {
+  cursor?: string;
+  filters?: AuditLogFilters;
+  prisma?: ApplicationDatabase;
+  take?: number;
+};
+
 export async function listAuditLogPage({
   cursor,
   filters = {},
   prisma = getApplicationPrisma(),
   take = 50,
-}: {
-  cursor?: string;
-  filters?: AuditLogFilters;
-  prisma?: ApplicationDatabase;
-  take?: number;
-} = {}): Promise<AuditLogPage> {
+}: ListAuditLogPageInput = {}): Promise<AuditLogPage> {
   const decodedCursor = cursor
     ? (decodeAuditCursor(cursor) ?? undefined)
     : undefined;
@@ -348,14 +366,14 @@ export async function listAuditLogPage({
         record.actor?.name ??
         (record.event === "LOGIN" ? "未识别账号" : "系统"),
       operatorId: record.actorUserId,
-      outcome: record.outcome,
+      outcome: auditOutcome(record.outcome),
       summary:
         record.summary ??
         (succeeded
           ? `${roleLabel ?? "预置账号"}登录成功。`
           : "登录失败；未记录提交的账号信息。"),
       target: record.targetType
-        ? `${auditTargetLabel(record.targetType)}${record.targetId ? ` · ${record.targetId}` : ""}`
+        ? auditTargetLabel(record.targetType)
         : record.event === "LOGIN"
           ? "运营后台会话"
           : "系统记录",

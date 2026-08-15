@@ -13,6 +13,10 @@ export const PRODUCT_IMPORT_SHEETS = [
 
 export type ProductImportSheet = (typeof PRODUCT_IMPORT_SHEETS)[number];
 
+export function formatProductImportBatchNumber(batchNumber: number): string {
+  return `B-${String(batchNumber).padStart(3, "0")}`;
+}
+
 export const PRODUCT_IMPORT_COLUMNS = {
   产品: ["产品编号", "分类代码", "图片路径", "状态", "替代产品编号"],
   翻译: [

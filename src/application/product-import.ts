@@ -9,6 +9,7 @@ import {
 } from "@/src/infrastructure/database/prisma";
 import { normalizeProductNumber } from "@/src/modules/catalog/public/product-identity";
 import {
+  formatProductImportBatchNumber,
   type ProductImportChange,
   type ProductImportError as ProductImportIssue,
   type ProductImportPayload,
@@ -1312,10 +1313,6 @@ export async function rollbackProductImportBatch({
     throw new ProductImportError(result.code, result.conflicts);
   }
   return result;
-}
-
-export function formatProductImportBatchNumber(batchNumber: number): string {
-  return `B-${String(batchNumber).padStart(3, "0")}`;
 }
 
 export async function getProductImportBatch({

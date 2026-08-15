@@ -1,8 +1,6 @@
+import { listOperationsAuditLogPage } from "@/src/application/operations-audit";
 import { PERMISSIONS } from "@/src/modules/identity-access/public/permissions";
-import {
-  listAuditLogPage,
-  parseAuditLogFilters,
-} from "@/src/modules/identity-access/server/audit-query";
+import { parseAuditLogFilters } from "@/src/modules/identity-access/server/audit-query";
 import { authorizeRequest } from "@/src/modules/identity-access/server/authorization";
 
 export async function GET(request: Request): Promise<Response> {
@@ -36,7 +34,7 @@ export async function GET(request: Request): Promise<Response> {
     );
   }
 
-  const page = await listAuditLogPage({
+  const page = await listOperationsAuditLogPage({
     cursor: parsed.cursor,
     filters: parsed.filters,
     take: 50,
