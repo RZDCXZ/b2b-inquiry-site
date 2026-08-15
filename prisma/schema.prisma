@@ -129,6 +129,8 @@ model User {
   modifiedArticleDrafts      ArticleDraft[]             @relation("ArticleDraftLastModifier")
   articlePublications        ArticlePublication[]       @relation("ArticlePublicationPublisher")
   modifiedSiteConfigurations SiteConfiguration[]        @relation("SiteConfigurationLastModifier")
+  productImportPreviews      ProductImportPreview[]     @relation("ProductImportPreviewCreator")
+  productImportBatches       ProductImportBatch[]       @relation("ProductImportBatchCreator")
 
   @@map("user")
 }
@@ -411,27 +413,28 @@ model Engine {
 }
 
 model Product {
-  id                      String               @id
-  partNumber              String               @map("part_number")
-  normalizedPartNumber    String               @unique @default(dbgenerated()) @map("normalized_part_number")
-  categoryId              String               @map("category_id")
-  imagePath               String               @map("image_path")
-  status                  ProductStatus        @default(draft)
-  currentPublicationId    String?              @unique @map("current_publication_id")
-  replacementProductId    String?              @map("replacement_product_id")
-  createdAt               DateTime             @default(now()) @map("created_at")
-  updatedAt               DateTime             @updatedAt @map("updated_at")
-  category                ProductCategory      @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  currentPublication      ProductPublication?  @relation("CurrentProductPublication", fields: [id, currentPublicationId], references: [productId, id], onDelete: NoAction)
-  replacementProduct      Product?             @relation("ProductReplacement", fields: [replacementProductId], references: [id], onDelete: Restrict)
-  replacedProducts        Product[]            @relation("ProductReplacement")
-  publications            ProductPublication[] @relation("ProductPublicationVersions")
+  id                      String                   @id
+  partNumber              String                   @map("part_number")
+  normalizedPartNumber    String                   @unique @default(dbgenerated()) @map("normalized_part_number")
+  categoryId              String                   @map("category_id")
+  imagePath               String                   @map("image_path")
+  status                  ProductStatus            @default(draft)
+  currentPublicationId    String?                  @unique @map("current_publication_id")
+  replacementProductId    String?                  @map("replacement_product_id")
+  createdAt               DateTime                 @default(now()) @map("created_at")
+  updatedAt               DateTime                 @updatedAt @map("updated_at")
+  category                ProductCategory          @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  currentPublication      ProductPublication?      @relation("CurrentProductPublication", fields: [id, currentPublicationId], references: [productId, id], onDelete: NoAction)
+  replacementProduct      Product?                 @relation("ProductReplacement", fields: [replacementProductId], references: [id], onDelete: Restrict)
+  replacedProducts        Product[]                @relation("ProductReplacement")
+  publications            ProductPublication[]     @relation("ProductPublicationVersions")
   draft                   ProductDraft?
-  draftReplacements       ProductDraft[]       @relation("ProductDraftReplacement")
-  publicationReplacements ProductPublication[] @relation("ProductPublicationReplacement")
+  draftReplacements       ProductDraft[]           @relation("ProductDraftReplacement")
+  publicationReplacements ProductPublication[]     @relation("ProductPublicationReplacement")
   inquirySubmissions      InquirySubmission[]
   inquiries               Inquiry[]
   quarantinedInquiries    QuarantinedInquiry[]
+  importBatchItems        ProductImportBatchItem[]
 
   @@unique([id, currentPublicationId])
   @@index([categoryId])
@@ -613,6 +616,60 @@ model ProductDraftFitment {
   @@unique([productId, vehicleModelId, engineId, yearFrom, yearTo])
   @@index([vehicleModelId, engineId, yearFrom, yearTo])
   @@map("product_draft_fitment")
+}
+
+model ProductImportPreview {
+  id                   String              @id @default(uuid())
+  originalFilename     String              @map("original_filename")
+  fileHash             String              @map("file_hash")
+  payload              Json
+  errors               Json
+  addedCount           Int                 @map("added_count")
+  updatedCount         Int                 @map("updated_count")
+  affectedProductCount Int                 @map("affected_product_count")
+  status               String              @default("pending")
+  createdByUserId      String              @map("created_by_user_id")
+  createdAt            DateTime            @default(now()) @map("created_at")
+  createdBy            User                @relation("ProductImportPreviewCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  batch                ProductImportBatch?
+
+  @@index([createdByUserId, createdAt])
+  @@index([status, createdAt])
+  @@map("product_import_preview")
+}
+
+model ProductImportBatch {
+  id                   String                   @id @default(uuid())
+  batchNumber          Int                      @unique @default(autoincrement()) @map("batch_number")
+  previewId            String                   @unique @map("preview_id")
+  originalFilename     String                   @map("original_filename")
+  fileHash             String                   @map("file_hash")
+  addedCount           Int                      @map("added_count")
+  updatedCount         Int                      @map("updated_count")
+  affectedProductCount Int                      @map("affected_product_count")
+  createdByUserId      String                   @map("created_by_user_id")
+  createdAt            DateTime                 @default(now()) @map("created_at")
+  preview              ProductImportPreview     @relation(fields: [previewId], references: [id], onDelete: Restrict)
+  createdBy            User                     @relation("ProductImportBatchCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  items                ProductImportBatchItem[]
+
+  @@index([createdByUserId, createdAt])
+  @@map("product_import_batch")
+}
+
+model ProductImportBatchItem {
+  batchId            String             @map("batch_id")
+  productId          String             @map("product_id")
+  partNumber         String             @map("part_number")
+  beforeDraftVersion Int?               @map("before_draft_version")
+  afterDraftVersion  Int                @map("after_draft_version")
+  productWasCreated  Boolean            @map("product_was_created")
+  batch              ProductImportBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  product            Product            @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@id([batchId, productId])
+  @@index([productId])
+  @@map("product_import_batch_item")
 }
 
 model ProductPublication {

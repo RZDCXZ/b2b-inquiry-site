@@ -1,0 +1,297 @@
+import { randomUUID } from "node:crypto";
+
+import { expect, test, type Page } from "@playwright/test";
+import ExcelJS from "exceljs";
+
+import { createProductImportTemplate } from "@/src/application/product-import";
+import { createPrismaClient } from "@/src/infrastructure/database/prisma";
+import { readPresetCredentials } from "@/src/modules/identity-access/server/preset-credentials";
+
+const databaseUrl =
+  process.env.DATABASE_URL ??
+  "postgresql://torquelis:torquelis_local_only@127.0.0.1:55432/torquelis_demo?schema=public";
+const xlsxMime =
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+async function loginAsContentEditor(page: Page) {
+  const credentials = await readPresetCredentials();
+  const editor = credentials.accounts.find(
+    ({ role }) => role === "content_editor",
+  )!;
+  await page.goto("/admin/login");
+  await page.getByLabel("邮箱").fill(editor.email);
+  await page.getByLabel("密码").fill(editor.password);
+  await page.getByRole("button", { name: "登录" }).click();
+  await expect(page).toHaveURL(/\/admin$/u);
+}
+
+function addFuelProduct(
+  workbook: ExcelJS.Workbook,
+  {
+    name,
+    partNumber,
+    slug,
+  }: { name: string; partNumber: string; slug: string },
+) {
+  workbook
+    .getWorksheet("产品")!
+    .addRow([
+      partNumber,
+      "fuel",
+      "/assets/fuel-filter-product.png",
+      "published",
+      "",
+    ]);
+  workbook.getWorksheet("翻译")!.addRows([
+    [
+      partNumber,
+      "en",
+      name,
+      slug,
+      "Browser import summary.",
+      "Browser import description.",
+      `${name} | Torquelis Filters`,
+      "Browser import SEO description.",
+      `${name} demonstration image`,
+      "Selected Northline commercial vehicles.",
+    ],
+    [
+      partNumber,
+      "zh-cn",
+      `${name} 中文`,
+      `${slug}-zh-cn`,
+      "浏览器导入摘要。",
+      "浏览器导入详细说明。",
+      `${name} 中文｜拓擎利滤清`,
+      "浏览器导入 SEO 描述。",
+      `${name} 演示图片`,
+      "适用于指定 Northline 商用车型。",
+    ],
+  ]);
+  workbook.getWorksheet("规格值")!.addRows([
+    [partNumber, "construction_type", "spin_on", ""],
+    [partNumber, "outer_diameter", 98, "millimetre"],
+    [partNumber, "height", 180, "millimetre"],
+    [partNumber, "connection_specification", "M18 × 1.5", ""],
+    [partNumber, "filtration_rating", 8, "micrometre"],
+    [partNumber, "rated_flow", 5.8, "litre_per_minute"],
+    [partNumber, "water_separation", "true", ""],
+  ]);
+  workbook
+    .getWorksheet("参考号")!
+    .addRow([partNumber, "Novera", `${partNumber}-REF`]);
+  workbook
+    .getWorksheet("适配关系")!
+    .addRow([partNumber, "Northline", "HX9", "N13-420", 2020, 2025]);
+}
+
+async function importWorkbook({
+  invalid,
+  newPartNumber,
+  updatePartNumber,
+}: {
+  invalid: boolean;
+  newPartNumber: string;
+  updatePartNumber: string;
+}): Promise<Buffer> {
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load((await createProductImportTemplate()) as never);
+  addFuelProduct(workbook, {
+    name: "Browser updated import",
+    partNumber: updatePartNumber,
+    slug: `browser-updated-${updatePartNumber.toLocaleLowerCase()}`,
+  });
+  addFuelProduct(workbook, {
+    name: "Browser new import",
+    partNumber: newPartNumber,
+    slug: `browser-new-${newPartNumber.toLocaleLowerCase()}`,
+  });
+  if (invalid) {
+    workbook
+      .getWorksheet("产品")!
+      .addRow([
+        updatePartNumber,
+        "fuel",
+        "/assets/fuel-filter-product.png",
+        "published",
+        "",
+      ]);
+    workbook
+      .getWorksheet("规格值")!
+      .addRow([updatePartNumber, "unknown_attribute", 99, "millimetre"]);
+    workbook
+      .getWorksheet("参考号")!
+      .addRow(["TQ-MISSING", "Novera", "MISSING-REF"]);
+    workbook
+      .getWorksheet("适配关系")!
+      .addRow([updatePartNumber, "Northline", "HX9", "UNKNOWN", 2025, 2020]);
+  }
+  return Buffer.from(await workbook.xlsx.writeBuffer());
+}
+
+test("内容编辑一次查看全部 Excel 错误，修正后原子导入新增与更新草稿", async ({
+  page,
+}, testInfo) => {
+  test.setTimeout(120_000);
+  const prisma = createPrismaClient(databaseUrl);
+  const suffix = `${testInfo.project.name.toLocaleLowerCase().replace(/[^a-z0-9]+/gu, "-")}-${randomUUID().slice(0, 6)}`;
+  const existingProductId = `product-import-browser-update-${suffix}`;
+  const updatePartNumber = `TQ-I16-U-${suffix.toUpperCase()}`;
+  const newPartNumber = `TQ-I16-N-${suffix.toUpperCase()}`;
+  const invalidFilename = `ticket-16-errors-${suffix}.xlsx`;
+  const validFilename = `ticket-16-valid-${suffix}.xlsx`;
+
+  await prisma.product.create({
+    data: {
+      categoryId: "category-fuel",
+      id: existingProductId,
+      imagePath: "/assets/fuel-filter-product.png",
+      partNumber: updatePartNumber,
+      status: "draft",
+    },
+  });
+  await prisma.productDraft.create({
+    data: {
+      categoryId: "category-fuel",
+      descriptionEn: "Existing browser import draft.",
+      descriptionZhCn: "已有浏览器导入草稿。",
+      fitmentSummaryEn: "Existing fitment summary.",
+      fitmentSummaryZhCn: "已有适配摘要。",
+      imageAltEn: "Existing browser image",
+      imageAltZhCn: "已有浏览器图片",
+      imagePath: "/assets/fuel-filter-product.png",
+      nameEn: "Existing browser import",
+      nameZhCn: "已有浏览器导入",
+      productId: existingProductId,
+      seoDescriptionEn: "Existing browser SEO description.",
+      seoDescriptionZhCn: "已有浏览器 SEO 描述。",
+      seoTitleEn: "Existing browser import | Torquelis",
+      seoTitleZhCn: "已有浏览器导入｜拓擎利",
+      slugEn: `existing-browser-import-${suffix}`,
+      slugZhCn: `已有浏览器导入-${suffix}`,
+      status: "published",
+      summaryEn: "Existing browser summary.",
+      summaryZhCn: "已有浏览器摘要。",
+      version: 3,
+    },
+  });
+
+  try {
+    await loginAsContentEditor(page);
+    await page.goto("/admin/import");
+    await expect(
+      page.getByRole("heading", { name: "上传并校验 Excel" }),
+    ).toBeVisible();
+    const templateDownload = page.waitForEvent("download");
+    await page.getByRole("link", { name: "下载模板与字段说明" }).click();
+    await expect((await templateDownload).suggestedFilename()).toBe(
+      "torquelis-product-import-template.xlsx",
+    );
+
+    await page.getByLabel("工作簿文件").setInputFiles({
+      buffer: await importWorkbook({
+        invalid: true,
+        newPartNumber,
+        updatePartNumber,
+      }),
+      mimeType: xlsxMime,
+      name: invalidFilename,
+    });
+    await page.getByRole("button", { name: "上传并校验" }).click();
+    await expect(page).toHaveURL(/\/admin\/import\/previews\//u);
+    await expect(page.getByText("整批导入已暂停")).toBeVisible();
+    await expect(
+      page.getByRole("cell", { name: "PRODUCT_NUMBER_DUPLICATE" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("cell", {
+        name: "SPECIFICATION_ATTRIBUTE_NOT_FOUND",
+      }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("cell", { name: "PRODUCT_ROW_MISSING" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("cell", { name: "FITMENT_NOT_FOUND" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("cell", { name: "FITMENT_YEAR_RANGE_INVALID" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "确认导入草稿" }),
+    ).toBeDisabled();
+    await page.getByLabel("工作表").selectOption("产品");
+    await page.getByLabel("错误代码").selectOption("FITMENT_NOT_FOUND");
+    await page.getByRole("button", { name: "筛选错误" }).click();
+    await expect(page.getByText("当前筛选没有匹配错误")).toBeVisible();
+    await page.getByRole("link", { name: "查看全部业务错误" }).click();
+    await expect(
+      page.getByRole("cell", { name: "PRODUCT_NUMBER_DUPLICATE" }),
+    ).toBeVisible();
+    const reportDownload = page.waitForEvent("download");
+    await page.getByRole("link", { name: "下载错误报告" }).click();
+    await expect((await reportDownload).suggestedFilename()).toMatch(
+      /^torquelis-import-errors-.*\.xlsx$/u,
+    );
+
+    await page.getByRole("link", { name: "重新上传" }).click();
+    await page.getByLabel("工作簿文件").setInputFiles({
+      buffer: await importWorkbook({
+        invalid: false,
+        newPartNumber,
+        updatePartNumber,
+      }),
+      mimeType: xlsxMime,
+      name: validFilename,
+    });
+    await page.getByRole("button", { name: "上传并校验" }).click();
+    await expect(page.getByText("全部校验通过")).toBeVisible();
+    await expect(page.getByText("可以确认导入")).toBeVisible();
+    await expect(page.getByText("1", { exact: true }).first()).toBeVisible();
+    await expect(
+      page.getByText("已有浏览器导入", { exact: true }),
+    ).toBeVisible();
+    await expect(page.getByText("产品名称（英文）")).toBeVisible();
+    await expect(page.getByText("规格 · outer_diameter")).toBeVisible();
+    await expect(
+      page.getByText("Browser updated import 中文", { exact: true }),
+    ).toBeVisible();
+
+    await page.getByRole("button", { name: "确认导入草稿" }).click();
+    await expect(page).toHaveURL(/\/admin\/import\/batches\//u);
+    await expect(
+      page.getByRole("heading", {
+        name: "草稿导入成功，公开页面保持不变",
+      }),
+    ).toBeVisible();
+    await expect(page.getByText("新增 1 个草稿，更新 1 个草稿")).toBeVisible();
+    await page.getByRole("link", { name: "查看产品草稿" }).click();
+    await expect(page.getByText(newPartNumber, { exact: true })).toBeVisible();
+    await expect(
+      page.getByText(updatePartNumber, { exact: true }),
+    ).toBeVisible();
+  } finally {
+    const previews = await prisma.productImportPreview.findMany({
+      select: { batch: { select: { id: true } }, id: true },
+      where: { originalFilename: { in: [invalidFilename, validFilename] } },
+    });
+    const batchIds = previews.flatMap(({ batch }) => (batch ? [batch.id] : []));
+    await prisma.auditLog.deleteMany({ where: { targetId: { in: batchIds } } });
+    await prisma.productImportBatch.deleteMany({
+      where: { id: { in: batchIds } },
+    });
+    await prisma.productImportPreview.deleteMany({
+      where: { id: { in: previews.map(({ id }) => id) } },
+    });
+    await prisma.product.deleteMany({
+      where: {
+        normalizedPartNumber: {
+          in: [updatePartNumber, newPartNumber].map((value) =>
+            value.replace(/[\s-]/gu, "").toUpperCase(),
+          ),
+        },
+      },
+    });
+    await prisma.$disconnect();
+  }
+});
