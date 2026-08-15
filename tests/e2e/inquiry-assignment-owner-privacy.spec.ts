@@ -197,8 +197,11 @@ test("首次分配、并发冲突、重新分配和内容编辑隐私边界", as
   const contentEditorContext = await browser.newContext();
   const contentEditorPage = await login(contentEditorContext, contentEditor);
   await expect(
-    contentEditorPage.getByText("询盘脱敏汇总", { exact: true }),
+    contentEditorPage.getByText("待发布产品", { exact: true }),
   ).toBeVisible();
+  await expect(
+    contentEditorPage.getByText("询盘脱敏汇总", { exact: true }),
+  ).toHaveCount(0);
   await expect(
     contentEditorPage.getByRole("link", { name: "询盘工作台" }),
   ).toHaveCount(0);

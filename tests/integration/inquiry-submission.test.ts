@@ -203,6 +203,29 @@ describe("幂等且可防垃圾的询盘提交", () => {
       }),
     ).resolves.toMatchObject({ spamReasons: ["honeypot"] });
     await expect(listNotificationOutbox({ prisma })).resolves.toEqual([]);
+    const audit = await prisma.auditLog.findFirst({
+      where: {
+        event: "INQUIRY_QUARANTINED",
+        targetId: result.receipt.referenceNumber,
+      },
+    });
+    expect(audit).toMatchObject({
+      actorRole: null,
+      actorUserId: null,
+      outcome: "SUCCESS",
+      summary: "询盘提交被隔离；风险规则命中 1 项。",
+      targetType: "QUARANTINED_INQUIRY",
+    });
+    const serializedAudit = JSON.stringify(audit);
+    for (const sensitiveValue of [
+      validForm.contactName,
+      validForm.workEmail,
+      validForm.phoneOrWhatsapp,
+      validForm.message,
+      validForm.company,
+    ]) {
+      expect(serializedAudit).not.toContain(sensitiveValue);
+    }
   });
 
   it("简单风险规则提交只进入独立垃圾询盘隔离区", async () => {

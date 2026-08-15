@@ -8,7 +8,9 @@ export async function replaceInquiryAndNotificationData(
   await replaceNotificationData(prisma);
   await prisma.auditLog.deleteMany({
     where: {
-      event: { in: ["INQUIRY_ASSIGNED", "INQUIRY_REASSIGNED"] },
+      event: {
+        in: ["INQUIRY_ASSIGNED", "INQUIRY_QUARANTINED", "INQUIRY_REASSIGNED"],
+      },
     },
   });
   await replaceInquirySubmissionData(prisma);

@@ -263,6 +263,16 @@ async function persistSubmission(
         spamReasons: assessment.reasons satisfies InquirySpamReason[],
       },
     });
+    await transaction.auditLog.create({
+      data: {
+        createdAt: input.now,
+        event: "INQUIRY_QUARANTINED",
+        outcome: "SUCCESS",
+        summary: `询盘提交被隔离；风险规则命中 ${assessment.reasons.length} 项。`,
+        targetId: referenceNumber,
+        targetType: "QUARANTINED_INQUIRY",
+      },
+    });
   }
 
   await transaction.inquirySubmission.update({

@@ -46,14 +46,14 @@ test("未登录访问进入登录流程，四个预置账号获得各自后台�
       hiddenNavigation: "询盘工作台",
       landingHeading: "内容运营待办",
       roleLabel: "内容编辑",
-      summaryLabel: "询盘脱敏汇总",
+      summaryLabel: "待发布产品",
       visibleNavigation: "批量导入",
     },
     [APP_ROLES.SALES]: {
       hiddenNavigation: "产品内容",
       landingHeading: "我的询盘与下一步",
       roleLabel: "业务人员",
-      summaryLabel: "我的下一步",
+      summaryLabel: "我的到期跟进",
       visibleNavigation: "我的询盘",
     },
   } as const;

@@ -1,5 +1,8 @@
 import { PERMISSIONS } from "@/src/modules/identity-access/public/permissions";
-import { listRecentAuditLogs } from "@/src/modules/identity-access/server/audit-query";
+import {
+  listAuditLogs,
+  parseAuditLogFilters,
+} from "@/src/modules/identity-access/server/audit-query";
 import { authorizeRequest } from "@/src/modules/identity-access/server/authorization";
 
 export async function GET(request: Request): Promise<Response> {
@@ -20,7 +23,20 @@ export async function GET(request: Request): Promise<Response> {
     );
   }
 
-  const records = await listRecentAuditLogs(50);
+  const parsed = parseAuditLogFilters(new URL(request.url).searchParams);
+  if (!parsed.success) {
+    return Response.json(
+      {
+        error: {
+          code: "INVALID_FILTERS",
+          message: "审计筛选条件无效。",
+        },
+      },
+      { status: 400 },
+    );
+  }
+
+  const records = await listAuditLogs({ filters: parsed.filters, take: 50 });
 
   return Response.json({ records });
 }

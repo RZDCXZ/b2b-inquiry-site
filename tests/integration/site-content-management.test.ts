@@ -477,6 +477,14 @@ describe("核心页面、文章与站点设置", () => {
       contactPhone: "+86 21 5555 0188",
       version: settings.version + 1,
     });
+    const settingsAudit = await prisma.auditLog.findFirst({
+      orderBy: { createdAt: "desc" },
+      where: { event: "SITE_CONFIGURATION_UPDATED", targetId: "primary" },
+    });
+    expect(settingsAudit?.summary).toBe(
+      `站点配置 v${settings.version} 更新为 v${saved.version}；变更字段：联系电话、模拟通知收件角色。`,
+    );
+    expect(JSON.stringify(settingsAudit)).not.toContain("+86 21 5555 0188");
 
     const issued = await issueInquiryForm({
       locale: "en",

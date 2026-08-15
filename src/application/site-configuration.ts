@@ -78,6 +78,12 @@ function parseSocialLinks(value: Prisma.JsonValue): Record<string, string> {
   return parsed.success ? parsed.data : {};
 }
 
+function stableRecord(value: Record<string, string>): string {
+  return JSON.stringify(
+    Object.entries(value).sort(([left], [right]) => left.localeCompare(right)),
+  );
+}
+
 function toView(record: {
   addressEn: string;
   addressZhCn: string;
@@ -215,13 +221,53 @@ export async function saveSiteConfiguration({
           : undefined,
       );
     }
+    const changedFields = [
+      ["企业英文名称", existing.companyNameEn, parsed.data.companyNameEn],
+      ["企业中文名称", existing.companyNameZhCn, parsed.data.companyNameZhCn],
+      ["联系邮箱", existing.contactEmail, parsed.data.contactEmail],
+      ["联系电话", existing.contactPhone, parsed.data.contactPhone],
+      ["英文地址", existing.addressEn, parsed.data.addressEn],
+      ["中文地址", existing.addressZhCn, parsed.data.addressZhCn],
+      [
+        "社交链接",
+        stableRecord(parseSocialLinks(existing.socialLinks)),
+        stableRecord(parsed.data.socialLinks),
+      ],
+      [
+        "英文默认 SEO 标题",
+        existing.defaultSeoTitleEn,
+        parsed.data.defaultSeoTitleEn,
+      ],
+      [
+        "中文默认 SEO 标题",
+        existing.defaultSeoTitleZhCn,
+        parsed.data.defaultSeoTitleZhCn,
+      ],
+      [
+        "英文默认 SEO 描述",
+        existing.defaultSeoDescriptionEn,
+        parsed.data.defaultSeoDescriptionEn,
+      ],
+      [
+        "中文默认 SEO 描述",
+        existing.defaultSeoDescriptionZhCn,
+        parsed.data.defaultSeoDescriptionZhCn,
+      ],
+      [
+        "模拟通知收件角色",
+        [...existing.notificationRecipientRoles].sort().join(","),
+        [...parsed.data.notificationRecipientRoles].sort().join(","),
+      ],
+    ]
+      .filter(([, before, after]) => before !== after)
+      .map(([label]) => label);
     await transaction.auditLog.create({
       data: {
         actorRole: actor.role,
         actorUserId: actor.id,
         event: "SITE_CONFIGURATION_UPDATED",
         outcome: "SUCCESS",
-        summary: "更新企业公开资料、默认 SEO 或模拟通知收件角色。",
+        summary: `站点配置 v${existing.version} 更新为 v${existing.version + 1}；变更字段：${changedFields.join("、") || "无业务字段变化"}。`,
         targetId: "primary",
         targetType: "SITE_CONFIGURATION",
       },

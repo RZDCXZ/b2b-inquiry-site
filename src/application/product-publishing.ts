@@ -1181,7 +1181,7 @@ async function loadValidatedProductDraft(
   { expectedDraftVersion, partNumber }: ProductPublishingBatchSelection,
 ) {
   const product = await transaction.product.findUnique({
-    select: { id: true, partNumber: true },
+    select: { id: true, partNumber: true, status: true },
     where: { normalizedPartNumber: normalizeProductNumber(partNumber) },
   });
   if (!product) throw new ProductPublishingError("NOT_FOUND");
@@ -1368,6 +1368,15 @@ async function publishValidatedProductDraft(
   },
 ) {
   const { draft, product, validatedSpecifications } = loaded;
+  const productStatusLabels = {
+    discontinued: "已停产",
+    draft: "草稿",
+    published: "已发布",
+  } as const;
+  const statusTransition =
+    product.status === draft.status
+      ? ""
+      : `；公开状态从${productStatusLabels[product.status]}变更为${productStatusLabels[draft.status]}`;
   const publishClaim = await transaction.productDraft.updateMany({
     data: { lastPublishedVersion: draft.version, updatedAt: draft.updatedAt },
     where: {
@@ -1474,7 +1483,7 @@ async function publishValidatedProductDraft(
       createdAt: now,
       event: "PRODUCT_PUBLISHED",
       outcome: "SUCCESS",
-      summary: `草稿 v${draft.version} 形成不可变公开版本 v${nextPublicationVersion}。`,
+      summary: `草稿 v${draft.version} 形成不可变公开版本 v${nextPublicationVersion}${statusTransition}。`,
       targetId: product.id,
       targetType: "PRODUCT",
     },

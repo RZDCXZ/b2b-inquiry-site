@@ -621,6 +621,29 @@ describe("产品草稿批量发布", () => {
         { id: products[0].id, replacementProductId: null },
         { id: products[1].id, replacementProductId: products[0].id },
       ]);
+      await expect(
+        prisma.auditLog.findMany({
+          orderBy: { targetId: "asc" },
+          select: { summary: true, targetId: true },
+          where: {
+            OR: [
+              { summary: { contains: "公开状态从已停产变更为已发布" } },
+              { summary: { contains: "公开状态从已发布变更为已停产" } },
+            ],
+            event: "PRODUCT_PUBLISHED",
+            targetId: { in: products.map(({ id }) => id) },
+          },
+        }),
+      ).resolves.toEqual([
+        {
+          summary: expect.stringContaining("公开状态从已停产变更为已发布"),
+          targetId: products[0].id,
+        },
+        {
+          summary: expect.stringContaining("公开状态从已发布变更为已停产"),
+          targetId: products[1].id,
+        },
+      ]);
     } finally {
       await cleanupProducts(products.map(({ id }) => id));
     }
