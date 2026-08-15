@@ -1047,6 +1047,12 @@ select {
   font-size: 10px;
 }
 
+.admin-audit-pagination {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
 .admin-matrix-row {
   min-height: 58px;
   display: grid;

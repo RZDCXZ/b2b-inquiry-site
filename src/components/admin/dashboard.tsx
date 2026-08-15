@@ -24,7 +24,10 @@ import {
 import { InquiryStatus } from "@/src/components/admin/inquiry-status";
 import type { AdminActor } from "@/src/modules/identity-access/public/actor";
 import { APP_ROLES } from "@/src/modules/identity-access/public/permissions";
-import { INQUIRY_STATUS_LABELS_ZH_CN } from "@/src/modules/inquiry-operations/public/inquiry-lifecycle";
+import {
+  INQUIRY_STATUSES,
+  INQUIRY_STATUS_LABELS_ZH_CN,
+} from "@/src/modules/inquiry-operations/public/inquiry-lifecycle";
 
 const roleDashboard = {
   [APP_ROLES.ADMINISTRATOR]: {
@@ -60,14 +63,6 @@ const roleDashboard = {
     title: "我的询盘与下一步",
   },
 } as const;
-
-const statusOrder = [
-  "pending_assignment",
-  "assigned",
-  "in_progress",
-  "quoted",
-  "closed",
-] as const;
 
 function SummaryGrid({
   summaries,
@@ -107,7 +102,10 @@ function RoleLinks({
 }
 
 function InquiryStatusBreakdown({ counts }: { counts: InquiryStatusCounts }) {
-  const total = statusOrder.reduce((sum, status) => sum + counts[status], 0);
+  const total = INQUIRY_STATUSES.reduce(
+    (sum, status) => sum + counts[status],
+    0,
+  );
 
   return (
     <section className="admin-section dashboard-panel">
@@ -116,7 +114,7 @@ function InquiryStatusBreakdown({ counts }: { counts: InquiryStatusCounts }) {
         <h2>询盘状态分布</h2>
       </header>
       <div className="dashboard-bars">
-        {statusOrder.map((status) => (
+        {INQUIRY_STATUSES.map((status) => (
           <div key={status}>
             <span>{INQUIRY_STATUS_LABELS_ZH_CN[status]}</span>
             <i>

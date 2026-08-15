@@ -1,6 +1,6 @@
 import { PERMISSIONS } from "@/src/modules/identity-access/public/permissions";
 import {
-  listAuditLogs,
+  listAuditLogPage,
   parseAuditLogFilters,
 } from "@/src/modules/identity-access/server/audit-query";
 import { authorizeRequest } from "@/src/modules/identity-access/server/authorization";
@@ -36,7 +36,11 @@ export async function GET(request: Request): Promise<Response> {
     );
   }
 
-  const records = await listAuditLogs({ filters: parsed.filters, take: 50 });
+  const page = await listAuditLogPage({
+    cursor: parsed.cursor,
+    filters: parsed.filters,
+    take: 50,
+  });
 
-  return Response.json({ records });
+  return Response.json(page);
 }

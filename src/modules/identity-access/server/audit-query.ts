@@ -27,11 +27,11 @@ export type AuditLogFilters = {
   actorUserId?: string | null;
   dateFrom?: string;
   dateTo?: string;
-  event?: string;
-  targetType?: string;
+  event?: AuditAction;
+  targetType?: AuditTargetType;
 };
 
-export const auditActionLabels: Record<string, string> = {
+export const auditActionLabels = {
   ARTICLE_ARCHIVED: "归档文章",
   ARTICLE_DRAFT_SAVED: "保存文章草稿",
   ARTICLE_PUBLICATION_RESTORED: "恢复文章历史版本",
@@ -56,9 +56,9 @@ export const auditActionLabels: Record<string, string> = {
   PRODUCT_IMPORT_ROLLBACK_REJECTED: "拒绝撤销产品导入批次",
   PRODUCT_PUBLISHED: "发布产品",
   SITE_CONFIGURATION_UPDATED: "更新站点配置",
-};
+} as const satisfies Record<string, string>;
 
-export const auditTargetLabels: Record<string, string> = {
+export const auditTargetLabels = {
   ARTICLE: "文章",
   CORE_PAGE: "核心页面",
   INQUIRY: "询盘",
@@ -67,7 +67,53 @@ export const auditTargetLabels: Record<string, string> = {
   ProductImportBatch: "产品导入批次",
   ProductPublishBatch: "产品发布批次",
   SITE_CONFIGURATION: "站点配置",
-};
+} as const satisfies Record<string, string>;
+
+type AuditAction = keyof typeof auditActionLabels;
+type AuditTargetType = keyof typeof auditTargetLabels;
+
+function auditActionLabel(event: string): string {
+  return Object.hasOwn(auditActionLabels, event)
+    ? auditActionLabels[event as AuditAction]
+    : event;
+}
+
+function auditTargetLabel(targetType: string): string {
+  return Object.hasOwn(auditTargetLabels, targetType)
+    ? auditTargetLabels[targetType as AuditTargetType]
+    : targetType;
+}
+
+const auditActionSchema = z.enum(
+  Object.keys(auditActionLabels) as [AuditAction, ...AuditAction[]],
+);
+const auditTargetTypeSchema = z.enum(
+  Object.keys(auditTargetLabels) as [AuditTargetType, ...AuditTargetType[]],
+);
+
+type AuditCursor = { id: string; occurredAt: Date };
+
+function decodeAuditCursor(value: string): AuditCursor | null {
+  const separator = value.indexOf("|");
+  if (separator < 0) return null;
+  const occurredAtValue = value.slice(0, separator);
+  const id = value.slice(separator + 1);
+  const occurredAt = new Date(occurredAtValue);
+  if (
+    !id ||
+    id.length > 200 ||
+    !/^[A-Za-z0-9_-]+$/u.test(id) ||
+    Number.isNaN(occurredAt.getTime()) ||
+    occurredAt.toISOString() !== occurredAtValue
+  ) {
+    return null;
+  }
+  return { id, occurredAt };
+}
+
+function encodeAuditCursor(record: { id: string; occurredAt: Date }): string {
+  return `${record.occurredAt.toISOString()}|${record.id}`;
+}
 
 const auditDateSchema = z.string().refine((value) => {
   if (!/^\d{4}-\d{2}-\d{2}$/u.test(value)) return false;
@@ -82,18 +128,15 @@ const auditDateSchema = z.string().refine((value) => {
 
 const auditFilterSearchSchema = z
   .object({
-    action: z
+    action: auditActionSchema.optional(),
+    cursor: z
       .string()
-      .max(100)
-      .regex(/^[A-Z0-9_]+$/u)
+      .max(240)
+      .refine((value) => decodeAuditCursor(value) !== null)
       .optional(),
     from: auditDateSchema.optional(),
     operator: z.string().trim().min(1).max(200).optional(),
-    targetType: z
-      .string()
-      .max(100)
-      .regex(/^[A-Za-z0-9_]+$/u)
-      .optional(),
+    targetType: auditTargetTypeSchema.optional(),
     to: auditDateSchema.optional(),
   })
   .refine(
@@ -113,9 +156,12 @@ function presentSearchParam(
 
 export function parseAuditLogFilters(
   searchParams: URLSearchParams,
-): { filters: AuditLogFilters; success: true } | { success: false } {
+):
+  | { cursor?: string; filters: AuditLogFilters; success: true }
+  | { success: false } {
   const parsed = auditFilterSearchSchema.safeParse({
     action: presentSearchParam(searchParams, "action"),
+    cursor: presentSearchParam(searchParams, "cursor"),
     from: presentSearchParam(searchParams, "from"),
     operator: presentSearchParam(searchParams, "operator"),
     targetType: presentSearchParam(searchParams, "targetType"),
@@ -125,6 +171,7 @@ export function parseAuditLogFilters(
   if (!parsed.success) return { success: false };
 
   return {
+    ...(parsed.data.cursor ? { cursor: parsed.data.cursor } : {}),
     filters: {
       ...(parsed.data.action ? { event: parsed.data.action } : {}),
       ...(parsed.data.from ? { dateFrom: parsed.data.from } : {}),
@@ -147,7 +194,10 @@ function shanghaiDayStart(date: string): Date {
   return new Date(`${date}T00:00:00.000+08:00`);
 }
 
-function auditWhere(filters: AuditLogFilters): Prisma.AuditLogWhereInput {
+function auditWhere(
+  filters: AuditLogFilters,
+  cursor?: AuditCursor,
+): Prisma.AuditLogWhereInput {
   const createdAt = {
     ...(filters.dateFrom ? { gte: shanghaiDayStart(filters.dateFrom) } : {}),
     ...(filters.dateTo
@@ -159,7 +209,7 @@ function auditWhere(filters: AuditLogFilters): Prisma.AuditLogWhereInput {
       : {}),
   };
 
-  return {
+  const filteredRecords = {
     ...(filters.actorUserId !== undefined
       ? { actorUserId: filters.actorUserId }
       : {}),
@@ -167,6 +217,20 @@ function auditWhere(filters: AuditLogFilters): Prisma.AuditLogWhereInput {
     ...(filters.event ? { event: filters.event } : {}),
     ...(filters.targetType ? { targetType: filters.targetType } : {}),
   };
+
+  return cursor
+    ? {
+        AND: [
+          filteredRecords,
+          {
+            OR: [
+              { createdAt: { lt: cursor.occurredAt } },
+              { createdAt: cursor.occurredAt, id: { lt: cursor.id } },
+            ],
+          },
+        ],
+      }
+    : filteredRecords;
 }
 
 export type AuditFilterOptions = {
@@ -203,7 +267,7 @@ export async function listAuditFilterOptions(
   return {
     actions: eventRecords
       .map(({ event }) => ({
-        label: auditActionLabels[event] ?? event,
+        label: auditActionLabel(event),
         value: event,
       }))
       .sort((left, right) => left.label.localeCompare(right.label, "zh-CN")),
@@ -227,7 +291,7 @@ export async function listAuditFilterOptions(
         targetType
           ? [
               {
-                label: auditTargetLabels[targetType] ?? targetType,
+                label: auditTargetLabel(targetType),
                 value: targetType,
               },
             ]
@@ -237,30 +301,46 @@ export async function listAuditFilterOptions(
   };
 }
 
-export async function listAuditLogs({
+export type AuditLogPage = {
+  nextCursor: string | null;
+  records: AuditLogView[];
+};
+
+export async function listAuditLogPage({
+  cursor,
   filters = {},
   prisma = getApplicationPrisma(),
   take = 50,
 }: {
+  cursor?: string;
   filters?: AuditLogFilters;
   prisma?: ApplicationDatabase;
   take?: number;
-} = {}): Promise<AuditLogView[]> {
+} = {}): Promise<AuditLogPage> {
+  const decodedCursor = cursor
+    ? (decodeAuditCursor(cursor) ?? undefined)
+    : undefined;
+  if (cursor && !decodedCursor) {
+    throw new Error("Invalid audit cursor.");
+  }
+  const pageSize = Math.min(Math.max(take, 1), 100);
   const records = await prisma.auditLog.findMany({
     include: { actor: { select: { name: true } } },
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-    take,
-    where: auditWhere(filters),
+    take: pageSize + 1,
+    where: auditWhere(filters, decodedCursor),
   });
+  const hasMore = records.length > pageSize;
+  const visibleRecords = records.slice(0, pageSize);
 
-  return records.map((record) => {
+  const views = visibleRecords.map((record) => {
     const roleLabel = isAppRole(record.actorRole)
       ? ROLE_LABELS[record.actorRole]
       : null;
     const succeeded = record.outcome === "SUCCESS";
 
     return {
-      action: auditActionLabels[record.event] ?? record.event,
+      action: auditActionLabel(record.event),
       event: record.event,
       id: record.id,
       occurredAt: record.createdAt,
@@ -275,7 +355,7 @@ export async function listAuditLogs({
           ? `${roleLabel ?? "预置账号"}登录成功。`
           : "登录失败；未记录提交的账号信息。"),
       target: record.targetType
-        ? `${auditTargetLabels[record.targetType] ?? "系统记录"}${record.targetId ? ` · ${record.targetId}` : ""}`
+        ? `${auditTargetLabel(record.targetType)}${record.targetId ? ` · ${record.targetId}` : ""}`
         : record.event === "LOGIN"
           ? "运营后台会话"
           : "系统记录",
@@ -283,10 +363,12 @@ export async function listAuditLogs({
       targetType: record.targetType,
     };
   });
-}
 
-export async function listRecentAuditLogs(
-  take: number,
-): Promise<AuditLogView[]> {
-  return listAuditLogs({ take });
+  return {
+    nextCursor:
+      hasMore && views.length > 0
+        ? encodeAuditCursor(views[views.length - 1]!)
+        : null,
+    records: views,
+  };
 }

@@ -7,7 +7,7 @@ import { replaceInquiryAndNotificationData } from "@/src/application/inquiry-dem
 import { createPrismaClient } from "@/src/infrastructure/database/prisma";
 import type { AdminActor } from "@/src/modules/identity-access/public/actor";
 import { APP_ROLES } from "@/src/modules/identity-access/public/permissions";
-import { listAuditLogs } from "@/src/modules/identity-access/server/audit-query";
+import { listAuditLogPage } from "@/src/modules/identity-access/server/audit-query";
 import { seedPresetAccounts } from "@/src/modules/identity-access/server/preset-accounts";
 import {
   ensurePresetCredentials,
@@ -160,17 +160,14 @@ describe("运营总览与只读审计", () => {
     const administratorDashboard = await getOperationsDashboardForActor({
       actor: actor(administrator),
       now,
-      prisma,
     });
     const firstSalesDashboard = await getOperationsDashboardForActor({
       actor: actor(firstSales),
       now,
-      prisma,
     });
     const contentDashboard = await getOperationsDashboardForActor({
       actor: actor(contentEditor),
       now,
-      prisma,
     });
     const databaseStatusCounts = await prisma.inquiry.groupBy({
       _count: { _all: true },
@@ -273,7 +270,7 @@ describe("运营总览与只读审计", () => {
       ],
     });
 
-    const records = await listAuditLogs({
+    const page = await listAuditLogPage({
       filters: {
         actorUserId: auditActor.id,
         dateFrom: "2026-08-15",
@@ -284,6 +281,7 @@ describe("运营总览与只读审计", () => {
       prisma,
       take: 50,
     });
+    const { records } = page;
 
     expect(records).toEqual([
       expect.objectContaining({
@@ -307,6 +305,64 @@ describe("运营总览与只读审计", () => {
       "targetType",
     ]);
     expect(JSON.stringify(records)).not.toContain(auditActor.email);
+  });
+
+  it("审计查询使用稳定游标访问超过首屏限制的更早记录", async () => {
+    await prisma.auditLog.createMany({
+      data: [
+        {
+          createdAt: new Date("2031-08-15T03:00:03.000Z"),
+          event: "SITE_CONFIGURATION_UPDATED",
+          id: "ticket-18-page-3",
+          outcome: "SUCCESS",
+          summary: "站点配置 v3 更新为 v4。",
+          targetId: "primary",
+          targetType: "SITE_CONFIGURATION",
+        },
+        {
+          createdAt: new Date("2031-08-15T03:00:02.000Z"),
+          event: "SITE_CONFIGURATION_UPDATED",
+          id: "ticket-18-page-2",
+          outcome: "SUCCESS",
+          summary: "站点配置 v2 更新为 v3。",
+          targetId: "primary",
+          targetType: "SITE_CONFIGURATION",
+        },
+        {
+          createdAt: new Date("2031-08-15T03:00:01.000Z"),
+          event: "SITE_CONFIGURATION_UPDATED",
+          id: "ticket-18-page-1",
+          outcome: "SUCCESS",
+          summary: "站点配置 v1 更新为 v2。",
+          targetId: "primary",
+          targetType: "SITE_CONFIGURATION",
+        },
+      ],
+    });
+
+    const filters = {
+      dateFrom: "2031-08-15",
+      dateTo: "2031-08-15",
+      event: "SITE_CONFIGURATION_UPDATED",
+      targetType: "SITE_CONFIGURATION",
+    } as const;
+    const firstPage = await listAuditLogPage({ filters, prisma, take: 2 });
+    expect(firstPage.records.map(({ id }) => id)).toEqual([
+      "ticket-18-page-3",
+      "ticket-18-page-2",
+    ]);
+    expect(firstPage.nextCursor).toBeTruthy();
+
+    const secondPage = await listAuditLogPage({
+      cursor: firstPage.nextCursor ?? undefined,
+      filters,
+      prisma,
+      take: 2,
+    });
+    expect(secondPage.records.map(({ id }) => id)).toEqual([
+      "ticket-18-page-1",
+    ]);
+    expect(secondPage.nextCursor).toBeNull();
   });
 
   it("只读审计 GET 接口在授权后应用筛选并拒绝无效日期合同", async () => {
@@ -353,6 +409,7 @@ describe("运营总览与只读审计", () => {
     );
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
+      nextCursor: null,
       records: [{ id: "ticket-18-api-match" }],
     });
 

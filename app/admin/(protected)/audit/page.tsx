@@ -9,7 +9,7 @@ import { formatAdminTime } from "@/src/components/admin/admin-time";
 import { PERMISSIONS } from "@/src/modules/identity-access/public/permissions";
 import {
   listAuditFilterOptions,
-  listAuditLogs,
+  listAuditLogPage,
   parseAuditLogFilters,
 } from "@/src/modules/identity-access/server/audit-query";
 import { authorizeAdminPage } from "@/src/modules/identity-access/server/authorization";
@@ -48,11 +48,19 @@ export default async function AuditPage({
 
   const query = urlSearchParamsFromPage(await searchParams);
   const parsed = parseAuditLogFilters(query);
-  const [records, options] = await Promise.all([
-    listAuditLogs({ filters: parsed.success ? parsed.filters : {}, take: 50 }),
+  const [auditPage, options] = await Promise.all([
+    listAuditLogPage({
+      cursor: parsed.success ? parsed.cursor : undefined,
+      filters: parsed.success ? parsed.filters : {},
+      take: 50,
+    }),
     listAuditFilterOptions(),
   ]);
   const selected = parsed.success ? parsed.filters : {};
+  const nextPageQuery = new URLSearchParams(query);
+  if (auditPage.nextCursor) {
+    nextPageQuery.set("cursor", auditPage.nextCursor);
+  }
 
   return (
     <>
@@ -143,13 +151,13 @@ export default async function AuditPage({
           <strong>对象</strong>
           <strong>变更摘要</strong>
         </div>
-        {records.length === 0 ? (
+        {auditPage.records.length === 0 ? (
           <div className="admin-audit-empty">
             <strong>没有符合当前条件的审计记录</strong>
             <span>清除部分筛选，或等待新的业务操作形成记录。</span>
           </div>
         ) : (
-          records.map((record) => (
+          auditPage.records.map((record) => (
             <div className="admin-audit-row" key={record.id}>
               <strong>{record.operator}</strong>
               <time>{formatAdminTime(record.occurredAt)}</time>
@@ -160,6 +168,16 @@ export default async function AuditPage({
           ))
         )}
       </section>
+      {auditPage.nextCursor ? (
+        <nav className="admin-audit-pagination" aria-label="审计记录分页">
+          <Link
+            className="admin-secondary-button"
+            href={`/admin/audit?${nextPageQuery.toString()}`}
+          >
+            查看更早记录
+          </Link>
+        </nav>
+      ) : null}
     </>
   );
 }
