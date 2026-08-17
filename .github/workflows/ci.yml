@@ -30,12 +30,12 @@ jobs:
 
       - name: Record clean-clone evidence
         run: |
-          mkdir -p test-results/reproduction
-          git rev-parse HEAD | tee test-results/reproduction/clean-clone.txt
-          node --version | tee -a test-results/reproduction/clean-clone.txt
-          pnpm --version | tee -a test-results/reproduction/clean-clone.txt
-          docker compose version | tee -a test-results/reproduction/clean-clone.txt
-          pnpm demo:verify | tee -a test-results/reproduction/clean-clone.txt
+          mkdir -p verification-evidence/reproduction
+          git rev-parse HEAD | tee verification-evidence/reproduction/clean-clone.txt
+          node --version | tee -a verification-evidence/reproduction/clean-clone.txt
+          pnpm --version | tee -a verification-evidence/reproduction/clean-clone.txt
+          docker compose version | tee -a verification-evidence/reproduction/clean-clone.txt
+          pnpm demo:verify | tee -a verification-evidence/reproduction/clean-clone.txt
           git diff --exit-code
 
       - name: Verify public repository safety
@@ -59,7 +59,7 @@ jobs:
       - name: Reset and verify deterministic demo data
         run: |
           pnpm demo:reset
-          pnpm demo:verify | tee test-results/reproduction/post-test-reset.txt
+          pnpm demo:verify | tee verification-evidence/reproduction/post-test-reset.txt
 
       - name: Production build
         run: pnpm build
@@ -76,6 +76,7 @@ jobs:
         with:
           name: verification-evidence-${{ github.sha }}
           path: |
+            verification-evidence/
             playwright-report/
             test-results/
           if-no-files-found: warn

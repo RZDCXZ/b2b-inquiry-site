@@ -33,6 +33,16 @@ Torquelis 应用代码和自有展示素材没有随仓库授予开源许可证�
 | `typescript` | 6.0.3 | Apache-2.0 | [TypeScript](https://github.com/microsoft/TypeScript) |
 | `vitest` | 4.1.10 | MIT | [Vitest](https://github.com/vitest-dev/vitest) |
 
+## Product UI design preview workspace
+
+`product-ui/` is an independently locked Vite design-preview workspace. Its exact dependency graph is recorded in `product-ui/package-lock.json`; shared Fontsource and Phosphor packages use the licenses listed above.
+
+| Package | Version | License | Source |
+| --- | --- | --- | --- |
+| `@vitejs/plugin-react` | 5.0.4 | MIT | [Vite React plugin](https://github.com/vitejs/vite-plugin-react) |
+| `vite` | 6.4.2 | MIT | [Vite](https://github.com/vitejs/vite) |
+| `react`, `react-dom` | 19.2.0 | MIT | [React](https://github.com/facebook/react) |
+
 ## Database image and demonstration assets
 
 - `postgres:18-alpine` uses the PostgreSQL License and is pinned in `compose.yaml` and CI by image digest. Source and image notices are published by the [Docker Official Image](https://hub.docker.com/_/postgres) and [PostgreSQL](https://www.postgresql.org/about/licence/).

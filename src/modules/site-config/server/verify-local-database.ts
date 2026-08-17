@@ -1,6 +1,7 @@
 import type { PrismaClient } from "@/src/generated/prisma/client";
 import { z } from "zod";
 
+import { getApplicationPrisma } from "@/src/infrastructure/database/prisma";
 import {
   LOCAL_DATABASE_ID,
   LOCAL_ENVIRONMENT_MARKER,
@@ -25,7 +26,7 @@ export function assertLocalDatabaseIdentity(
 }
 
 export async function verifyLocalDatabaseIdentity(
-  prisma: PrismaClient,
+  prisma: PrismaClient = getApplicationPrisma(),
 ): Promise<void> {
   const identity = await prisma.environmentIdentity.findUnique({
     select: {

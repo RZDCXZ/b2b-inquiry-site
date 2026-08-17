@@ -21,3 +21,4 @@ src/generated/prisma/
 # Test and browser artifacts
 playwright-report/
 test-results/
+verification-evidence/

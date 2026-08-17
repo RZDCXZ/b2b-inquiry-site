@@ -23,3 +23,14 @@ export function getApplicationPrisma(): PrismaClient {
   globalPrisma.torquelisPrisma ??= createPrismaClient(databaseUrl);
   return globalPrisma.torquelisPrisma;
 }
+
+export async function disconnectApplicationPrisma(): Promise<void> {
+  const prisma = globalPrisma.torquelisPrisma;
+
+  if (!prisma) {
+    return;
+  }
+
+  delete globalPrisma.torquelisPrisma;
+  await prisma.$disconnect();
+}
