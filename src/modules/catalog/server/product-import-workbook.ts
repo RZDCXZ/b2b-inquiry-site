@@ -42,11 +42,88 @@ export type ProductImportCatalogContext = {
     draftLastPublishedVersion: number | null;
     draftVersion: number | null;
     draftNameZhCn: string | null;
+    draftReplacementNormalizedPartNumber: string | null;
     id: string;
     normalizedPartNumber: string;
     partNumber: string;
   }>;
 };
+
+type ReplacementGraphProduct = {
+  partNumber: string;
+  replacementPartNumber: string | null;
+};
+
+function productImportReplacementGraph(
+  context: ProductImportCatalogContext,
+  products: ReplacementGraphProduct[],
+): Map<string, string | null> {
+  const replacementByNumber = new Map(
+    context.existingProducts.map((product) => [
+      product.normalizedPartNumber,
+      product.draftReplacementNormalizedPartNumber,
+    ]),
+  );
+  for (const product of products) {
+    replacementByNumber.set(
+      normalizeProductNumber(product.partNumber),
+      product.replacementPartNumber
+        ? normalizeProductNumber(product.replacementPartNumber)
+        : null,
+    );
+  }
+  return replacementByNumber;
+}
+
+export function cyclicProductImportReplacementNumbers(
+  context: ProductImportCatalogContext,
+  products: ReplacementGraphProduct[],
+): Set<string> {
+  const replacementByNumber = productImportReplacementGraph(context, products);
+
+  const cyclicSources = new Set<string>();
+  for (const product of products) {
+    const source = normalizeProductNumber(product.partNumber);
+    if (!replacementByNumber.get(source)) continue;
+    const visited = new Set<string>();
+    let candidate = replacementByNumber.get(source) ?? null;
+    while (candidate) {
+      if (candidate === source || visited.has(candidate)) {
+        cyclicSources.add(source);
+        break;
+      }
+      visited.add(candidate);
+      candidate = replacementByNumber.get(candidate) ?? null;
+    }
+  }
+  return cyclicSources;
+}
+
+export function productImportReplacementGraphFingerprint(
+  context: ProductImportCatalogContext,
+  products: ReplacementGraphProduct[],
+): string {
+  const replacementByNumber = productImportReplacementGraph(context, products);
+  const paths = products
+    .filter(({ replacementPartNumber }) => replacementPartNumber)
+    .map((product) => {
+      const source = normalizeProductNumber(product.partNumber);
+      const target = replacementByNumber.get(source) ?? null;
+      const chain: Array<[string, string | null]> = [];
+      const visited = new Set<string>();
+      let candidate = target;
+      while (candidate && !visited.has(candidate)) {
+        visited.add(candidate);
+        const next = replacementByNumber.get(candidate) ?? null;
+        chain.push([candidate, next]);
+        candidate = next;
+      }
+      return { chain, source, target };
+    })
+    .sort((left, right) => left.source.localeCompare(right.source));
+
+  return createHash("sha256").update(JSON.stringify(paths)).digest("hex");
+}
 
 export type ProductImportFile = {
   bytes: Uint8Array;
@@ -96,7 +173,7 @@ const fieldDescriptions = [
     "产品",
     "替代产品编号",
     "否",
-    "仅已停产产品可填，且目标产品必须存在。",
+    "仅已停产产品可填，目标产品必须已存在、已有公开版本且不能形成替代环。",
     "TQ-FL-4828",
   ],
   [
@@ -456,6 +533,7 @@ export async function parseProductImportWorkbook({
   const payload: ProductImportPayload = {
     catalogFingerprint: productImportCatalogFingerprint(context),
     products: [],
+    replacementGraphFingerprint: "",
   };
   const emptySummary = {
     addedCount: 0,
@@ -1004,6 +1082,13 @@ export async function parseProductImportWorkbook({
     fitments.set(normalized, values);
   }
 
+  const cyclicReplacementNumbers = cyclicProductImportReplacementNumbers(
+    context,
+    [...productByNumber.values()].map((product) => ({
+      partNumber: product.partNumber,
+      replacementPartNumber: product.replacementPartNumber || null,
+    })),
+  );
   for (const [normalized, product] of productByNumber) {
     const localized = translations.get(normalized) ?? {};
     for (const [locale, label] of [
@@ -1048,30 +1133,56 @@ export async function parseProductImportWorkbook({
         suggestion: "清空替代产品编号，或将状态改为 discontinued。",
       });
     }
-    if (replacementPartNumber) {
-      const replacementNormalized = normalizeProductNumber(
-        replacementPartNumber,
-      );
-      if (
-        replacementNormalized === normalized ||
-        (!productByNumber.has(replacementNormalized) &&
-          !existingByNumber.has(replacementNormalized))
-      ) {
-        addError(errors, {
-          code:
-            replacementNormalized === normalized
-              ? "REPLACEMENT_INVALID"
-              : "REPLACEMENT_NOT_FOUND",
-          field: "替代产品编号",
-          issue:
-            replacementNormalized === normalized
-              ? "产品不能替代自身。"
-              : `替代产品“${replacementPartNumber}”不存在。`,
-          row: product.row,
-          sheet: "产品",
-          suggestion: "填写另一个已存在或同批新增的有效产品编号。",
-        });
-      }
+    const replacementNormalized = replacementPartNumber
+      ? normalizeProductNumber(replacementPartNumber)
+      : null;
+    const replacementProduct = replacementNormalized
+      ? existingByNumber.get(replacementNormalized)
+      : null;
+    if (replacementNormalized === normalized) {
+      addError(errors, {
+        code: "REPLACEMENT_INVALID",
+        field: "替代产品编号",
+        issue: "产品不能替代自身。",
+        row: product.row,
+        sheet: "产品",
+        suggestion: "填写另一个已有公开版本的产品编号。",
+      });
+    } else if (replacementPartNumber && !replacementProduct) {
+      const importedTarget = productByNumber.has(replacementNormalized!);
+      addError(errors, {
+        code: importedTarget ? "REPLACEMENT_INVALID" : "REPLACEMENT_NOT_FOUND",
+        field: "替代产品编号",
+        issue: importedTarget
+          ? `替代产品“${replacementPartNumber}”必须已有公开版本。`
+          : `替代产品“${replacementPartNumber}”不存在。`,
+        row: product.row,
+        sheet: "产品",
+        suggestion: importedTarget
+          ? "先单独导入并发布替代产品，再重新预览本批次。"
+          : "填写另一个已存在且已有公开版本的产品编号。",
+      });
+    } else if (
+      replacementProduct &&
+      replacementProduct.currentPublicationId === null
+    ) {
+      addError(errors, {
+        code: "REPLACEMENT_INVALID",
+        field: "替代产品编号",
+        issue: `替代产品“${replacementPartNumber}”必须已有公开版本。`,
+        row: product.row,
+        sheet: "产品",
+        suggestion: "先发布替代产品，再重新预览本批次。",
+      });
+    } else if (cyclicReplacementNumbers.has(normalized)) {
+      addError(errors, {
+        code: "REPLACEMENT_INVALID",
+        field: "替代产品编号",
+        issue: "替代关系不能形成循环。",
+        row: product.row,
+        sheet: "产品",
+        suggestion: "调整替代产品编号，确保替代链不会返回当前产品。",
+      });
     }
     if (localized.en && localized.zhCn) {
       payload.products.push({
@@ -1090,6 +1201,9 @@ export async function parseProductImportWorkbook({
         imagePath: product.imagePath,
         partNumber: product.partNumber,
         references: references.get(normalized) ?? [],
+        replacementBaselineCurrentPublicationId:
+          replacementProduct?.currentPublicationId ?? null,
+        replacementBaselineProductId: replacementProduct?.id ?? null,
         replacementPartNumber,
         specifications: snapshots.sort((a, b) => a.position - b.position),
         status: product.status,
@@ -1112,6 +1226,8 @@ export async function parseProductImportWorkbook({
   payload.products.sort((left, right) =>
     left.partNumber.localeCompare(right.partNumber),
   );
+  payload.replacementGraphFingerprint =
+    productImportReplacementGraphFingerprint(context, payload.products);
   const products = [...productByNumber.values()];
   return {
     errors,

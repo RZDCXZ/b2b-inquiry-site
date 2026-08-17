@@ -101,10 +101,15 @@ describe("标准替换件生命周期", () => {
   });
 
   it("替代关系不能形成循环", async () => {
+    const product = await prisma.product.findUniqueOrThrow({
+      select: { draft: { select: { version: true } } },
+      where: { normalizedPartNumber: "TQFL4827" },
+    });
+
     await expect(
       setProductLifecycle({
         actor: contentEditor,
-        expectedDraftVersion: 1,
+        expectedDraftVersion: product.draft?.version ?? 1,
         partNumber: "TQ-FL-4827",
         prisma,
         replacementPartNumber: "TQ-FL-4720",

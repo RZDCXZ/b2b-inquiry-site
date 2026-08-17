@@ -6,6 +6,7 @@ import ExcelJS from "exceljs";
 import { createProductImportTemplate } from "@/src/application/product-import";
 import { createPrismaClient } from "@/src/infrastructure/database/prisma";
 import { readPresetCredentials } from "@/src/modules/identity-access/server/preset-credentials";
+import { addFuelProductToImportWorkbook } from "@/tests/product-import-workbook-fixture";
 
 const databaseUrl =
   process.env.DATABASE_URL ??
@@ -25,66 +26,6 @@ async function loginAsContentEditor(page: Page) {
   await expect(page).toHaveURL(/\/admin$/u);
 }
 
-function addFuelProduct(
-  workbook: ExcelJS.Workbook,
-  {
-    name,
-    partNumber,
-    slug,
-  }: { name: string; partNumber: string; slug: string },
-) {
-  workbook
-    .getWorksheet("产品")!
-    .addRow([
-      partNumber,
-      "fuel",
-      "/assets/fuel-filter-product.png",
-      "published",
-      "",
-    ]);
-  workbook.getWorksheet("翻译")!.addRows([
-    [
-      partNumber,
-      "en",
-      name,
-      slug,
-      "Browser import summary.",
-      "Browser import description.",
-      `${name} | Torquelis Filters`,
-      "Browser import SEO description.",
-      `${name} demonstration image`,
-      "Selected Northline commercial vehicles.",
-    ],
-    [
-      partNumber,
-      "zh-cn",
-      `${name} 中文`,
-      `${slug}-zh-cn`,
-      "浏览器导入摘要。",
-      "浏览器导入详细说明。",
-      `${name} 中文｜拓擎利滤清`,
-      "浏览器导入 SEO 描述。",
-      `${name} 演示图片`,
-      "适用于指定 Northline 商用车型。",
-    ],
-  ]);
-  workbook.getWorksheet("规格值")!.addRows([
-    [partNumber, "construction_type", "spin_on", ""],
-    [partNumber, "outer_diameter", 98, "millimetre"],
-    [partNumber, "height", 180, "millimetre"],
-    [partNumber, "connection_specification", "M18 × 1.5", ""],
-    [partNumber, "filtration_rating", 8, "micrometre"],
-    [partNumber, "rated_flow", 5.8, "litre_per_minute"],
-    [partNumber, "water_separation", "true", ""],
-  ]);
-  workbook
-    .getWorksheet("参考号")!
-    .addRow([partNumber, "Novera", `${partNumber}-REF`]);
-  workbook
-    .getWorksheet("适配关系")!
-    .addRow([partNumber, "Northline", "HX9", "N13-420", 2020, 2025]);
-}
-
 async function importWorkbook({
   invalid,
   newPartNumber,
@@ -96,12 +37,12 @@ async function importWorkbook({
 }): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load((await createProductImportTemplate()) as never);
-  addFuelProduct(workbook, {
+  addFuelProductToImportWorkbook(workbook, {
     name: "Browser updated import",
     partNumber: updatePartNumber,
     slug: `browser-updated-${updatePartNumber.toLocaleLowerCase()}`,
   });
-  addFuelProduct(workbook, {
+  addFuelProductToImportWorkbook(workbook, {
     name: "Browser new import",
     partNumber: newPartNumber,
     slug: `browser-new-${newPartNumber.toLocaleLowerCase()}`,
@@ -182,6 +123,21 @@ test("内容编辑校验导入后可整批撤销、确定性重导入并原子�
     await expect(
       page.getByRole("heading", { name: "上传并校验 Excel" }),
     ).toBeVisible();
+    await page
+      .getByLabel("工作簿文件")
+      .evaluate((input) => input.removeAttribute("required"));
+    await page.getByRole("button", { name: "上传并校验" }).click();
+    const uploadError = page
+      .getByRole("alert")
+      .filter({ hasText: "请选择一个 .xlsx 工作簿。" });
+    await expect(uploadError).toBeFocused();
+    await uploadError.getByRole("link", { name: "检查文件字段" }).click();
+    await expect(page.getByLabel("工作簿文件")).toBeFocused();
+    await page
+      .getByLabel("工作簿文件")
+      .evaluate((input) => input.removeAttribute("required"));
+    await page.getByRole("button", { name: "上传并校验" }).click();
+    await expect(uploadError).toBeFocused();
     const templateDownload = page.waitForEvent("download");
     await page.getByRole("link", { name: "下载模板与字段说明" }).click();
     await expect((await templateDownload).suggestedFilename()).toBe(

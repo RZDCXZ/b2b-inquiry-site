@@ -18,13 +18,16 @@ import {
   PRODUCT_IMPORT_SHEETS,
 } from "@/src/modules/catalog/public/product-import";
 import {
+  cyclicProductImportReplacementNumbers,
   createProductImportErrorWorkbook,
   createProductImportWorkbook,
   parseProductImportWorkbook,
   productImportCatalogFingerprint,
+  productImportReplacementGraphFingerprint,
   type ProductImportCatalogContext,
   type ProductImportFile,
 } from "@/src/modules/catalog/server/product-import-workbook";
+import { lockProductReplacementGraph } from "@/src/modules/catalog/server/product-replacement-graph";
 import type { AdminActor } from "@/src/modules/identity-access/public/actor";
 import { APP_ROLES } from "@/src/modules/identity-access/public/permissions";
 
@@ -147,6 +150,11 @@ const payloadSchema = z.object({
       references: z.array(
         z.object({ brand: z.string(), referenceNumber: z.string() }),
       ),
+      replacementBaselineCurrentPublicationId: z
+        .string()
+        .nullable()
+        .default(null),
+      replacementBaselineProductId: z.string().nullable().default(null),
       replacementPartNumber: z.string().nullable(),
       specifications: z.array(specificationPayloadSchema),
       status: z.enum(["discontinued", "published"]),
@@ -156,6 +164,7 @@ const payloadSchema = z.object({
       }),
     }),
   ),
+  replacementGraphFingerprint: z.string().length(64).default(""),
 });
 
 const draftSnapshotSchema = z.object({
@@ -362,6 +371,9 @@ async function loadProductImportCatalogContext(
           select: {
             lastPublishedVersion: true,
             nameZhCn: true,
+            replacementProduct: {
+              select: { normalizedPartNumber: true },
+            },
             version: true,
           },
         },
@@ -395,6 +407,8 @@ async function loadProductImportCatalogContext(
       currentPublicationId: product.currentPublicationId,
       draftLastPublishedVersion: product.draft?.lastPublishedVersion ?? null,
       draftNameZhCn: product.draft?.nameZhCn ?? null,
+      draftReplacementNormalizedPartNumber:
+        product.draft?.replacementProduct?.normalizedPartNumber ?? null,
       draftVersion: product.draft?.version ?? null,
       id: product.id,
       normalizedPartNumber: product.normalizedPartNumber,
@@ -734,6 +748,7 @@ export async function confirmProductImport({
         throw new ProductImportError("HAS_VALIDATION_ERRORS");
       }
       const payload = readPayload(preview.payload);
+      await lockProductReplacementGraph(transaction);
       const currentCatalog = await loadProductImportCatalogContext(transaction);
       if (
         productImportCatalogFingerprint(currentCatalog) !==
@@ -741,6 +756,21 @@ export async function confirmProductImport({
       ) {
         throw new ProductImportError("PREVIEW_STALE");
       }
+      if (
+        !payload.replacementGraphFingerprint ||
+        productImportReplacementGraphFingerprint(
+          currentCatalog,
+          payload.products,
+        ) !== payload.replacementGraphFingerprint
+      ) {
+        throw new ProductImportError("PREVIEW_STALE");
+      }
+      const currentProductByNumber = new Map(
+        currentCatalog.existingProducts.map((product) => [
+          product.normalizedPartNumber,
+          product,
+        ]),
+      );
       const productIdByNumber = new Map<string, string>();
 
       for (const product of payload.products) {
@@ -767,7 +797,25 @@ export async function confirmProductImport({
         ) {
           throw new ProductImportError("PREVIEW_STALE");
         }
+        if (product.replacementPartNumber) {
+          const replacement = currentProductByNumber.get(
+            normalizeProductNumber(product.replacementPartNumber),
+          );
+          if (
+            replacement?.id !== product.replacementBaselineProductId ||
+            replacement.currentPublicationId !==
+              product.replacementBaselineCurrentPublicationId
+          ) {
+            throw new ProductImportError("PREVIEW_STALE");
+          }
+        }
         if (current) productIdByNumber.set(normalized, current.id);
+      }
+      if (
+        cyclicProductImportReplacementNumbers(currentCatalog, payload.products)
+          .size > 0
+      ) {
+        throw new ProductImportError("PREVIEW_STALE");
       }
 
       for (const product of payload.products) {
@@ -1112,6 +1160,7 @@ export async function rollbackProductImportBatch({
       await transaction.$executeRaw`
         SELECT pg_advisory_xact_lock(hashtext(${`product-import-rollback:${batchId}`}))
       `;
+      await lockProductReplacementGraph(transaction);
       const batch = await transaction.productImportBatch.findUnique({
         include: {
           items: { orderBy: { partNumber: "asc" } },

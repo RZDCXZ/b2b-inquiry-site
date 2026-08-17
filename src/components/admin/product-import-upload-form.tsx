@@ -1,7 +1,7 @@
 "use client";
 
 import { FileArrowUp, Warning } from "@phosphor-icons/react";
-import { useActionState } from "react";
+import { useActionState, useEffect, useRef } from "react";
 
 import {
   previewProductImportAction,
@@ -15,6 +15,12 @@ export function ProductImportUploadForm() {
     previewProductImportAction,
     initialState,
   );
+  const errorRef = useRef<HTMLParagraphElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (state.status === "error") errorRef.current?.focus();
+  }, [state]);
 
   return (
     <form action={formAction} className="product-import-upload-form">
@@ -27,15 +33,36 @@ export function ProductImportUploadForm() {
         </p>
       </div>
       {state.status === "error" ? (
-        <p className="product-import-form-error" role="alert">
-          <Warning aria-hidden="true" /> {state.message}
+        <p
+          className="product-import-form-error"
+          id="product-import-upload-error"
+          ref={errorRef}
+          role="alert"
+          tabIndex={-1}
+        >
+          <Warning aria-hidden="true" />
+          <span>{state.message}</span>
+          <a
+            href="#product-import-file"
+            onClick={(event) => {
+              event.preventDefault();
+              fileInputRef.current?.focus();
+            }}
+          >
+            检查文件字段
+          </a>
         </p>
       ) : null}
       <label>
         <span>工作簿文件</span>
         <input
           accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+          aria-describedby={
+            state.status === "error" ? "product-import-upload-error" : undefined
+          }
+          id="product-import-file"
           name="file"
+          ref={fileInputRef}
           required
           type="file"
         />

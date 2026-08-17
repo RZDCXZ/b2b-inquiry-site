@@ -6,9 +6,11 @@ import {
   createProductImportErrorReport,
   createProductImportTemplate,
   previewProductImport,
+  rollbackProductImportBatch,
 } from "@/src/application/product-import";
 import { createPrismaClient } from "@/src/infrastructure/database/prisma";
 import type { AdminActor } from "@/src/modules/identity-access/public/actor";
+import { addFuelProductToImportWorkbook } from "@/tests/product-import-workbook-fixture";
 
 const databaseUrl =
   process.env.DATABASE_URL ??
@@ -27,66 +29,6 @@ async function workbookBytes(
   await workbook.xlsx.load((await createProductImportTemplate()) as never);
   mutate(workbook);
   return new Uint8Array(await workbook.xlsx.writeBuffer());
-}
-
-function addFuelProduct(
-  workbook: ExcelJS.Workbook,
-  {
-    name,
-    partNumber,
-    slug,
-  }: { name: string; partNumber: string; slug: string },
-) {
-  workbook
-    .getWorksheet("产品")!
-    .addRow([
-      partNumber,
-      "fuel",
-      "/assets/fuel-filter-product.png",
-      "published",
-      "",
-    ]);
-  workbook.getWorksheet("翻译")!.addRows([
-    [
-      partNumber,
-      "en",
-      name,
-      slug,
-      "Imported draft summary.",
-      "Imported draft description.",
-      `${name} | Torquelis Filters`,
-      "Imported draft SEO description.",
-      `${name} demonstration image`,
-      "Selected Northline commercial vehicles.",
-    ],
-    [
-      partNumber,
-      "zh-cn",
-      `${name} 中文`,
-      `${slug}-zh-cn`,
-      "导入的草稿摘要。",
-      "导入的草稿详细说明。",
-      `${name} 中文｜拓擎利滤清`,
-      "导入的草稿 SEO 描述。",
-      `${name} 演示图片`,
-      "适用于指定 Northline 商用车型。",
-    ],
-  ]);
-  workbook.getWorksheet("规格值")!.addRows([
-    [partNumber, "construction_type", "spin_on", ""],
-    [partNumber, "outer_diameter", 98, "millimetre"],
-    [partNumber, "height", 180, "millimetre"],
-    [partNumber, "connection_specification", "M18 × 1.5", ""],
-    [partNumber, "filtration_rating", 8, "micrometre"],
-    [partNumber, "rated_flow", 5.8, "litre_per_minute"],
-    [partNumber, "water_separation", "true", ""],
-  ]);
-  workbook
-    .getWorksheet("参考号")!
-    .addRow([partNumber, "Novera", `${partNumber}-REF`]);
-  workbook
-    .getWorksheet("适配关系")!
-    .addRow([partNumber, "Northline", "HX9", "N13-420", 2020, 2025]);
 }
 
 async function createExistingImportDraft({
@@ -274,6 +216,61 @@ describe("产品 Excel 导入", () => {
     }
   });
 
+  test("预览会收集未公开替代目标和替代关系循环", async () => {
+    const unpublishedReplacementPartNumber = "TQ-IMP-UNPUBLISHED-TARGET";
+    const unpublishedSourcePartNumber = "TQ-IMP-UNPUBLISHED-SOURCE";
+    const bytes = await workbookBytes((workbook) => {
+      addFuelProductToImportWorkbook(workbook, {
+        name: "Unpublished replacement target",
+        partNumber: unpublishedReplacementPartNumber,
+        slug: "unpublished-replacement-target",
+      });
+      addFuelProductToImportWorkbook(workbook, {
+        name: "Unpublished replacement source",
+        partNumber: unpublishedSourcePartNumber,
+        replacementPartNumber: unpublishedReplacementPartNumber,
+        slug: "unpublished-replacement-source",
+        status: "discontinued",
+      });
+      addFuelProductToImportWorkbook(workbook, {
+        name: "Cyclic replacement source",
+        partNumber: "TQ-FL-4827",
+        replacementPartNumber: "TQ-FL-4720",
+        slug: "cyclic-replacement-source",
+        status: "discontinued",
+      });
+    });
+
+    const preview = await previewProductImport({
+      actor: contentEditor,
+      file: {
+        bytes,
+        declaredMimeType:
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        originalFilename: "replacement-errors.xlsx",
+      },
+      prisma,
+    });
+
+    try {
+      expect(preview.canConfirm).toBe(false);
+      expect(
+        preview.errors.filter(({ code }) => code === "REPLACEMENT_INVALID"),
+      ).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            issue: expect.stringContaining("已有公开版本"),
+          }),
+          expect.objectContaining({
+            issue: expect.stringContaining("循环"),
+          }),
+        ]),
+      );
+    } finally {
+      await prisma.productImportPreview.delete({ where: { id: preview.id } });
+    }
+  });
+
   test("确认后在一个批次中新增和更新草稿且不自动公开", async () => {
     const existingProductId = "product-ticket-16-import-update";
     const existingPartNumber = "TQ-IMP-UPDATE";
@@ -288,12 +285,12 @@ describe("产品 Excel 导入", () => {
       version: 4,
     });
     const bytes = await workbookBytes((workbook) => {
-      addFuelProduct(workbook, {
+      addFuelProductToImportWorkbook(workbook, {
         name: "Updated import draft",
         partNumber: existingPartNumber,
         slug: "updated-import-draft",
       });
-      addFuelProduct(workbook, {
+      addFuelProductToImportWorkbook(workbook, {
         name: "New import draft",
         partNumber: newPartNumber,
         slug: "new-import-draft",
@@ -442,12 +439,12 @@ describe("产品 Excel 导入", () => {
       version: 7,
     });
     const bytes = await workbookBytes((workbook) => {
-      addFuelProduct(workbook, {
+      addFuelProductToImportWorkbook(workbook, {
         name: "First stale candidate",
         partNumber: firstPartNumber,
         slug: "first-stale-candidate",
       });
-      addFuelProduct(workbook, {
+      addFuelProductToImportWorkbook(workbook, {
         name: "Second stale candidate",
         partNumber: secondPartNumber,
         slug: "second-stale-candidate",
@@ -498,7 +495,7 @@ describe("产品 Excel 导入", () => {
   test("预览后的分类规格定义变化会拒绝过期确认", async () => {
     const partNumber = "TQ-IMP-STALE-CATALOG";
     const bytes = await workbookBytes((workbook) => {
-      addFuelProduct(workbook, {
+      addFuelProductToImportWorkbook(workbook, {
         name: "Stale catalog candidate",
         partNumber,
         slug: "stale-catalog-candidate",
@@ -547,12 +544,99 @@ describe("产品 Excel 导入", () => {
     }
   });
 
+  test("预览后的未导入替代链变化会拒绝过期确认", async () => {
+    const sourceProductId = "product-tq-fl-4827";
+    const sourcePartNumber = "TQ-FL-4827";
+    const targetProductId = "product-tq-af-2106";
+    const targetPartNumber = "TQ-AF-2106";
+    const downstreamProductId = "product-tq-of-1038";
+    const targetDraft = await prisma.productDraft.findUniqueOrThrow({
+      where: { productId: targetProductId },
+    });
+    const sourceDraftBefore = await prisma.productDraft.findUniqueOrThrow({
+      select: { nameEn: true, version: true },
+      where: { productId: sourceProductId },
+    });
+    const bytes = await workbookBytes((workbook) => {
+      addFuelProductToImportWorkbook(workbook, {
+        name: "Replacement graph stale candidate",
+        partNumber: sourcePartNumber,
+        replacementPartNumber: targetPartNumber,
+        slug: "replacement-graph-stale-candidate",
+        status: "discontinued",
+      });
+    });
+    const preview = await previewProductImport({
+      actor: contentEditor,
+      file: {
+        bytes,
+        declaredMimeType:
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        originalFilename: "stale-replacement-graph.xlsx",
+      },
+      prisma,
+    });
+
+    try {
+      expect(preview.canConfirm).toBe(true);
+      await prisma.productDraft.update({
+        data: {
+          replacementProductId: downstreamProductId,
+          status: "discontinued",
+          version: { increment: 1 },
+        },
+        where: { productId: targetProductId },
+      });
+
+      await expect(
+        confirmProductImport({
+          actor: contentEditor,
+          previewId: preview.id,
+          prisma,
+        }),
+      ).rejects.toMatchObject({ code: "PREVIEW_STALE" });
+      await expect(
+        prisma.productDraft.findUniqueOrThrow({
+          select: { nameEn: true, version: true },
+          where: { productId: sourceProductId },
+        }),
+      ).resolves.toEqual(sourceDraftBefore);
+      await expect(
+        prisma.productImportBatch.count({ where: { previewId: preview.id } }),
+      ).resolves.toBe(0);
+    } finally {
+      await prisma.productDraft.update({
+        data: {
+          lastModifiedByUserId: targetDraft.lastModifiedByUserId,
+          replacementProductId: targetDraft.replacementProductId,
+          status: targetDraft.status,
+          updatedAt: targetDraft.updatedAt,
+          version: targetDraft.version,
+        },
+        where: { productId: targetProductId },
+      });
+      const batch = await prisma.productImportBatch.findUnique({
+        where: { previewId: preview.id },
+      });
+      if (batch) {
+        await rollbackProductImportBatch({
+          actor: contentEditor,
+          batchId: batch.id,
+          prisma,
+        });
+        await prisma.auditLog.deleteMany({ where: { targetId: batch.id } });
+        await prisma.productImportBatch.delete({ where: { id: batch.id } });
+      }
+      await prisma.productImportPreview.delete({ where: { id: preview.id } });
+    }
+  });
+
   test("预览后草稿被发布时即使版本未变化也会拒绝确认", async () => {
     const productId = "product-ticket-16-stale-published";
     const partNumber = "TQ-IMP-STALE-PUBLISHED";
     await createExistingImportDraft({ id: productId, partNumber, version: 3 });
     const bytes = await workbookBytes((workbook) => {
-      addFuelProduct(workbook, {
+      addFuelProductToImportWorkbook(workbook, {
         name: "Published stale candidate",
         partNumber,
         slug: "published-stale-candidate",

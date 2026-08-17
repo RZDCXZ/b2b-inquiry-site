@@ -4923,6 +4923,7 @@ select {
   width: min(100%, 520px);
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
   margin: 0 0 16px;
   border: 1px solid #d8aaa6;
@@ -4935,6 +4936,13 @@ select {
 
 .product-import-form-error svg {
   flex: 0 0 auto;
+}
+
+.product-import-form-error a {
+  margin-left: auto;
+  color: inherit;
+  font-weight: 700;
+  text-underline-offset: 2px;
 }
 
 .product-import-preview {

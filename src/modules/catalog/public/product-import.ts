@@ -126,6 +126,8 @@ export type ProductImportPayloadProduct = {
   imagePath: string;
   partNumber: string;
   references: Array<{ brand: string; referenceNumber: string }>;
+  replacementBaselineCurrentPublicationId: string | null;
+  replacementBaselineProductId: string | null;
   replacementPartNumber: string | null;
   specifications: ProductImportSpecificationSnapshot[];
   status: "discontinued" | "published";
@@ -138,6 +140,7 @@ export type ProductImportPayloadProduct = {
 export type ProductImportPayload = {
   catalogFingerprint: string;
   products: ProductImportPayloadProduct[];
+  replacementGraphFingerprint: string;
 };
 
 export type ProductImportPreviewView = {

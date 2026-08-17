@@ -13,6 +13,7 @@ import {
   type UnitSystem,
 } from "@/src/modules/catalog/public/specifications";
 import { validateProductSpecificationsForCategory } from "@/src/modules/catalog/server/product-specification-service";
+import { lockProductReplacementGraph } from "@/src/modules/catalog/server/product-replacement-graph";
 import type { AdminActor } from "@/src/modules/identity-access/public/actor";
 import { APP_ROLES } from "@/src/modules/identity-access/public/permissions";
 import type { PublicLocale } from "@/src/modules/site-config/public/locales";
@@ -330,13 +331,6 @@ async function resolveReplacementProduct(
   }
 
   return replacement;
-}
-
-async function lockProductReplacementGraph(
-  prisma: Pick<ApplicationDatabase, "$executeRaw">,
-): Promise<void> {
-  // One transaction at a time may validate and change replacement graph edges.
-  await prisma.$executeRaw`SELECT pg_advisory_xact_lock(13, 8)`;
 }
 
 type PersistedSpecificationSnapshot = Omit<
