@@ -22,7 +22,9 @@ export const auth = betterAuth({
   rateLimit: {
     customRules: {
       "/sign-in/email": {
-        max: 100,
+        // The six-project browser matrix performs 96 valid local-account
+        // sign-ins through one loopback address without a ten-second idle gap.
+        max: 128,
         window: 10,
       },
     },
