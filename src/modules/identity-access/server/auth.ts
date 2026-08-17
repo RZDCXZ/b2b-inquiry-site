@@ -19,6 +19,15 @@ export const auth = betterAuth({
     maxPasswordLength: 128,
     minPasswordLength: 20,
   },
+  rateLimit: {
+    customRules: {
+      "/sign-in/email": {
+        max: 100,
+        window: 10,
+      },
+    },
+    enabled: true,
+  },
   session: {
     expiresIn: 60 * 60 * 8,
     updateAge: 60 * 60,

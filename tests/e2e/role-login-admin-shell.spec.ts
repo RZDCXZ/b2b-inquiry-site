@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 import { APP_ROLES } from "@/src/modules/identity-access/public/permissions";
 import { readPresetCredentials } from "@/src/modules/identity-access/server/preset-credentials";
 
-test("未登录访问进入登录流程，四个预置账号获得各自后台壳层并可退出", async ({
+test("@demo-core/03-role-login 未登录访问进入登录流程，四个预置账号获得各自后台壳层并可退出", async ({
   browser,
 }) => {
   test.setTimeout(90_000);

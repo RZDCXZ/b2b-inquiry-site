@@ -59,7 +59,7 @@ async function createInquiry(page: Page, projectName: string): Promise<string> {
   throw new Error(`无法创建生命周期测试询盘；最后重定向：${lastLocation}`);
 }
 
-test("当前负责人联系、报价、关闭后管理员重新打开并保留时间线", async ({
+test("@demo-core/04-inquiry-follow-up 当前负责人联系、报价、关闭后管理员重新打开并保留时间线", async ({
   browser,
   page,
 }, testInfo) => {

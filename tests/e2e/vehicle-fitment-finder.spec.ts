@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-test("海外采购者从空白车型条件逐级找到唯一标准替换件并进入详情", async ({
+test("@demo-core/01-public-browse 海外采购者从空白车型条件逐级找到唯一标准替换件并进入详情", async ({
   page,
 }) => {
   await page.goto("/en");

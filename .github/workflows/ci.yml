@@ -11,25 +11,7 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    env:
-      BETTER_AUTH_SECRET: ci-only-not-used-outside-this-job
-      DATABASE_URL: postgresql://torquelis:torquelis_local_only@127.0.0.1:55432/torquelis_demo?schema=public
-      DEMO_ENVIRONMENT_ID: torquelis-local-demo
-    services:
-      postgres:
-        image: postgres:18-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15
-        env:
-          POSTGRES_DB: torquelis_demo
-          POSTGRES_PASSWORD: torquelis_local_only
-          POSTGRES_USER: torquelis
-        ports:
-          - 55432:5432
-        options: >-
-          --health-cmd "pg_isready -U torquelis -d torquelis_demo"
-          --health-interval 2s
-          --health-timeout 3s
-          --health-retries 20
+    timeout-minutes: 45
 
     steps:
       - uses: actions/checkout@v6
@@ -43,25 +25,62 @@ jobs:
           corepack enable
           corepack prepare pnpm@11.21.0 --activate
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - name: Reproduce documented clean-clone setup (install, migrate, seed)
+        run: pnpm setup
 
-      - name: Apply fresh migrations and seed
+      - name: Record clean-clone evidence
         run: |
-          pnpm db:migrate
-          pnpm db:seed
+          mkdir -p test-results/reproduction
+          git rev-parse HEAD | tee test-results/reproduction/clean-clone.txt
+          node --version | tee -a test-results/reproduction/clean-clone.txt
+          pnpm --version | tee -a test-results/reproduction/clean-clone.txt
+          docker compose version | tee -a test-results/reproduction/clean-clone.txt
+          pnpm demo:verify | tee -a test-results/reproduction/clean-clone.txt
+          git diff --exit-code
 
-      - name: Static checks and unit tests
-        run: pnpm check
+      - name: Verify public repository safety
+        run: pnpm verify:public
+
+      - name: Check formatting
+        run: pnpm format
+
+      - name: Run static analysis
+        run: pnpm lint
+
+      - name: Run type checking
+        run: pnpm typecheck
+
+      - name: Run unit tests
+        run: pnpm test
 
       - name: PostgreSQL integration tests
         run: pnpm test:integration
 
-      - name: Install browser matrix
-        run: pnpm exec playwright install --with-deps chromium firefox webkit
-
-      - name: Three-browser smoke path
-        run: pnpm test:e2e
+      - name: Reset and verify deterministic demo data
+        run: |
+          pnpm demo:reset
+          pnpm demo:verify | tee test-results/reproduction/post-test-reset.txt
 
       - name: Production build
         run: pnpm build
+
+      - name: Install browser matrix
+        run: pnpm exec playwright install --with-deps chromium firefox webkit
+
+      - name: Six-project cross-browser demonstration paths
+        run: pnpm test:e2e
+
+      - name: Upload reproducibility and browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verification-evidence-${{ github.sha }}
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Stop isolated CI database
+        if: always()
+        run: docker compose down -v

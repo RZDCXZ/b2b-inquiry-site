@@ -17,13 +17,19 @@ try {
   await verifyLocalDatabaseIdentity(prisma);
   const credentials = await readPresetCredentials();
 
-  console.log("Torquelis 本地演示后台凭据");
-  for (const account of credentials.accounts) {
-    console.log(`\n${account.roleLabel}`);
-    console.log(`  邮箱：${account.email}`);
-    console.log(`  密码：${account.password}`);
+  if (process.env.CI) {
+    console.log(
+      `Verified ${credentials.accounts.length} generated local demo accounts; credentials are redacted in CI.`,
+    );
+  } else {
+    console.log("Torquelis 本地演示后台凭据");
+    for (const account of credentials.accounts) {
+      console.log(`\n${account.roleLabel}`);
+      console.log(`  邮箱：${account.email}`);
+      console.log(`  密码：${account.password}`);
+    }
+    console.log("\n登录地址：http://127.0.0.1:3000/admin/login");
   }
-  console.log("\n登录地址：http://127.0.0.1:3000/admin/login");
 } finally {
   await prisma.$disconnect();
 }

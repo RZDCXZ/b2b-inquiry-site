@@ -3,12 +3,26 @@ import ExcelJS from "exceljs";
 export function addFuelProductToImportWorkbook(
   workbook: ExcelJS.Workbook,
   {
+    fitment = {
+      engine: "N13-420",
+      make: "Northline",
+      model: "HX9",
+      yearFrom: 2020,
+      yearTo: 2025,
+    },
     name,
     partNumber,
     replacementPartNumber = "",
     slug,
     status = "published",
   }: {
+    fitment?: {
+      engine: string;
+      make: string;
+      model: string;
+      yearFrom: number;
+      yearTo: number;
+    };
     name: string;
     partNumber: string;
     replacementPartNumber?: string;
@@ -65,5 +79,12 @@ export function addFuelProductToImportWorkbook(
     .addRow([partNumber, "Novera", `${partNumber}-REF`]);
   workbook
     .getWorksheet("适配关系")!
-    .addRow([partNumber, "Northline", "HX9", "N13-420", 2020, 2025]);
+    .addRow([
+      partNumber,
+      fitment.make,
+      fitment.model,
+      fitment.engine,
+      fitment.yearFrom,
+      fitment.yearTo,
+    ]);
 }

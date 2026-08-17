@@ -7,16 +7,25 @@ process.env.no_proxy = process.env.NO_PROXY;
 
 export default defineConfig({
   testDir: "./tests/e2e",
+  failOnFlakyTests: Boolean(process.env.CI),
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
-  reporter: process.env.CI ? "github" : "list",
+  reporter: process.env.CI
+    ? [
+        ["github"],
+        ["html", { open: "never", outputFolder: "playwright-report" }],
+        ["junit", { outputFile: "test-results/e2e-junit.xml" }],
+      ]
+    : "list",
   use: {
     baseURL: "http://127.0.0.1:3100",
     trace: "on-first-retry",
   },
   webServer: {
-    command: "corepack pnpm dev --hostname 127.0.0.1 --port 3100",
+    command: process.env.CI
+      ? "corepack pnpm start --hostname 127.0.0.1 --port 3100"
+      : "corepack pnpm dev --hostname 127.0.0.1 --port 3100",
     url: "http://127.0.0.1:3100/en",
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

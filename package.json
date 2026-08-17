@@ -10,12 +10,13 @@
   },
   "scripts": {
     "build": "next build",
-    "check": "corepack pnpm format && corepack pnpm lint && corepack pnpm typecheck && corepack pnpm test",
+    "check": "corepack pnpm verify:public && corepack pnpm format && corepack pnpm lint && corepack pnpm typecheck && corepack pnpm test",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
     "db:seed": "prisma db seed",
     "demo:credentials": "tsx scripts/show-demo-credentials.ts",
     "demo:reset": "tsx scripts/demo-reset.ts",
+    "demo:verify": "tsx scripts/verify-demo-state.ts",
     "dev": "next dev",
     "format": "prettier --check .",
     "format:write": "prettier --write .",
@@ -25,9 +26,11 @@
     "start": "next start",
     "test": "vitest run",
     "test:e2e": "playwright test",
+    "test:e2e:core": "playwright test --grep @demo-core",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:watch": "vitest",
-    "typecheck": "next typegen && tsc --noEmit"
+    "typecheck": "next typegen && tsc --noEmit",
+    "verify:public": "tsx scripts/verify-public-repository.ts"
   },
   "dependencies": {
     "@fontsource/barlow-condensed": "5.3.0",

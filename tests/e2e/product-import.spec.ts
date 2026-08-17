@@ -13,6 +13,13 @@ const databaseUrl =
   "postgresql://torquelis:torquelis_local_only@127.0.0.1:55432/torquelis_demo?schema=public";
 const xlsxMime =
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+const isolatedImportFitment = {
+  engine: "A11-390",
+  make: "Ardent",
+  model: "AT8",
+  yearFrom: 2020,
+  yearTo: 2025,
+};
 
 async function loginAsContentEditor(page: Page) {
   const credentials = await readPresetCredentials();
@@ -38,11 +45,13 @@ async function importWorkbook({
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load((await createProductImportTemplate()) as never);
   addFuelProductToImportWorkbook(workbook, {
+    fitment: isolatedImportFitment,
     name: "Browser updated import",
     partNumber: updatePartNumber,
     slug: `browser-updated-${updatePartNumber.toLocaleLowerCase()}`,
   });
   addFuelProductToImportWorkbook(workbook, {
+    fitment: isolatedImportFitment,
     name: "Browser new import",
     partNumber: newPartNumber,
     slug: `browser-new-${newPartNumber.toLocaleLowerCase()}`,
@@ -70,7 +79,7 @@ async function importWorkbook({
   return Buffer.from(await workbook.xlsx.writeBuffer());
 }
 
-test("内容编辑校验导入后可整批撤销、确定性重导入并原子批量发布", async ({
+test("@demo-core/06-import-preview 内容编辑校验导入后可整批撤销、确定性重导入并原子批量发布", async ({
   page,
 }, testInfo) => {
   test.setTimeout(120_000);

@@ -18,7 +18,7 @@ const validRequestForm = {
   workEmail: "maya@example.com",
 };
 
-test("采购者从产品详情提交询盘并刷新安全回执而不重复提交", async ({
+test("@demo-core/02-inquiry-submit 采购者从产品详情提交询盘并刷新安全回执而不重复提交", async ({
   page,
 }, testInfo) => {
   await page.setExtraHTTPHeaders({

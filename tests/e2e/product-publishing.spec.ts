@@ -136,7 +136,7 @@ async function fillSpecifications(
   }
 }
 
-test("内容编辑预览、发布、恢复并处理草稿并发冲突", async ({
+test("@demo-core/05-content-publish 内容编辑预览、发布、恢复并处理草稿并发冲突", async ({
   browser,
   page,
 }, testInfo) => {
