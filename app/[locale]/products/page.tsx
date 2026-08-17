@@ -10,6 +10,10 @@ import {
   prepareSpecificationFilterRequest,
   searchPublishedProductsBySpecifications,
 } from "@/src/application/public-catalog";
+import {
+  bilingualPublicPaths,
+  createLocalizedPageMetadata,
+} from "@/src/application/public-seo";
 import { getPublicSiteShellData } from "@/src/application/public-site-shell";
 import { CatalogPage } from "@/src/components/public/catalog-page";
 import { ProductNumberLookupPage } from "@/src/components/public/product-number-lookup-page";
@@ -40,10 +44,12 @@ export async function generateMetadata({
   }
 
   const copy = getCatalogCopy(parsedParams.data.locale);
-  return {
+  return createLocalizedPageMetadata({
     description: copy.metadataDescription,
+    locale: parsedParams.data.locale,
+    paths: bilingualPublicPaths("/products"),
     title: copy.metadataTitle,
-  };
+  });
 }
 
 export default async function ProductsPage({

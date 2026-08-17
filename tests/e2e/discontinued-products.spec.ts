@@ -48,6 +48,11 @@ test("旧本地化名称永久重定向到同语言当前地址并保留单位",
   expect(response.headers().location).toBe(
     "/en/products/TQ-FL-4827/high-efficiency-fuel-filter?unit=imperial",
   );
+
+  const canonicalResponse = await request.get(response.headers().location, {
+    maxRedirects: 0,
+  });
+  expect(canonicalResponse.status()).toBe(200);
 });
 
 test("不存在的产品编号返回资源不存在而不按名称片段匹配", async ({ page }) => {

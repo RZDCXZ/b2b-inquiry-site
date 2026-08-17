@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
+import {
+  bilingualPublicPaths,
+  createLocalizedPageMetadata,
+} from "@/src/application/public-seo";
 import { getPublishedCorePage } from "@/src/application/site-content-management";
 import { getPublicSiteShellData } from "@/src/application/public-site-shell";
 import { CoreContentPage } from "@/src/components/public/core-content-page";
@@ -18,7 +22,12 @@ export async function generateMetadata({
     locale,
   });
   return page
-    ? { description: page.content.lede, title: page.content.title }
+    ? createLocalizedPageMetadata({
+        description: page.content.lede,
+        locale,
+        paths: bilingualPublicPaths("/quality"),
+        title: page.content.title,
+      })
     : {};
 }
 

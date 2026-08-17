@@ -4,6 +4,10 @@ import { notFound } from "next/navigation";
 import { getPublishedProduct } from "@/src/application/public-catalog";
 import { getInquiryReceipt } from "@/src/application/public-inquiry";
 import { getPublicSiteShellData } from "@/src/application/public-site-shell";
+import {
+  bilingualPublicPaths,
+  createLocalizedPageMetadata,
+} from "@/src/application/public-seo";
 import { InquirySuccessPage } from "@/src/components/public/inquiry-success-page";
 import { getInquiryCopy } from "@/src/modules/content-publishing/public/inquiry-copy";
 import { INQUIRY_REFERENCE_SCHEMA } from "@/src/modules/inquiry-operations/public/inquiry-submission";
@@ -23,7 +27,12 @@ export async function generateMetadata({
     return {};
   }
 
-  return { title: getInquiryCopy(locale).successMetadataTitle };
+  return createLocalizedPageMetadata({
+    indexable: false,
+    locale,
+    paths: bilingualPublicPaths("/inquiry/success"),
+    title: getInquiryCopy(locale).successMetadataTitle,
+  });
 }
 
 export default async function InquirySuccessRoute({

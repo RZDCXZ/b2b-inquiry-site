@@ -32,6 +32,7 @@ export async function GET(
       "Content-Disposition": `attachment; filename="${download.filename}"`,
       "Content-Type": "application/pdf",
       "X-Content-Type-Options": "nosniff",
+      "X-Robots-Tag": "noindex",
     },
   });
 }

@@ -2,6 +2,10 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { listPublishedVehicleFitmentOptions } from "@/src/application/public-catalog";
+import {
+  bilingualPublicPaths,
+  createLocalizedPageMetadata,
+} from "@/src/application/public-seo";
 import { HomePage } from "@/src/components/public/home-page";
 import { HOME_SEARCH_PARAMS_SCHEMA } from "@/src/modules/catalog/public/product-identity";
 import { getHomeMetadataCopy } from "@/src/modules/content-publishing/public/home-copy";
@@ -24,9 +28,14 @@ export async function generateMetadata({
   }
 
   const page = await getPublishedCorePage({ key: "home", locale });
-  return page
+  const copy = page
     ? { description: page.content.lede, title: page.content.title }
     : getHomeMetadataCopy(locale);
+  return createLocalizedPageMetadata({
+    ...copy,
+    locale,
+    paths: bilingualPublicPaths(""),
+  });
 }
 
 export default async function LocaleHomePage({

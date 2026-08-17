@@ -92,6 +92,7 @@ describe("带演示水印的双语规格 PDF", () => {
       'attachment; filename="TQ-FL-4827-specification-en.pdf"',
     );
     expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(response.headers.get("x-robots-tag")).toBe("noindex");
 
     const text = await extractPdfText(
       new Uint8Array(await response.arrayBuffer()),

@@ -2,6 +2,10 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import {
+  bilingualPublicPaths,
+  createLocalizedPageMetadata,
+} from "@/src/application/public-seo";
+import {
   getPublishedCorePage,
   listPublishedArticles,
 } from "@/src/application/site-content-management";
@@ -21,7 +25,12 @@ export async function generateMetadata({
     locale,
   });
   return page
-    ? { description: page.content.lede, title: page.content.title }
+    ? createLocalizedPageMetadata({
+        description: page.content.lede,
+        locale,
+        paths: bilingualPublicPaths("/resources"),
+        title: page.content.title,
+      })
     : {};
 }
 

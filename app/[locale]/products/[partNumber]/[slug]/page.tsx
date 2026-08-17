@@ -2,8 +2,13 @@ import type { Metadata } from "next";
 import { notFound, permanentRedirect } from "next/navigation";
 
 import { getPublishedProduct } from "@/src/application/public-catalog";
+import {
+  createLocalizedPageMetadata,
+  createProductStructuredData,
+} from "@/src/application/public-seo";
 import { getPublicSiteShellData } from "@/src/application/public-site-shell";
 import { ProductDetailPage } from "@/src/components/public/product-detail-page";
+import { PublicStructuredData } from "@/src/components/public/structured-data";
 import { PRODUCT_ROUTE_PARAMS_SCHEMA } from "@/src/modules/catalog/public/product-identity";
 import { UNIT_SYSTEM_SCHEMA } from "@/src/modules/catalog/public/specifications";
 
@@ -32,7 +37,12 @@ export async function generateMetadata({
   });
 
   return product
-    ? { description: product.seoDescription, title: product.seoTitle }
+    ? createLocalizedPageMetadata({
+        description: product.seoDescription,
+        locale: parsedParams.data.locale,
+        paths: product.languageHrefs,
+        title: product.seoTitle,
+      })
     : {};
 }
 
@@ -82,10 +92,18 @@ export default async function ProductPage({
   }
 
   return (
-    <ProductDetailPage
-      locale={parsedParams.data.locale}
-      product={product}
-      shell={shell}
-    />
+    <>
+      <PublicStructuredData
+        data={createProductStructuredData({
+          locale: parsedParams.data.locale,
+          product,
+        })}
+      />
+      <ProductDetailPage
+        locale={parsedParams.data.locale}
+        product={product}
+        shell={shell}
+      />
+    </>
   );
 }

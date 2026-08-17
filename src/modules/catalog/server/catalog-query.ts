@@ -102,6 +102,22 @@ export async function listPublishedCatalogProductIdentities(
   return products as CatalogProductIdentity[];
 }
 
+export async function listPublicCatalogProductIdentities(
+  prisma: PrismaClient,
+): Promise<CatalogProductIdentity[]> {
+  const products = await prisma.product.findMany({
+    orderBy: { partNumber: "asc" },
+    select: catalogProductIdentitySelect,
+    where: {
+      currentPublication: {
+        is: { status: { in: ["published", "discontinued"] } },
+      },
+    },
+  });
+
+  return products as CatalogProductIdentity[];
+}
+
 export async function findCatalogProductIdentitiesBySpecifications(
   prisma: PrismaClient,
   {

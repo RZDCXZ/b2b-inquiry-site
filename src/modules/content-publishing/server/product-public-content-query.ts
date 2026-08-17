@@ -10,6 +10,7 @@ export type PublishedProductContent = {
   nameEn: string;
   nameZhCn: string;
   productId: string;
+  publishedAt: Date;
   seoDescriptionEn: string;
   seoDescriptionZhCn: string;
   seoTitleEn: string;
@@ -39,6 +40,7 @@ export async function listPublishedProductContent(
       nameEn: true,
       nameZhCn: true,
       productId: true,
+      publishedAt: true,
       seoDescriptionEn: true,
       seoDescriptionZhCn: true,
       seoTitleEn: true,

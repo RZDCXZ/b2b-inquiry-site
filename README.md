@@ -33,6 +33,8 @@ corepack pnpm dev
 - `http://localhost:3000/zh-cn`：简体中文公共页面
 - `http://localhost:3000/admin/login`：简体中文运营后台登录
 
+默认配置使用 `TORQUELIS_SEO_MODE="private"`：所有公开页面输出 `noindex`，`robots.txt` 阻止抓取，`sitemap.xml` 返回 404。只有把环境变量精确设置为 `TORQUELIS_SEO_MODE="public"` 并重启应用，才会启用以保留域名 `https://torquelis.example` 为基址的 Canonical、Hreflang、JSON-LD 和站点地图演示；缺失变量、`true`、大小写变体或请求参数都不会开启索引。
+
 ## 本地演示命令
 
 ```bash

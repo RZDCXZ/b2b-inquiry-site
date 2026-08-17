@@ -4,6 +4,10 @@ import { notFound } from "next/navigation";
 import { issueInquiryForm } from "@/src/application/public-inquiry";
 import { getPublishedCorePage } from "@/src/application/site-content-management";
 import { getPublicSiteShellData } from "@/src/application/public-site-shell";
+import {
+  bilingualPublicPaths,
+  createLocalizedPageMetadata,
+} from "@/src/application/public-seo";
 import { InquiryFormPage } from "@/src/components/public/inquiry-form-page";
 import { getInquiryCopy } from "@/src/modules/content-publishing/public/inquiry-copy";
 import {
@@ -37,9 +41,14 @@ export async function generateMetadata({
     Promise.resolve(getInquiryCopy(locale)),
     getPublishedCorePage({ key: "contact", locale }),
   ]);
-  return page
+  const metadata = page
     ? { description: page.content.lede, title: page.content.title }
     : { description: copy.metadataDescription, title: copy.metadataTitle };
+  return createLocalizedPageMetadata({
+    ...metadata,
+    locale,
+    paths: bilingualPublicPaths("/inquiry"),
+  });
 }
 
 export default async function InquiryPage({
