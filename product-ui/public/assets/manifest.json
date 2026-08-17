@@ -1,0 +1,25 @@
+{
+  "scope": "Fictional Torquelis demo assets",
+  "generatedAt": "2026-08-17T04:00:00.000Z",
+  "provenance": "Created specifically for this fictional portfolio demonstration with generative image tooling; no customer, supplier, certification, or real manufacturer artwork is included.",
+  "licenseBoundary": "Repository demonstration asset; no external stock license or third-party brand grant is implied.",
+  "source": "product-ui/public/assets",
+  "usage": "Fictional Torquelis demo assets",
+  "files": [
+    {
+      "filename": "filter-family.png",
+      "usage": "Catalogue and product-card image",
+      "sha256": "2ba02b794d3b9236a222501afd9f15f5d688759dd9b1aa31c9ca9fd42dcd84d9"
+    },
+    {
+      "filename": "fuel-filter-product.png",
+      "usage": "Fuel-filter catalogue and detail image",
+      "sha256": "e7a5df2d2726d571de968b920a4382f8b2d032f50d31d2b662f96afd3a981df5"
+    },
+    {
+      "filename": "hero-filter-cutaway.png",
+      "usage": "Public home-page hero image",
+      "sha256": "20934eb6be4ea513faa65780e8658a91bed07a4a84eefc7b87102b7787b8fe2d"
+    }
+  ]
+}

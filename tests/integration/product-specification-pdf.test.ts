@@ -220,7 +220,7 @@ describe("带演示水印的双语规格 PDF", () => {
       ),
     );
 
-    expect(downloads).toHaveLength(8);
+    expect(downloads).toHaveLength(94);
     for (const { expectedFilename, response } of downloads) {
       expect(response.status).toBe(200);
       expect(response.headers.get("content-disposition")).toBe(
@@ -230,7 +230,7 @@ describe("带演示水印的双语规格 PDF", () => {
         new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d]),
       );
     }
-  });
+  }, 20_000);
 
   it("新发布内容使用现有演示资料之外的简体中文字形时仍可正确生成", async () => {
     const bytes = await renderProductSpecificationPdf({

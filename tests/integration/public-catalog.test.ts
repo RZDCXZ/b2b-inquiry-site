@@ -20,18 +20,19 @@ describe("双语标准替换件目录", () => {
   it("英文目录只返回四类已发布产品并按产品编号稳定排序", async () => {
     const products = await listPublishedProducts({ locale: "en", prisma });
 
-    expect(products.map(({ category }) => category.code)).toEqual([
-      "air",
-      "cabin",
-      "fuel",
-      "oil",
-    ]);
-    expect(products.map(({ partNumber }) => partNumber)).toEqual([
-      "TQ-AF-2106",
-      "TQ-CF-3021",
-      "TQ-FL-4827",
-      "TQ-OF-1038",
-    ]);
+    expect(products).toHaveLength(47);
+    expect([...new Set(products.map(({ category }) => category.code))]).toEqual(
+      ["air", "cabin", "fuel", "oil"],
+    );
+    for (const categoryCode of ["air", "cabin", "fuel", "oil"] as const) {
+      const partNumbers = products
+        .filter(({ category }) => category.code === categoryCode)
+        .map(({ partNumber }) => partNumber);
+      expect(partNumbers).toEqual([...partNumbers].sort());
+    }
+    expect(products).toContainEqual(
+      expect.objectContaining({ partNumber: "TQ-AF-2201" }),
+    );
     expect(products).not.toContainEqual(
       expect.objectContaining({ partNumber: "TQ-DF-9000" }),
     );
@@ -168,7 +169,7 @@ describe("双语标准替换件目录", () => {
       select: { productId: true, version: true },
     });
 
-    expect(publications).toHaveLength(6);
+    expect(publications).toHaveLength(49);
     expect(publications.every(({ version }) => version === 1)).toBe(true);
   });
 

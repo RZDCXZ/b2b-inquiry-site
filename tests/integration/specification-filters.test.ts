@@ -271,13 +271,33 @@ describe("可分享的分类规格筛选", () => {
           },
           where: { id: fixture.productId },
         });
+        await transaction.productSpecificationValue.create({
+          data: {
+            attributeCode: "outer_diameter",
+            attributeId: "specification-fuel-outer_diameter",
+            baseUnit: "millimetre",
+            dataType: "decimal",
+            decimalValue: 96,
+            nameEn: "Outer diameter",
+            nameZhCn: "外径",
+            position: 1,
+            publicationId: fixture.publicationId,
+          },
+        });
       }
     });
 
     try {
       const firstPage = await searchPublishedProductsBySpecifications({
         categoryCode: "fuel",
-        filters: [],
+        filters: [
+          {
+            attributeCode: "outer_diameter",
+            kind: "decimal-range",
+            maximum: 97,
+            minimum: 95,
+          },
+        ],
         locale: "en",
         page: 1,
         prisma,
@@ -285,7 +305,14 @@ describe("可分享的分类规格筛选", () => {
       });
       const secondPage = await searchPublishedProductsBySpecifications({
         categoryCode: "fuel",
-        filters: [],
+        filters: [
+          {
+            attributeCode: "outer_diameter",
+            kind: "decimal-range",
+            maximum: 97,
+            minimum: 95,
+          },
+        ],
         locale: "en",
         page: 2,
         prisma,

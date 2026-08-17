@@ -61,7 +61,9 @@ test("单语文章明确标记缺失语言，内容编辑与站点设置权限�
   await expect(
     editorPage.getByRole("heading", { name: "核心页面与文章" }),
   ).toBeVisible();
-  await expect(editorPage.getByText("暂无版本", { exact: true })).toBeVisible();
+  await expect(editorPage.getByText("暂无版本", { exact: true })).toHaveCount(
+    2,
+  );
   await editorPage.goto("/admin/settings");
   await expect(
     editorPage.getByRole("heading", { name: "你没有访问此功能的权限。" }),

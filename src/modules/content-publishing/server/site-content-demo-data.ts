@@ -369,17 +369,108 @@ const articleFixtures = [
       },
     ],
   },
+  {
+    id: "article-fitment-year-ranges",
+    topicKey: "checking-fitment-year-ranges",
+    translations: [
+      {
+        locale: "en" as const,
+        title: "Checking fitment year ranges",
+        slug: "checking-fitment-year-ranges",
+        excerpt: "Why model names alone are not enough for a fitment decision.",
+        seoTitle: "Checking fitment year ranges",
+        seoDescription: "Review fictional fitment year boundaries safely.",
+        body: "## Treat both boundaries as inclusive\n\nConfirm the model, engine and maintained year range before comparing a filter.",
+      },
+      {
+        locale: "zh_cn" as const,
+        title: "核对适配年份范围",
+        slug: "核对适配年份范围",
+        excerpt: "说明为什么只有车型名称不足以判断适配。",
+        seoTitle: "核对适配年份范围",
+        seoDescription: "安全核对虚构适配关系的年份边界。",
+        body: "## 同时核对起止边界\n\n比较滤清器前确认车型、发动机和维护的年份范围。",
+      },
+    ],
+  },
+  {
+    id: "article-filter-media",
+    topicKey: "comparing-filter-media-labels",
+    translations: [
+      {
+        locale: "en" as const,
+        title: "Comparing filter media labels",
+        slug: "comparing-filter-media-labels",
+        excerpt: "Read catalogue media labels without inferring certification.",
+        seoTitle: "Comparing filter media labels",
+        seoDescription: "Understand fictional filter media labels.",
+        body: "## A catalogue label is not a test result\n\nUse the media field to compare maintained demo records, not to infer real performance.",
+      },
+      {
+        locale: "zh_cn" as const,
+        title: "比较滤材标签",
+        slug: "比较滤材标签",
+        excerpt: "阅读目录滤材标签，不据此推断认证。",
+        seoTitle: "比较滤材标签",
+        seoDescription: "理解虚构滤材标签的使用边界。",
+        body: "## 目录标签不等于检测结果\n\n滤材字段只用于比较受维护的演示记录，不可据此推断真实性能。",
+      },
+    ],
+  },
+  {
+    id: "article-inquiry-context",
+    topicKey: "preparing-a-product-inquiry",
+    translations: [
+      {
+        locale: "en" as const,
+        title: "Preparing a product inquiry",
+        slug: "preparing-a-product-inquiry",
+        excerpt: "Keep product, market and packaging context together.",
+        seoTitle: "Preparing a product inquiry",
+        seoDescription: "Prepare structured fictional product inquiry context.",
+        body: "## Carry the selected product forward\n\nInclude quantity, target market and packaging needs in one structured inquiry.",
+      },
+      {
+        locale: "zh_cn" as const,
+        title: "准备产品询盘",
+        slug: "准备产品询盘",
+        excerpt: "把产品、市场和包装上下文放在一起。",
+        seoTitle: "准备产品询盘",
+        seoDescription: "准备结构化的虚构产品询盘上下文。",
+        body: "## 延续已选产品上下文\n\n在一张结构化询盘中说明数量、目标市场和包装需求。",
+      },
+    ],
+  },
+  {
+    id: "article-pdf-watermarks",
+    topicKey: "reading-demo-specification-pdfs",
+    translations: [
+      {
+        locale: "en" as const,
+        title: "Reading demo specification PDFs",
+        slug: "reading-demo-specification-pdfs",
+        excerpt:
+          "How persistent demo watermarks protect the evidence boundary.",
+        seoTitle: "Reading demo specification PDFs",
+        seoDescription: "Recognise fictional watermarked specification PDFs.",
+        body: "## Keep the watermark visible\n\nEvery generated sheet identifies Torquelis and its performance values as fictional demo data.",
+      },
+    ],
+  },
 ];
 
 async function writeContentData(transaction: Prisma.TransactionClient) {
-  const publishedAt = new Date("2026-08-13T04:00:00.000Z");
+  const publishedAt = new Date("2026-08-17T04:00:00.000Z");
 
   for (const fixture of pageFixtures) {
-    await transaction.corePage.create({ data: { key: fixture.key } });
+    await transaction.corePage.create({
+      data: { createdAt: publishedAt, key: fixture.key },
+    });
     const publication = await transaction.corePagePublication.create({
       data: {
         contentEn: fixture.contentEn,
         contentZhCn: fixture.contentZhCn,
+        id: `publication-core-page-${fixture.key}-v1`,
         pageKey: fixture.key,
         publishedAt,
         sealedAt: publishedAt,
@@ -393,6 +484,7 @@ async function writeContentData(transaction: Prisma.TransactionClient) {
         contentZhCn: fixture.contentZhCn,
         lastPublishedVersion: 1,
         pageKey: fixture.key,
+        updatedAt: publishedAt,
         version: 1,
       },
     });
@@ -404,13 +496,18 @@ async function writeContentData(transaction: Prisma.TransactionClient) {
 
   for (const fixture of articleFixtures) {
     await transaction.article.create({
-      data: { id: fixture.id, topicKey: fixture.topicKey },
+      data: {
+        createdAt: publishedAt,
+        id: fixture.id,
+        topicKey: fixture.topicKey,
+      },
     });
     for (const translation of fixture.translations) {
       const publication = await transaction.articlePublication.create({
         data: {
           ...translation,
           articleId: fixture.id,
+          id: `publication-${fixture.id}-${translation.locale}-v1`,
           publishedAt,
           sealedAt: publishedAt,
           sourceDraftVersion: 1,
@@ -424,6 +521,7 @@ async function writeContentData(transaction: Prisma.TransactionClient) {
           currentPublicationId: publication.id,
           currentPublishedSlug: translation.slug,
           lastPublishedVersion: 1,
+          updatedAt: publishedAt,
           version: 1,
         },
       });

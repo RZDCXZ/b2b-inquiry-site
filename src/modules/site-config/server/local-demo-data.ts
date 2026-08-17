@@ -4,6 +4,8 @@ import {
   LOCAL_ENVIRONMENT_MARKER,
 } from "@/src/modules/site-config/public/local-demo-target";
 
+const demoDatasetTimestamp = new Date("2026-08-17T04:00:00.000Z");
+
 async function writeDemoData(
   transaction: Prisma.TransactionClient,
 ): Promise<void> {
@@ -28,6 +30,7 @@ async function writeDemoData(
       companyNameZhCn: "拓擎利滤清",
       contactEmail: "inquiries@torquelis.example",
       contactPhone: "+86 000 0000 0000",
+      createdAt: demoDatasetTimestamp,
       defaultSeoDescriptionEn:
         "Fictional commercial vehicle filtration catalogue and inquiry demo.",
       defaultSeoDescriptionZhCn: "虚构商用车滤清器目录与询盘演示系统。",
@@ -38,6 +41,7 @@ async function writeDemoData(
       socialLinks: {
         linkedin: "https://www.linkedin.com/company/torquelis-demo",
       },
+      updatedAt: demoDatasetTimestamp,
     },
     update: {
       addressEn: "Shanghai, China (fictional demo address)",
@@ -56,6 +60,7 @@ async function writeDemoData(
       socialLinks: {
         linkedin: "https://www.linkedin.com/company/torquelis-demo",
       },
+      updatedAt: demoDatasetTimestamp,
       version: 1,
     },
     where: { key: "primary" },

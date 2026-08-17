@@ -237,7 +237,7 @@ const draftSnapshotSchema = z.object({
 
 type ProductDraftSnapshot = z.infer<typeof draftSnapshotSchema>;
 
-async function captureProductDraftSnapshot(
+export async function captureProductDraftSnapshot(
   prisma: Pick<
     Prisma.TransactionClient,
     | "productDraft"

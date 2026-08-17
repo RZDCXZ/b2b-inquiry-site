@@ -87,12 +87,17 @@ export async function replacePresetAccounts(
   credentials: PresetCredentials,
 ): Promise<void> {
   const accounts = await prepareAccounts(credentials);
+  const presetUserIds = accounts.map(
+    (account) => presetAccountIds(account).userId,
+  );
 
   await prisma.$transaction(async (transaction) => {
     await transaction.auditLog.deleteMany();
     await transaction.session.deleteMany();
     await transaction.account.deleteMany();
-    await transaction.user.deleteMany();
+    await transaction.user.deleteMany({
+      where: { id: { notIn: presetUserIds } },
+    });
     await writePresetAccounts(transaction, accounts);
   });
 }
